@@ -28,6 +28,14 @@ app:
     path: ./uploads
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+  postgen:
+    enabled: ${POSTGEN_ENABLED:true}
+    node-bin: ${POSTGEN_NODE_BIN:node}
+    cli-path: ${POSTGEN_CLI_PATH:../web-frontend/node_modules/postgen2/dist/cli.js}
+    font-regular: ${POSTGEN_FONT_REGULAR:../web-frontend/node_modules/postgen2/fonts/custom/LXGWWenKaiLite-Regular.ttf}
+    font-bold: ${POSTGEN_FONT_BOLD:../web-frontend/node_modules/postgen2/fonts/custom/LXGWMarkerGothic-Regular.ttf}
+    work-dir: ./postgen-work
+    rate-limit-per-minute: ${POSTGEN_RATE_LIMIT:10}
 
 mybatis-plus:
   configuration:

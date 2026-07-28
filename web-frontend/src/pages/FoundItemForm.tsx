@@ -4,13 +4,14 @@ import {
   Box, Typography, Paper, TextField, Button, Select, MenuItem,
   FormControl, InputLabel, Alert, CircularProgress, IconButton
 } from '@mui/material';
-import { Save as SaveIcon, ArrowBack as BackIcon, Close as CloseIcon, AddPhotoAlternate as AddPhotoIcon } from '@mui/icons-material';
+import { Save as SaveIcon, ArrowBack as BackIcon, Close as CloseIcon, AddPhotoAlternate as AddPhotoIcon, TextFields as TextFieldsIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { getCategories } from '../api/categories';
 import type { Category } from '../api/categories';
 import { createFoundItem, updateFoundItem, getFoundItem } from '../api/foundItems';
 import ItemImageUpload from '../components/ItemImageUpload';
 import ImageCropDialog from '../components/ImageCropDialog';
+import TextCoverDialog from '../components/TextCoverDialog';
 import { uploadImage } from '../api/upload';
 import { assetUrl } from '../config';
 
@@ -36,6 +37,7 @@ export default function FoundItemForm() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [coverImage, setCoverImage] = useState<string>('');
   const [cropOpen, setCropOpen] = useState(false);
+  const [textCoverOpen, setTextCoverOpen] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -208,11 +210,16 @@ export default function FoundItemForm() {
                 <Button variant="outlined" startIcon={<AddPhotoIcon />} onClick={() => coverInputRef.current?.click()}>
                   上传封面
                 </Button>
+                <Button variant="outlined" startIcon={<TextFieldsIcon />} onClick={() => setTextCoverOpen(true)} sx={{ ml: 1 }}>
+                  生成文字封面
+                </Button>
               </Box>
             )}
             <ImageCropDialog open={cropOpen} imageUrl={assetUrl(coverImage)}
               aspect={16 / 9}
               onClose={() => setCropOpen(false)} onCropped={setCoverImage} />
+            <TextCoverDialog open={textCoverOpen} initialTitle={title}
+              onClose={() => setTextCoverOpen(false)} onGenerated={setCoverImage} />
           </Box>
 
           {/* Other images */}

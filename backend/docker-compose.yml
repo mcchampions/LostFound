@@ -11,5 +11,11 @@ services:
       MAIL_PASSWORD: your_mail_password
       JWT_SECRET: your_jwt_secret
       APP_CORS_ALLOWED_ORIGINS: http://your_frontend_host:5173
+      POSTGEN_ENABLED: "true"
+      POSTGEN_NODE_BIN: node
+      POSTGEN_CLI_PATH: /app/postgen/dist/cli.js
+      POSTGEN_FONT_REGULAR: /app/postgen/fonts/custom/LXGWWenKaiLite-Regular.ttf
+      POSTGEN_FONT_BOLD: /app/postgen/fonts/custom/LXGWMarkerGothic-Regular.ttf
+      POSTGEN_RATE_LIMIT: "10"
     volumes:
       - ../uploads:/app/uploads
