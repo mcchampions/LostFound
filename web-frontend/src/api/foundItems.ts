@@ -12,6 +12,10 @@ export interface FoundItemVO {
   foundTime: string;
   imageUrls: string[];
   status: string;
+  resolvedBy?: number;
+  resolvedByName?: string;
+  resolvedType?: 'SELF' | 'USER' | 'OTHER';
+  resolvedNote?: string;
   coverImage?: string;
   createdAt: string;
 }

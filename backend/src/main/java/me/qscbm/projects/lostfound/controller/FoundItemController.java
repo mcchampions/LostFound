@@ -2,6 +2,8 @@ package me.qscbm.projects.lostfound.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.PageResult;
@@ -10,6 +12,7 @@ import me.qscbm.projects.lostfound.dto.FoundItemRequest;
 import me.qscbm.projects.lostfound.dto.FoundItemVO;
 import me.qscbm.projects.lostfound.service.FoundItemService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -17,14 +20,15 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/found-items")
 @RequiredArgsConstructor
+@Validated
 public class FoundItemController {
 
     private final FoundItemService foundItemService;
 
     @GetMapping
     public Result<PageResult<FoundItemVO>> list(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String status) {

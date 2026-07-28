@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.Result;
 import me.qscbm.projects.lostfound.common.BusinessException;
@@ -8,6 +9,7 @@ import me.qscbm.projects.lostfound.dto.*;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.UserService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -15,6 +17,7 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
+@Validated
 public class UserController {
 
     private final UserService userService;
@@ -39,7 +42,7 @@ public class UserController {
     }
 
     @GetMapping("/search")
-    public Result<List<Map<String, Object>>> search(@RequestParam String q) {
+    public Result<List<Map<String, Object>>> search(@RequestParam @Size(min = 1, max = 50) String q) {
         var users = userMapper.selectList(
             new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<me.qscbm.projects.lostfound.entity.User>()
                 .eq(me.qscbm.projects.lostfound.entity.User::getStatus, "ACTIVE")

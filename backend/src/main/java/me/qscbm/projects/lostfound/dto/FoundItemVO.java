@@ -21,5 +21,9 @@ public class FoundItemVO {
     private List<String> imageUrls;
     private String coverImage;
     private String status;
+    private Long resolvedBy;
+    private String resolvedByName;
+    private String resolvedType;
+    private String resolvedNote;
     private LocalDateTime createdAt;
 }

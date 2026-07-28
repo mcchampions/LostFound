@@ -18,6 +18,8 @@ public class RegisterRequest {
     @Pattern(regexp = "STUDENT|TEACHER", message = "角色只能是 STUDENT 或 TEACHER")
     private String role;
     @Email
+    @Size(max = 100)
     private String email;
+    @Size(max = 20)
     private String phone;
 }

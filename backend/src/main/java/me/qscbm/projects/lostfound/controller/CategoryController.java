@@ -2,6 +2,7 @@ package me.qscbm.projects.lostfound.controller;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.Result;
@@ -42,6 +43,7 @@ public class CategoryController {
     @Data
     static class CategoryRequest {
         @NotBlank(message = "分类名称不能为空")
+        @Size(max = 50)
         private String name;
         private Integer sortOrder = 0;
     }

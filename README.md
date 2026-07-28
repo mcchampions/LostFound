@@ -22,7 +22,7 @@
 │       └── resources/   application.yml · db/
 └── web-frontend/     # React + TypeScript 前端源码
     ├── Dockerfile    # 正式部署镜像
-    ├── nginx.conf    # /api /ws /uploads 反代
+    ├── nginx.conf    # 静态资源与 SPA 路由回退
     └── src/          pages/ components/ api/ i18n/
 ```
 
@@ -50,7 +50,7 @@ Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
 各子目录已提供 `docker-compose.yml`，把其中的占位值改成真实凭据后，直接启动。
 
 ### 后端
-编辑 `backend/docker-compose.yml`，填写 `DB_PASSWORD`、`MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`、`JWT_SECRET`、`APP_CORS_ALLOWED_ORIGINS` 等真实值。
+编辑 `backend/docker-compose.yml`，填写 `DB_PASSWORD`、`MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`、`JWT_SECRET` 等真实值，并把 `APP_CORS_ALLOWED_ORIGINS` 改为前端对外访问地址。
 ```bash
 cd backend
 docker compose up -d --build
@@ -58,12 +58,12 @@ docker compose up -d --build
 `../uploads` 会挂载到容器 `/app/uploads`（启动前在项目根创建 `uploads/` 目录）。
 
 ### 前端
-编辑 `web-frontend/docker-compose.yml` 的 `VITE_SERVER_BASE` 为后端地址。
+编辑 `web-frontend/docker-compose.yml` 的 `VITE_SERVER_BASE` 为浏览器能够访问的后端公开地址，例如 `https://api.example.com`，不能填写只在服务器内部可解析的容器名。
 ```bash
 cd web-frontend
 docker compose up -d --build
 ```
-`nginx.conf` 已配置 SPA 回退与 `/api`、`/ws`、`/uploads` 反代到后端。
+正式配置按前后端分开部署，前端 Nginx 只负责静态资源和 SPA 路由回退；API、WebSocket 和上传资源直接访问 `VITE_SERVER_BASE`。`local/docker/` 保持前后端统一编排，专用于本地调试。
 
 ### 直接 JAR 部署（无 Docker）
 ```bash

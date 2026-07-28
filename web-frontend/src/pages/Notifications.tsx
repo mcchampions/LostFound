@@ -8,7 +8,8 @@ import {
   Notifications as NotificationsIcon,
   Campaign as AnnounceIcon,
   Info as InfoIcon,
-  Assignment as ClaimIcon
+  Assignment as ClaimIcon,
+  TaskAlt as ClaimResultIcon
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
 import { getNotifications, markRead, markAllRead } from '../api/notifications';
@@ -17,18 +18,21 @@ import { processClaim } from '../api/claims';
 
 const typeIcons: Record<string, React.ReactElement> = {
   CLAIM: <ClaimIcon fontSize="small" />,
+  CLAIM_RESULT: <ClaimResultIcon fontSize="small" />,
   SYSTEM: <InfoIcon fontSize="small" />,
   ANNOUNCEMENT: <AnnounceIcon fontSize="small" />,
 };
 
 const typeLabels: Record<string, string> = {
   CLAIM: '认领',
+  CLAIM_RESULT: '申请结果',
   SYSTEM: '系统',
   ANNOUNCEMENT: '公告',
 };
 
-const typeColors: Record<string, 'warning' | 'info' | 'primary'> = {
+const typeColors: Record<string, 'warning' | 'info' | 'primary' | 'success'> = {
   CLAIM: 'warning',
+  CLAIM_RESULT: 'success',
   SYSTEM: 'info',
   ANNOUNCEMENT: 'primary',
 };

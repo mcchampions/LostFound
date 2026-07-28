@@ -32,7 +32,11 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor =
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-        if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+        if (accessor == null || accessor.getCommand() == null) {
+            return message;
+        }
+
+        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             String token = extractBearerToken(accessor.getFirstNativeHeader("Authorization"));
             if (!StringUtils.hasText(token)) {
                 throw new AccessDeniedException("WebSocket 未认证");
@@ -41,7 +45,6 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
             try {
                 Claims claims = jwtUtils.parse(token);
                 Long userId = jwtUtils.getUserId(claims);
-                String role = jwtUtils.getRole(claims);
                 User user = userMapper.selectById(userId);
                 if (user == null || !"ACTIVE".equals(user.getStatus())) {
                     throw new AccessDeniedException("WebSocket 用户不可用");
@@ -51,13 +54,27 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                         new UsernamePasswordAuthenticationToken(
                                 userId,
                                 null,
-                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
                         );
                 accessor.setUser(authentication);
             } catch (AccessDeniedException e) {
                 throw e;
             } catch (Exception e) {
                 throw new AccessDeniedException("WebSocket Token 无效", e);
+            }
+        }
+
+        if (StompCommand.SEND.equals(accessor.getCommand())) {
+            String destination = accessor.getDestination();
+            if (destination == null || !destination.startsWith("/app/")) {
+                throw new AccessDeniedException("WebSocket 不允许直接向消息代理发送消息");
+            }
+        }
+
+        if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            String destination = accessor.getDestination();
+            if (!"/user/queue/messages".equals(destination)) {
+                throw new AccessDeniedException("WebSocket 无权订阅该目标");
             }
         }
         return message;

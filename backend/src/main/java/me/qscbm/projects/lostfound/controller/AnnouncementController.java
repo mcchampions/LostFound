@@ -2,6 +2,8 @@ package me.qscbm.projects.lostfound.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.PageResult;
 import me.qscbm.projects.lostfound.common.Result;
@@ -9,18 +11,20 @@ import me.qscbm.projects.lostfound.dto.AnnouncementRequest;
 import me.qscbm.projects.lostfound.entity.Announcement;
 import me.qscbm.projects.lostfound.service.AnnouncementService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
+@Validated
 public class AnnouncementController {
 
     private final AnnouncementService announcementService;
 
     @GetMapping("/api/v1/announcements")
     public Result<PageResult<Announcement>> list(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         IPage<Announcement> p = announcementService.list(page, size);
         return Result.success(PageResult.of(p));
     }

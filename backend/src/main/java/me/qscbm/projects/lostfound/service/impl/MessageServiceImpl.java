@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -17,7 +18,13 @@ import me.qscbm.projects.lostfound.service.MessageService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,8 +38,11 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public MessageVO send(Long senderId, MessageRequest req) {
         User receiver = userMapper.selectById(req.getReceiverId());
-        if (receiver == null) {
-            throw new BusinessException("接收用户不存在");
+        if (receiver == null || !"ACTIVE".equals(receiver.getStatus())) {
+            throw new BusinessException("接收用户不存在或不可用");
+        }
+        if (senderId.equals(req.getReceiverId())) {
+            throw new BusinessException("不能给自己发送消息");
         }
         String conversationId = req.getConversationId().trim();
         if (!canSendToConversation(senderId, req.getReceiverId(), conversationId)) {
@@ -59,43 +69,67 @@ public class MessageServiceImpl implements MessageService {
         }
         LambdaQueryWrapper<Message> qw = new LambdaQueryWrapper<>();
         qw.eq(Message::getConversationId, conversationId)
-                .orderByAsc(Message::getCreatedAt);
-        return messageMapper.selectPage(new Page<>(page, size), qw).convert(this::toVO);
+                .orderByAsc(Message::getCreatedAt)
+                .orderByAsc(Message::getId);
+        IPage<Message> messages = messageMapper.selectPage(new Page<>(page, size), qw);
+        Set<Long> senderIds = messages.getRecords().stream()
+                .map(Message::getSenderId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, User> senders = senderIds.isEmpty() ? Collections.emptyMap()
+                : userMapper.selectBatchIds(senderIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+        Page<MessageVO> result = new Page<>(messages.getCurrent(), messages.getSize(), messages.getTotal());
+        result.setRecords(messages.getRecords().stream()
+                .map(message -> toVO(message, senders))
+                .toList());
+        return result;
     }
 
     @Override
     public List<ConversationVO> getConversations(Long userId) {
-        LambdaQueryWrapper<Message> qw = new LambdaQueryWrapper<>();
-        qw.eq(Message::getSenderId, userId).or()
-                .eq(Message::getReceiverId, userId)
-                .orderByDesc(Message::getCreatedAt);
-        List<Message> messages = messageMapper.selectList(qw);
+        QueryWrapper<Message> summaryQuery = new QueryWrapper<>();
+        summaryQuery.select(
+                        "conversation_id AS conversationId",
+                        "MAX(id) AS latestId",
+                        "SUM(CASE WHEN receiver_id = " + userId
+                                + " AND is_read = 0 THEN 1 ELSE 0 END) AS unreadCount")
+                .and(w -> w.eq("sender_id", userId).or().eq("receiver_id", userId))
+                .groupBy("conversation_id")
+                .orderByDesc("latestId");
+        List<Map<String, Object>> summaries = messageMapper.selectMaps(summaryQuery);
+        if (summaries.isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        Map<String, List<Message>> grouped = messages.stream()
-                .collect(Collectors.groupingBy(Message::getConversationId,
-                        LinkedHashMap::new, Collectors.toList()));
+        List<Long> latestIds = summaries.stream()
+                .map(summary -> number(summary, "latestId").longValue())
+                .toList();
+        Map<Long, Message> latestMessages = messageMapper.selectBatchIds(latestIds).stream()
+                .collect(Collectors.toMap(Message::getId, message -> message));
+        Set<Long> otherUserIds = latestMessages.values().stream()
+                .map(message -> message.getSenderId().equals(userId)
+                        ? message.getReceiverId() : message.getSenderId())
+                .collect(Collectors.toSet());
+        Map<Long, User> users = otherUserIds.isEmpty() ? Collections.emptyMap()
+                : userMapper.selectBatchIds(otherUserIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
 
-        List<ConversationVO> result = new ArrayList<>();
-        for (Map.Entry<String, List<Message>> entry : grouped.entrySet()) {
-            List<Message> convMessages = entry.getValue();
-            Message latest = convMessages.get(0);
-
+        List<ConversationVO> result = new ArrayList<>(summaries.size());
+        for (Map<String, Object> summary : summaries) {
+            Message latest = latestMessages.get(number(summary, "latestId").longValue());
+            if (latest == null) continue;
             Long otherUserId = latest.getSenderId().equals(userId)
                     ? latest.getReceiverId() : latest.getSenderId();
-            User otherUser = userMapper.selectById(otherUserId);
-
-            long unread = convMessages.stream()
-                    .filter(m -> m.getReceiverId().equals(userId) && m.getIsRead() == 0)
-                    .count();
-
+            User otherUser = users.get(otherUserId);
             result.add(ConversationVO.builder()
-                    .conversationId(entry.getKey())
+                    .conversationId(text(summary, "conversationId"))
                     .otherUserId(otherUserId)
-                    .otherUserName(otherUser != null ? otherUser.getRealName() : "未知")
+                    .otherUserName(displayName(otherUser))
                     .otherUserAvatar(otherUser != null ? otherUser.getAvatar() : null)
                     .lastMessage(latest.getContent())
                     .lastMessageTime(latest.getCreatedAt())
-                    .unreadCount((int) unread)
+                    .unreadCount(number(summary, "unreadCount").intValue())
                     .build());
         }
         return result;
@@ -121,9 +155,9 @@ public class MessageServiceImpl implements MessageService {
         }
         LambdaUpdateWrapper<Message> uw = new LambdaUpdateWrapper<>();
         uw.eq(Message::getConversationId, conversationId)
-          .eq(Message::getReceiverId, userId)
-          .eq(Message::getIsRead, 0)
-          .set(Message::getIsRead, 1);
+                .eq(Message::getReceiverId, userId)
+                .eq(Message::getIsRead, 0)
+                .set(Message::getIsRead, 1);
         messageMapper.update(null, uw);
     }
 
@@ -142,6 +176,13 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public String startConversation(Long userId1, Long userId2) {
+        if (userId1.equals(userId2)) {
+            throw new BusinessException("不能与自己创建对话");
+        }
+        User target = userMapper.selectById(userId2);
+        if (target == null || !"ACTIVE".equals(target.getStatus())) {
+            throw new BusinessException("目标用户不存在或不可用");
+        }
         long a = Math.min(userId1, userId2);
         long b = Math.max(userId1, userId2);
         return a + "_" + b;
@@ -156,23 +197,63 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private boolean canSendToConversation(Long senderId, Long receiverId, String conversationId) {
-        if (startConversation(senderId, receiverId).equals(conversationId)) {
+        if (directConversationId(senderId, receiverId).equals(conversationId)) {
             return true;
         }
         return isParticipant(senderId, conversationId) && isParticipant(receiverId, conversationId);
     }
 
+    private String directConversationId(Long userId1, Long userId2) {
+        long a = Math.min(userId1, userId2);
+        long b = Math.max(userId1, userId2);
+        return a + "_" + b;
+    }
+
     private MessageVO toVO(Message msg) {
         User sender = userMapper.selectById(msg.getSenderId());
+        return toVO(msg, sender == null ? Collections.emptyMap() : Map.of(sender.getId(), sender));
+    }
+
+    private MessageVO toVO(Message msg, Map<Long, User> senders) {
+        User sender = senders.get(msg.getSenderId());
         return MessageVO.builder()
                 .id(msg.getId())
                 .conversationId(msg.getConversationId())
                 .senderId(msg.getSenderId())
-                .senderName(sender != null ? sender.getRealName() : "系统")
+                .senderName(sender != null ? displayName(sender) : "系统")
                 .receiverId(msg.getReceiverId())
                 .content(msg.getContent())
                 .isRead(msg.getIsRead())
                 .createdAt(msg.getCreatedAt())
                 .build();
+    }
+
+    private Number number(Map<String, Object> values, String key) {
+        Object value = mapValue(values, key);
+        if (!(value instanceof Number number)) {
+            throw new BusinessException("会话汇总数据格式错误");
+        }
+        return number;
+    }
+
+    private String text(Map<String, Object> values, String key) {
+        Object value = mapValue(values, key);
+        if (value == null) {
+            throw new BusinessException("会话汇总数据格式错误");
+        }
+        return value.toString();
+    }
+
+    private Object mapValue(Map<String, Object> values, String key) {
+        Object value = values.get(key);
+        if (value != null) return value;
+        value = values.get(key.toLowerCase(Locale.ROOT));
+        if (value != null) return value;
+        return values.get(key.toUpperCase(Locale.ROOT));
+    }
+
+    private String displayName(User user) {
+        if (user == null) return "未知用户";
+        return user.getRealName() != null ? user.getRealName() : user.getUsername();
     }
 }

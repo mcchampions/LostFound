@@ -1,12 +1,15 @@
 package me.qscbm.projects.lostfound.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.PageResult;
 import me.qscbm.projects.lostfound.common.Result;
 import me.qscbm.projects.lostfound.dto.*;
 import me.qscbm.projects.lostfound.service.MessageService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +18,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
+@Validated
 public class ChatController {
 
     private final MessageService messageService;
@@ -42,8 +46,8 @@ public class ChatController {
     public Result<PageResult<MessageVO>> messages(
             @AuthenticationPrincipal Long userId,
             @PathVariable String conversationId,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
         return Result.success(PageResult.of(
                 messageService.getMessages(userId, conversationId, page, size)));
     }

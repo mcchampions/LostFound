@@ -2,6 +2,8 @@ package me.qscbm.projects.lostfound.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.PageResult;
@@ -19,6 +21,7 @@ import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
 
 import java.io.IOException;
 import java.util.List;
@@ -27,6 +30,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
+@Validated
 public class AdminController {
 
     private final UserService userService;
@@ -37,8 +41,8 @@ public class AdminController {
 
     @GetMapping("/users")
     public Result<PageResult<UserVO>> listUsers(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             @RequestParam(required = false) String keyword) {
         IPage<UserVO> p = userService.listUsers(page, size, keyword);
         return Result.success(PageResult.of(p));
@@ -119,8 +123,8 @@ public class AdminController {
 
     @GetMapping("/logs")
     public Result<PageResult<OperationLog>> logs(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return Result.success(PageResult.of(logService.page(page, size)));
     }
 }

@@ -79,6 +79,8 @@ class ClaimServiceImplTest {
         item.setStatus("UNCLAIMED");
         when(claimMapper.selectById(10L)).thenReturn(claim);
         when(foundItemMapper.selectById(5L)).thenReturn(item);
+        when(claimMapper.update(isNull(), any())).thenReturn(1);
+        when(foundItemMapper.update(isNull(), any())).thenReturn(1);
         User publisher = new User();
         publisher.setId(1L);
         publisher.setRealName("Publisher");
@@ -87,9 +89,8 @@ class ClaimServiceImplTest {
         service.process(10L, 1L, "APPROVED");
 
         assertThat(claim.getStatus()).isEqualTo("APPROVED");
-        assertThat(item.getStatus()).isEqualTo("CLAIMED");
-        verify(claimMapper).updateById(claim);
-        verify(foundItemMapper).updateById(item);
+        verify(claimMapper, times(2)).update(isNull(), any());
+        verify(foundItemMapper).update(isNull(), any());
         verify(messageService).systemMessage(
                 "claim_10",
                 1L,
@@ -99,7 +100,20 @@ class ClaimServiceImplTest {
         verify(notificationMapper).insert(argThat(notification ->
                 notification.getUserId().equals(2L)
                         && notification.getTitle().contains("已通过")
+                        && notification.getContent().contains("认领申请")
                         && notification.getIsRead() == 0));
+    }
+
+    @Test
+    void concurrentProcessingIsRejectedWhenConditionalUpdateLosesRace() {
+        ClaimApplication claim = pendingClaim();
+        when(claimMapper.selectById(10L)).thenReturn(claim);
+        when(claimMapper.update(isNull(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.process(10L, 1L, "APPROVED"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("已被处理");
+        verify(foundItemMapper, never()).selectById(any());
     }
 
     private ClaimRequest claimRequest() {

@@ -161,6 +161,13 @@ export default function LostItemDetail() {
   }
 
   const isOwner = user && user.id === item.userId;
+  const resolutionText = item.resolvedType === 'SELF'
+    ? '发布者自行找回'
+    : item.resolvedType === 'USER'
+      ? `由站内用户 ${item.resolvedByName || '未知用户'} 找到`
+      : item.resolvedType === 'OTHER'
+        ? '通过其他渠道找回'
+        : '已确认找回';
 
   return (
     <Box>
@@ -211,6 +218,20 @@ export default function LostItemDetail() {
         <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 3 }}>
           {item.description || '暂无描述'}
         </Typography>
+
+        {item.status === 'FOUND' && (
+          <Box sx={{ mb: 3, p: 2, border: '1px solid', borderColor: 'success.light', borderRadius: 1, bgcolor: 'action.hover' }}>
+            <Typography variant="subtitle1" color="success.main" gutterBottom>
+              解决情况
+            </Typography>
+            <Typography variant="body2">{resolutionText}</Typography>
+            {item.resolvedNote && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                补充说明：{item.resolvedNote}
+              </Typography>
+            )}
+          </Box>
+        )}
 
         {/* Image gallery */}
         {item.imageUrls && item.imageUrls.length > 0 && (

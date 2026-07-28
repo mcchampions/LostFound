@@ -29,12 +29,19 @@ public class DatabaseInitializer implements ApplicationRunner {
     private static final Pattern ADD_COLUMN_PATTERN = Pattern.compile(
             "(?is)^ALTER\\s+TABLE\\s+`?([\\w]+)`?\\s+ADD\\s+COLUMN\\s+`?([\\w]+)`?.*"
     );
+    private static final Pattern ADD_INDEX_PATTERN = Pattern.compile(
+            "(?is)^ALTER\\s+TABLE\\s+`?([\\w]+)`?\\s+ADD\\s+(?:UNIQUE\\s+)?(?:KEY|INDEX)\\s+`?([\\w]+)`?.*"
+    );
+    private static final Pattern ADD_CONSTRAINT_PATTERN = Pattern.compile(
+            "(?is)^ALTER\\s+TABLE\\s+`?([\\w]+)`?\\s+ADD\\s+CONSTRAINT\\s+`?([\\w]+)`?.*"
+    );
 
     private static final String[] SQL_SCRIPTS = {
             "db/init.sql",
             "db/migration_add_message.sql",
             "db/migration_add_resolver_email.sql",
-            "db/migration_add_notification_related.sql"
+            "db/migration_add_notification_related.sql",
+            "db/migration_performance_integrity.sql"
     };
 
     private final JdbcTemplate jdbcTemplate;
@@ -110,7 +117,7 @@ public class DatabaseInitializer implements ApplicationRunner {
             }
 
             try {
-                if (isExistingAddColumn(trimmed)) {
+                if (isExistingSchemaObject(trimmed)) {
                     log.debug("SQL 语句跳过 [{}]: {}...",
                             scriptPath, preview(trimmed));
                     success++;
@@ -134,19 +141,42 @@ public class DatabaseInitializer implements ApplicationRunner {
      * Makes simple ADD COLUMN migrations repeatable without relying on
      * database-version-specific IF NOT EXISTS syntax.
      */
-    private boolean isExistingAddColumn(String sql) {
+    private boolean isExistingSchemaObject(String sql) {
         Matcher matcher = ADD_COLUMN_PATTERN.matcher(sql);
-        if (!matcher.matches()) {
-            return false;
+        if (matcher.matches()) {
+            return existsInInformationSchema(
+                    "information_schema.columns", "table_name", matcher.group(1),
+                    "column_name", matcher.group(2));
         }
-        String tableName = matcher.group(1);
-        String columnName = matcher.group(2);
+
+        matcher = ADD_INDEX_PATTERN.matcher(sql);
+        if (matcher.matches()) {
+            return existsInInformationSchema(
+                    "information_schema.statistics", "table_name", matcher.group(1),
+                    "index_name", matcher.group(2));
+        }
+
+        matcher = ADD_CONSTRAINT_PATTERN.matcher(sql);
+        if (matcher.matches()) {
+            return existsInInformationSchema(
+                    "information_schema.table_constraints", "table_name", matcher.group(1),
+                    "constraint_name", matcher.group(2));
+        }
+        return false;
+    }
+
+    private boolean existsInInformationSchema(
+            String schemaTable,
+            String tableColumn,
+            String tableName,
+            String objectColumn,
+            String objectName) {
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.columns " +
-                        "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
+                "SELECT COUNT(*) FROM " + schemaTable +
+                        " WHERE table_schema = DATABASE() AND " + tableColumn + " = ? AND " + objectColumn + " = ?",
                 Integer.class,
                 tableName,
-                columnName
+                objectName
         );
         return count != null && count > 0;
     }

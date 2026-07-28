@@ -21,6 +21,7 @@ public class LostItem {
     private String status;
     private Long resolvedBy;
     private String resolvedType;
+    private String resolvedNote;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)

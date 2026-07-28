@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.entity.Category;
 import me.qscbm.projects.lostfound.entity.FoundItem;
@@ -38,17 +39,44 @@ public class StatsServiceImpl implements StatsService {
 
         List<Map<String, Object>> categoryStats = new ArrayList<>();
         List<Category> categories = categoryMapper.selectList(null);
+        Map<Long, Long> lostCounts = categoryCounts(lostItemMapper.selectMaps(
+                new QueryWrapper<LostItem>()
+                        .select("category_id AS categoryId", "COUNT(*) AS itemCount")
+                        .isNotNull("category_id")
+                        .groupBy("category_id")));
+        Map<Long, Long> foundCounts = categoryCounts(foundItemMapper.selectMaps(
+                new QueryWrapper<FoundItem>()
+                        .select("category_id AS categoryId", "COUNT(*) AS itemCount")
+                        .isNotNull("category_id")
+                        .groupBy("category_id")));
         for (Category cat : categories) {
             Map<String, Object> stat = new LinkedHashMap<>();
             stat.put("name", cat.getName());
-            stat.put("lostCount", lostItemMapper.selectCount(
-                    new LambdaQueryWrapper<LostItem>().eq(LostItem::getCategoryId, cat.getId())));
-            stat.put("foundCount", foundItemMapper.selectCount(
-                    new LambdaQueryWrapper<FoundItem>().eq(FoundItem::getCategoryId, cat.getId())));
+            stat.put("lostCount", lostCounts.getOrDefault(cat.getId(), 0L));
+            stat.put("foundCount", foundCounts.getOrDefault(cat.getId(), 0L));
             categoryStats.add(stat);
         }
         result.put("categoryStats", categoryStats);
 
         return result;
+    }
+
+    private Map<Long, Long> categoryCounts(List<Map<String, Object>> rows) {
+        Map<Long, Long> result = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            Number categoryId = number(row, "categoryId");
+            Number count = number(row, "itemCount");
+            if (categoryId != null && count != null) {
+                result.put(categoryId.longValue(), count.longValue());
+            }
+        }
+        return result;
+    }
+
+    private Number number(Map<String, Object> values, String key) {
+        Object value = values.get(key);
+        if (value == null) value = values.get(key.toLowerCase(Locale.ROOT));
+        if (value == null) value = values.get(key.toUpperCase(Locale.ROOT));
+        return value instanceof Number number ? number : null;
     }
 }

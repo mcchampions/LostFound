@@ -19,5 +19,6 @@ Thumbs.db
 
 *.jar
 .workbuddy/
+ai-docs/
 yarn.lock
 package-lock.json

@@ -39,6 +39,7 @@ class WebSocketAuthChannelInterceptorTest {
         User user = new User();
         user.setId(7L);
         user.setStatus("ACTIVE");
+        user.setRole("TEACHER");
         when(userMapper.selectById(7L)).thenReturn(user);
         Message<byte[]> message = connectMessage("Bearer valid-token");
 
@@ -49,6 +50,9 @@ class WebSocketAuthChannelInterceptorTest {
         assertThat(accessor).isNotNull();
         assertThat(accessor.getUser()).isInstanceOf(Authentication.class);
         assertThat(accessor.getUser().getName()).isEqualTo("7");
+        assertThat(((Authentication) accessor.getUser()).getAuthorities())
+                .extracting("authority")
+                .containsExactly("ROLE_TEACHER");
     }
 
     @Test
@@ -79,11 +83,41 @@ class WebSocketAuthChannelInterceptorTest {
                 .hasMessage("WebSocket 用户不可用");
     }
 
+    @Test
+    void rejectsDirectSendToBrokerDestination() {
+        Message<byte[]> message = frame(StompCommand.SEND, "/topic/messages");
+
+        assertThatThrownBy(() ->
+                interceptor.preSend(message, mock(org.springframework.messaging.MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("不允许直接");
+    }
+
+    @Test
+    void onlyAllowsPrivateMessageSubscription() {
+        Message<byte[]> allowed = frame(StompCommand.SUBSCRIBE, "/user/queue/messages");
+        assertThat(interceptor.preSend(
+                allowed, mock(org.springframework.messaging.MessageChannel.class))).isSameAs(allowed);
+
+        Message<byte[]> rejected = frame(StompCommand.SUBSCRIBE, "/topic/messages");
+        assertThatThrownBy(() ->
+                interceptor.preSend(rejected, mock(org.springframework.messaging.MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("无权订阅");
+    }
+
     private Message<byte[]> connectMessage(String authorization) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         if (authorization != null) {
             accessor.setNativeHeader("Authorization", authorization);
         }
+        accessor.setLeaveMutable(true);
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    }
+
+    private Message<byte[]> frame(StompCommand command, String destination) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
+        accessor.setDestination(destination);
         accessor.setLeaveMutable(true);
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
