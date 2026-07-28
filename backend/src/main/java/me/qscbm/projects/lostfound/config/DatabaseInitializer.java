@@ -1,0 +1,160 @@
+package me.qscbm.projects.lostfound.config;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Database auto-initialization at application startup.
+ * Detects whether core tables exist; if not, executes the SQL init scripts
+ * from classpath to create tables and seed data automatically.
+ * <p>
+ * Does NOT create the database itself — only operates on an existing database.
+ * All SQL scripts are idempotent (CREATE TABLE IF NOT EXISTS, INSERT IGNORE),
+ * so re-running on an initialized database is safe.
+ */
+@Slf4j
+@Component
+@Order(1)
+public class DatabaseInitializer implements ApplicationRunner {
+
+    private static final Pattern ADD_COLUMN_PATTERN = Pattern.compile(
+            "(?is)^ALTER\\s+TABLE\\s+`?([\\w]+)`?\\s+ADD\\s+COLUMN\\s+`?([\\w]+)`?.*"
+    );
+
+    private static final String[] SQL_SCRIPTS = {
+            "db/init.sql",
+            "db/migration_add_message.sql",
+            "db/migration_add_resolver_email.sql"
+    };
+
+    private final JdbcTemplate jdbcTemplate;
+
+    public DatabaseInitializer(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+        boolean existed = tablesExist();
+        log.info(existed ? "数据库表已存在，执行增量迁移..." : "首次启动，执行全部初始化...");
+        int totalSuccess = 0;
+        int totalFailed = 0;
+
+        for (String scriptPath : SQL_SCRIPTS) {
+            try {
+                int[] results = executeSqlScript(scriptPath);
+                totalSuccess += results[0];
+                totalFailed += results[1];
+            } catch (Exception e) {
+                log.error("读取 SQL 脚本失败: {}", scriptPath, e);
+                totalFailed++;
+            }
+        }
+
+        log.info("数据库表初始化完成 — 成功: {}, 失败: {}", totalSuccess, totalFailed);
+    }
+
+    /**
+     * Check whether the core tables already exist by querying information_schema.
+     */
+    private boolean tablesExist() {
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.tables " +
+                            "WHERE table_schema = DATABASE() AND table_name = 'user'",
+                    Integer.class
+            );
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.warn("检测数据库表存在性失败，将尝试自动初始化", e);
+            return false;
+        }
+    }
+
+    /**
+     * Read a SQL script from the classpath, split it into individual statements,
+     * and execute each one against the database.
+     *
+     * @param scriptPath classpath-relative path to the SQL script
+     * @return array of [successCount, failedCount]
+     */
+    private int[] executeSqlScript(String scriptPath) throws Exception {
+        ClassPathResource resource = new ClassPathResource(scriptPath);
+        String sql = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+        String[] statements = sql.split(";");
+        int success = 0;
+        int failed = 0;
+
+        for (String stmt : statements) {
+            String trimmed = stmt.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            // Skip pure comment / whitespace-only blocks
+            if (trimmed.lines().allMatch(line -> {
+                String l = line.trim();
+                return l.isEmpty() || l.startsWith("--");
+            })) {
+                continue;
+            }
+
+            try {
+                if (isExistingAddColumn(trimmed)) {
+                    log.debug("SQL 语句跳过 [{}]: {}...",
+                            scriptPath, preview(trimmed));
+                    success++;
+                    continue;
+                }
+                jdbcTemplate.execute(trimmed);
+                success++;
+                log.debug("SQL 语句执行成功 [{}]: {}...",
+                        scriptPath, preview(trimmed));
+            } catch (Exception e) {
+                failed++;
+                log.error("SQL 语句执行失败 [{}]: {}... — {}",
+                        scriptPath, preview(trimmed), e.getMessage());
+            }
+        }
+
+        return new int[]{success, failed};
+    }
+
+    /**
+     * Makes simple ADD COLUMN migrations repeatable without relying on
+     * database-version-specific IF NOT EXISTS syntax.
+     */
+    private boolean isExistingAddColumn(String sql) {
+        Matcher matcher = ADD_COLUMN_PATTERN.matcher(sql);
+        if (!matcher.matches()) {
+            return false;
+        }
+        String tableName = matcher.group(1);
+        String columnName = matcher.group(2);
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns " +
+                        "WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?",
+                Integer.class,
+                tableName,
+                columnName
+        );
+        return count != null && count > 0;
+    }
+
+    /**
+     * Truncate a SQL statement to a brief preview for logging.
+     */
+    private String preview(String sql) {
+        String singleLine = sql.replace('\n', ' ').replace('\r', ' ').trim();
+        return singleLine.length() > 60 ? singleLine.substring(0, 60) + "..." : singleLine;
+    }
+}

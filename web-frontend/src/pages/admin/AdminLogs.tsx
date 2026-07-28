@@ -1,0 +1,140 @@
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Box, Typography, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Paper, Pagination, CircularProgress, Alert
+} from '@mui/material';
+import { useAuth } from '../../store/AuthContext';
+import { getLogs } from '../../api/admin';
+
+interface LogVO {
+  id: number;
+  userId: number;
+  action: string;
+  targetType: string;
+  targetId: number;
+  description: string;
+  ip: string;
+  createdAt: string;
+}
+
+export default function AdminLogs() {
+  const { isAdmin } = useAuth();
+
+  const [logs, setLogs] = useState<LogVO[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const pageSize = 15;
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await getLogs({ page, size: pageSize });
+      setLogs(data.records || []);
+      setTotal(data.total || 0);
+      setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
+    } catch {
+      setError('加载操作日志失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [page]);
+
+  useEffect(() => {
+    fetchLogs();
+  }, [fetchLogs]);
+
+  if (!isAdmin) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        <Typography variant="h6" color="text.secondary">无权限访问</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>操作日志</Typography>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : logs.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 6 }}>
+          <Typography variant="h6" color="text.secondary">暂无操作日志</Typography>
+        </Box>
+      ) : (
+        <>
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>用户ID</TableCell>
+                  <TableCell>操作</TableCell>
+                  <TableCell>目标类型</TableCell>
+                  <TableCell>目标ID</TableCell>
+                  <TableCell>描述</TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>IP</TableCell>
+                  <TableCell>时间</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {logs.map(log => (
+                  <TableRow key={log.id}>
+                    <TableCell>{log.id}</TableCell>
+                    <TableCell>{log.userId}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{log.action}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{log.targetType || '-'}</Typography>
+                    </TableCell>
+                    <TableCell>{log.targetId || '-'}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+                        {log.description || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {log.ip || '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {new Date(log.createdAt).toLocaleString('zh-CN')}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Pagination
+                count={totalPages}
+                page={page}
+                onChange={(_, v) => setPage(v)}
+                color="primary"
+              />
+            </Box>
+          )}
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+            共 {total} 条记录
+          </Typography>
+        </>
+      )}
+    </Box>
+  );
+}

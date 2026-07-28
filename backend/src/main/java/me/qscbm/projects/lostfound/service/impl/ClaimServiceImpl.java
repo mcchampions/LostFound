@@ -1,0 +1,216 @@
+package me.qscbm.projects.lostfound.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import lombok.RequiredArgsConstructor;
+import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.dto.ClaimRequest;
+import me.qscbm.projects.lostfound.dto.ClaimVO;
+import me.qscbm.projects.lostfound.entity.ClaimApplication;
+import me.qscbm.projects.lostfound.entity.FoundItem;
+import me.qscbm.projects.lostfound.entity.LostItem;
+import me.qscbm.projects.lostfound.entity.Notification;
+import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
+import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
+import me.qscbm.projects.lostfound.mapper.LostItemMapper;
+import me.qscbm.projects.lostfound.mapper.NotificationMapper;
+import me.qscbm.projects.lostfound.mapper.UserMapper;
+import me.qscbm.projects.lostfound.service.ClaimService;
+import me.qscbm.projects.lostfound.service.MessageService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class ClaimServiceImpl implements ClaimService {
+
+    private final ClaimApplicationMapper claimApplicationMapper;
+    private final LostItemMapper lostItemMapper;
+    private final FoundItemMapper foundItemMapper;
+    private final UserMapper userMapper;
+    private final NotificationMapper notificationMapper;
+    private final MessageService messageService;
+
+    @Override
+    @Transactional
+    public ClaimVO apply(Long applicantId, ClaimRequest req) {
+        // Prevent duplicate claims for the same item
+        Long count = claimApplicationMapper.selectCount(
+                new LambdaQueryWrapper<ClaimApplication>()
+                        .eq(ClaimApplication::getApplicantId, applicantId)
+                        .eq(ClaimApplication::getItemType, req.getItemType().toUpperCase())
+                        .eq(ClaimApplication::getItemId, req.getItemId())
+                        .eq(ClaimApplication::getStatus, "PENDING"));
+        if (count != null && count > 0) {
+            throw new BusinessException("你已经对该物品提交过认领申请，请等待处理");
+        }
+
+        Long publisherId;
+        String itemTitle;
+
+        if ("LOST".equalsIgnoreCase(req.getItemType())) {
+            LostItem item = lostItemMapper.selectById(req.getItemId());
+            if (item == null) {
+                throw new BusinessException("寻物启事不存在");
+            }
+            publisherId = item.getUserId();
+            itemTitle = item.getTitle();
+        } else if ("FOUND".equalsIgnoreCase(req.getItemType())) {
+            FoundItem item = foundItemMapper.selectById(req.getItemId());
+            if (item == null) {
+                throw new BusinessException("失物招领不存在");
+            }
+            publisherId = item.getUserId();
+            itemTitle = item.getTitle();
+        } else {
+            throw new BusinessException("无效的物品类型，必须是 LOST 或 FOUND");
+        }
+
+        if (publisherId.equals(applicantId)) {
+            throw new BusinessException("不能认领自己发布的物品");
+        }
+
+        ClaimApplication claim = new ClaimApplication();
+        claim.setItemType(req.getItemType().toUpperCase());
+        claim.setItemId(req.getItemId());
+        claim.setApplicantId(applicantId);
+        claim.setPublisherId(publisherId);
+        claim.setMessage(req.getMessage());
+        claim.setImageUrls(req.getImageUrls());
+        claim.setStatus("PENDING");
+        claimApplicationMapper.insert(claim);
+
+        // Create notification for the publisher
+        String applicantName = getUserName(applicantId);
+        Notification notification = new Notification();
+        notification.setUserId(publisherId);
+        notification.setTitle("新的认领申请");
+        notification.setContent(applicantName + " 申请认领你的物品「" + itemTitle + "」"
+                + (req.getMessage() != null ? "，留言：" + req.getMessage() : ""));
+        notification.setType("CLAIM");
+        notification.setIsRead(0);
+        notificationMapper.insert(notification);
+
+        return toVO(claim);
+    }
+
+    @Override
+    public IPage<ClaimVO> received(Long userId, int page, int size, String status) {
+        LambdaQueryWrapper<ClaimApplication> qw = new LambdaQueryWrapper<>();
+        qw.eq(ClaimApplication::getPublisherId, userId);
+        if (status != null && !status.isEmpty()) {
+            qw.eq(ClaimApplication::getStatus, status);
+        }
+        qw.orderByDesc(ClaimApplication::getCreatedAt);
+        IPage<ClaimApplication> p = claimApplicationMapper.selectPage(new Page<>(page, size), qw);
+        return p.convert(this::toVO);
+    }
+
+    @Override
+    public IPage<ClaimVO> sent(Long userId, int page, int size, String status) {
+        LambdaQueryWrapper<ClaimApplication> qw = new LambdaQueryWrapper<>();
+        qw.eq(ClaimApplication::getApplicantId, userId);
+        if (status != null && !status.isEmpty()) {
+            qw.eq(ClaimApplication::getStatus, status);
+        }
+        qw.orderByDesc(ClaimApplication::getCreatedAt);
+        IPage<ClaimApplication> p = claimApplicationMapper.selectPage(new Page<>(page, size), qw);
+        return p.convert(this::toVO);
+    }
+
+    @Override
+    @Transactional
+    public void process(Long id, Long userId, String status) {
+        ClaimApplication claim = claimApplicationMapper.selectById(id);
+        if (claim == null) {
+            throw new BusinessException("认领申请不存在");
+        }
+        if (!claim.getPublisherId().equals(userId)) {
+            throw new BusinessException("无权处理该认领申请");
+        }
+        // Validate status input
+        if (status == null || (!"APPROVED".equals(status) && !"REJECTED".equals(status))) {
+            throw new BusinessException("无效的处理状态，仅支持 APPROVED 或 REJECTED");
+        }
+        // Validate state transition: only allow processing PENDING claims
+        if (!"PENDING".equals(claim.getStatus())) {
+            throw new BusinessException("该认领申请已被处理");
+        }
+
+        claim.setStatus(status);
+        claimApplicationMapper.updateById(claim);
+
+        // If approved, update item status
+        if ("APPROVED".equals(status)) {
+            if ("LOST".equals(claim.getItemType())) {
+                LostItem lostItem = lostItemMapper.selectById(claim.getItemId());
+                if (lostItem != null) {
+                    lostItem.setStatus("FOUND");
+                    lostItemMapper.updateById(lostItem);
+                }
+            } else if ("FOUND".equals(claim.getItemType())) {
+                FoundItem foundItem = foundItemMapper.selectById(claim.getItemId());
+                if (foundItem != null) {
+                    foundItem.setStatus("CLAIMED");
+                    foundItemMapper.updateById(foundItem);
+                }
+            }
+            // Auto-create conversation
+            String convId = "claim_" + claim.getId();
+            messageService.systemMessage(convId, userId, claim.getApplicantId(),
+                    "认领申请已通过，现在可以开始对话了。");
+        }
+
+        // Notify applicant of the result
+        String statusText = "APPROVED".equals(status) ? "已通过" : "REJECTED".equals(status) ? "已拒绝" : status;
+        String publisherName = getUserName(userId);
+        Notification notification = new Notification();
+        notification.setUserId(claim.getApplicantId());
+        notification.setTitle("认领申请" + statusText);
+        notification.setContent("你对物品「" + getItemTitle(claim.getItemType(), claim.getItemId()) + "」的认领申请已被" + publisherName + statusText);
+        notification.setType("CLAIM_RESULT");
+        notification.setIsRead(0);
+        notificationMapper.insert(notification);
+    }
+
+    private ClaimVO toVO(ClaimApplication claim) {
+        return ClaimVO.builder()
+                .id(claim.getId())
+                .itemType(claim.getItemType())
+                .itemId(claim.getItemId())
+                .itemTitle(getItemTitle(claim.getItemType(), claim.getItemId()))
+                .applicantId(claim.getApplicantId())
+                .applicantName(getUserName(claim.getApplicantId()))
+                .publisherId(claim.getPublisherId())
+                .publisherName(getUserName(claim.getPublisherId()))
+                .message(claim.getMessage())
+                .imageUrls(claim.getImageUrls())
+                .status(claim.getStatus())
+                .createdAt(claim.getCreatedAt())
+                .build();
+    }
+
+    private String getUserName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return null;
+        }
+        return user.getRealName() != null ? user.getRealName() : user.getUsername();
+    }
+
+    private String getItemTitle(String itemType, Long itemId) {
+        if ("LOST".equals(itemType)) {
+            LostItem item = lostItemMapper.selectById(itemId);
+            return item != null ? item.getTitle() : null;
+        } else if ("FOUND".equals(itemType)) {
+            FoundItem item = foundItemMapper.selectById(itemId);
+            return item != null ? item.getTitle() : null;
+        }
+        return null;
+    }
+}

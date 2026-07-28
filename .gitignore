@@ -1,0 +1,21 @@
+/.env
+*.env.local
+
+local/
+
+backend/target/
+web-frontend/dist/
+
+node_modules/
+web-frontend/node_modules/
+
+# IDE
+.idea/
+*.iml
+
+# 系统
+.DS_Store
+Thumbs.db
+
+*.jar
+.workbuddy/
