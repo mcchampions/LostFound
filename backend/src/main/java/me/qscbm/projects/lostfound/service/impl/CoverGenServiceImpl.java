@@ -10,18 +10,21 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
- * Calls the postgen2 Node CLI (satori + resvg) via ProcessBuilder to render
- * a Xiaohongshu-style text cover image, then moves the PNG into the uploads
- * directory so it is served like any other uploaded image.
+ * Calls the postgen-service container over HTTP to render a text cover image,
+ * then saves the returned PNG into the uploads directory.
  *
  * Rate-limited per user (sliding 60-second window, configurable).
  */
@@ -30,14 +33,13 @@ import java.util.concurrent.TimeUnit;
 public class CoverGenServiceImpl implements CoverGenService {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final Path workDir;
     private final Path uploadRoot;
-    private final String nodeBin;
-    private final String cliPath;
-    private final String fontRegular;
-    private final String fontBold;
+    private final String postgenBaseUrl;
     private final int rateLimitPerMinute;
     private final boolean enabled;
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
 
     private final ConcurrentHashMap<Long, long[]> rateMap = new ConcurrentHashMap<>();
 
@@ -47,31 +49,19 @@ public class CoverGenServiceImpl implements CoverGenService {
 
     public CoverGenServiceImpl(
             @Value("${app.postgen.enabled:true}") boolean enabled,
-            @Value("${app.postgen.node-bin:node}") String nodeBin,
-            @Value("${app.postgen.cli-path:../web-frontend/node_modules/postgen2/dist/cli.js}") String cliPath,
-            @Value("${app.postgen.font-regular:../web-frontend/node_modules/postgen2/fonts/custom/LXGWWenKaiLite-Regular.ttf}") String fontRegular,
-            @Value("${app.postgen.font-bold:../web-frontend/node_modules/postgen2/fonts/custom/LXGWMarkerGothic-Regular.ttf}") String fontBold,
-            @Value("${app.postgen.work-dir:./postgen-work}") String workDir,
+            @Value("${app.postgen.base-url:http://localhost:3000}") String baseUrl,
             @Value("${app.postgen.rate-limit-per-minute:10}") int rateLimit,
             @Value("${app.upload.path:./uploads}") String uploadPath) {
         this.enabled = enabled;
-        this.nodeBin = nodeBin;
-        this.cliPath = cliPath;
-        this.fontRegular = fontRegular;
-        this.fontBold = fontBold;
+        this.postgenBaseUrl = baseUrl.endsWith("/")
+                ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.rateLimitPerMinute = rateLimit;
-        File base = AppHome.dir();
-        this.workDir = resolvePath(workDir, base);
-        this.uploadRoot = resolvePath(uploadPath, base);
-        log.info("PostGen enabled={}, node={}, cli={}", enabled, nodeBin, cliPath);
-    }
-
-    private Path resolvePath(String p, File base) {
-        File f = new File(p);
-        if (!f.isAbsolute()) {
-            f = new File(base, p);
+        File dir = new File(uploadPath);
+        if (!dir.isAbsolute()) {
+            dir = new File(AppHome.dir(), uploadPath);
         }
-        return f.toPath().toAbsolutePath().normalize();
+        this.uploadRoot = dir.toPath().toAbsolutePath().normalize();
+        log.info("PostGen enabled={}, base-url={}", enabled, postgenBaseUrl);
     }
 
     @Override
@@ -90,68 +80,46 @@ public class CoverGenServiceImpl implements CoverGenService {
             throw new BusinessException("操作过于频繁，请稍后再试（每分钟限" + rateLimitPerMinute + "次）");
         }
 
-        Path jsonFile = null;
-        Path pngFile = null;
         try {
-            Files.createDirectories(workDir);
-            String stamp = UUID.randomUUID().toString().replace("-", "");
-            jsonFile = workDir.resolve("cover-" + stamp + ".json");
-            pngFile = workDir.resolve("cover-" + stamp + ".png");
-
-            Map<String, Object> data = new LinkedHashMap<>();
-            data.put("title", req.getTitle());
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("title", req.getTitle());
             if (req.getSubtitle() != null && !req.getSubtitle().isBlank()) {
-                data.put("subtitle", req.getSubtitle());
+                payload.put("subtitle", req.getSubtitle());
             }
+            payload.put("template", req.getTemplate());
             if (req.getTheme() != null && !req.getTheme().isBlank()) {
-                data.put("theme", req.getTheme());
-            }
-            mapper.writerWithDefaultPrettyPrinter().writeValue(jsonFile.toFile(), data);
-
-            List<String> cmd = new ArrayList<>();
-            cmd.add(nodeBin);
-            cmd.add(cliPath);
-            cmd.add("render");
-            cmd.add("--template");
-            cmd.add(req.getTemplate());
-            cmd.add("--data");
-            cmd.add(jsonFile.toString());
-            cmd.add("--out");
-            cmd.add(pngFile.toString());
-            cmd.add("--font");
-            cmd.add(fontRegular);
-            cmd.add("--fontBold");
-            cmd.add(fontBold);
-            cmd.add("--title-layout-mode");
-            cmd.add("rule");
-
-            ProcessBuilder pb = new ProcessBuilder(cmd);
-            pb.redirectErrorStream(true);
-            pb.directory(AppHome.dir());
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = proc.waitFor(30, TimeUnit.SECONDS);
-            if (!finished) {
-                proc.destroyForcibly();
-                throw new BusinessException("封面生成超时，请重试");
-            }
-            int exit = proc.exitValue();
-            if (exit != 0) {
-                log.error("PostGen render failed (exit={}): {}", exit, output);
-                throw new BusinessException("封面生成失败");
-            }
-            if (!Files.exists(pngFile)) {
-                log.error("PostGen produced no output. stdout: {}", output);
-                throw new BusinessException("封面生成失败：未输出图片");
+                payload.put("theme", req.getTheme());
             }
 
-            // Move PNG into uploads directory (same as uploaded images)
+            String json = mapper.writeValueAsString(payload);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(postgenBaseUrl + "/render"))
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(30))
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
+
+            HttpResponse<byte[]> response = httpClient.send(request,
+                    HttpResponse.BodyHandlers.ofByteArray());
+
+            if (response.statusCode() != 200) {
+                String err = new String(response.body());
+                log.error("PostGen service error ({}): {}", response.statusCode(), err);
+                throw new BusinessException("封面生成失败（postgen 服务返回 " + response.statusCode() + "）");
+            }
+
+            byte[] png = response.body();
+            if (png == null || png.length == 0) {
+                throw new BusinessException("封面生成失败：未返回图片数据");
+            }
+
+            // Save PNG into uploads directory
             String dateDir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
             Path uploadDir = uploadRoot.resolve(dateDir);
             Files.createDirectories(uploadDir);
             String filename = UUID.randomUUID().toString().replace("-", "") + ".png";
             Path target = uploadDir.resolve(filename);
-            Files.move(pngFile, target, StandardCopyOption.REPLACE_EXISTING);
+            Files.write(target, png);
 
             log.info("Cover generated for user {}: /uploads/{}/{}", userId, dateDir, filename);
             return "/uploads/" + dateDir + "/" + filename;
@@ -160,13 +128,6 @@ public class CoverGenServiceImpl implements CoverGenService {
         } catch (Exception e) {
             log.error("封面生成异常", e);
             throw new BusinessException("封面生成异常: " + e.getMessage());
-        } finally {
-            if (jsonFile != null) {
-                try { Files.deleteIfExists(jsonFile); } catch (Exception ignored) {}
-            }
-            if (pngFile != null) {
-                try { Files.deleteIfExists(pngFile); } catch (Exception ignored) {}
-            }
         }
     }
 

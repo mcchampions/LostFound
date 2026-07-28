@@ -1,0 +1,9 @@
+{
+  "name": "postgen-service",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "postgen2": "^0.0.4"
+  }
+}
