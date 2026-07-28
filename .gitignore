@@ -19,3 +19,5 @@ Thumbs.db
 
 *.jar
 .workbuddy/
+yarn.lock
+package-lock.json
