@@ -17,6 +17,7 @@
     "@stomp/stompjs": "^7.3.0",
     "axios": "^1.18.1",
     "i18next": "^26.3.6",
+    "postgen2": "^0.0.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-easy-crop": "^6.2.2",
