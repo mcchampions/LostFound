@@ -131,12 +131,11 @@ public class LostItemServiceImpl implements LostItemService {
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权修改他人的寻物启事状态");
         }
-        try {
-            ItemStatus.valueOf(status.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException("无效的物品状态");
+        String normalized = status.toUpperCase();
+        if (!"LOST".equals(normalized) && !"FOUND".equals(normalized)) {
+            throw new BusinessException("寻物启事状态仅支持 LOST 或 FOUND");
         }
-        item.setStatus(status);
+        item.setStatus(normalized);
         lostItemMapper.updateById(item);
     }
 
@@ -145,14 +144,16 @@ public class LostItemServiceImpl implements LostItemService {
         LostItem item = lostItemMapper.selectById(id);
         if (item == null) throw new BusinessException("寻物启事不存在");
         if (!item.getUserId().equals(userId)) throw new BusinessException("无权修改他人的寻物启事状态");
-        try { ItemStatus.valueOf(status.toUpperCase()); }
-        catch (IllegalArgumentException e) { throw new BusinessException("无效的物品状态"); }
+        String normalized = status.toUpperCase();
+        if (!"LOST".equals(normalized) && !"FOUND".equals(normalized)) {
+            throw new BusinessException("寻物启事状态仅支持 LOST 或 FOUND");
+        }
         item.setResolvedType(resolvedType);
         item.setResolvedBy(resolvedBy);
         if (resolvedNote != null && !resolvedNote.isBlank()) {
             item.setDescription((item.getDescription() != null ? item.getDescription() + "\n\n" : "") + "[补充说明] " + resolvedNote);
         }
-        item.setStatus(status);
+        item.setStatus(normalized);
         lostItemMapper.updateById(item);
     }
 

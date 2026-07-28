@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
@@ -111,6 +112,19 @@ public class MessageServiceImpl implements MessageService {
         }
         msg.setIsRead(1);
         messageMapper.updateById(msg);
+    }
+
+    @Override
+    public void markConversationRead(Long userId, String conversationId) {
+        if (!isParticipant(userId, conversationId)) {
+            throw new BusinessException("无权访问该对话");
+        }
+        LambdaUpdateWrapper<Message> uw = new LambdaUpdateWrapper<>();
+        uw.eq(Message::getConversationId, conversationId)
+          .eq(Message::getReceiverId, userId)
+          .eq(Message::getIsRead, 0)
+          .set(Message::getIsRead, 1);
+        messageMapper.update(null, uw);
     }
 
     @Override

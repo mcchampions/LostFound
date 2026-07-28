@@ -3,7 +3,8 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemButton,
   ListItemIcon, ListItemText, Box, Badge, IconButton, Button, Avatar, Menu, MenuItem,
-  Divider, ListSubheader, useMediaQuery, useTheme
+  Divider, ListSubheader, useMediaQuery, useTheme, Popover, Paper, Stack,
+  Tooltip, CircularProgress
 } from '@mui/material';
 import {
   Home as HomeIcon, Search as SearchIcon, Add as AddIcon,
@@ -14,7 +15,9 @@ import {
   Menu as MenuIcon
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
-import { getUnreadCount } from '../api/notifications';
+import { getUnreadCount, getNotifications, markRead } from '../api/notifications';
+import type { NotificationVO } from '../api/notifications';
+import { processClaim } from '../api/claims';
 
 const DRAWER_WIDTH = 240;
 
@@ -74,18 +77,79 @@ export default function Layout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  const [notifAnchor, setNotifAnchor] = useState<HTMLElement | null>(null);
+  const [recentNotifs, setRecentNotifs] = useState<NotificationVO[]>([]);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [processingId, setProcessingId] = useState<number | null>(null);
+
+  const refreshUnread = () => {
+    if (!user) return;
+    getUnreadCount().then(setUnreadCount).catch(() => {});
+  };
+
+  const loadRecentNotifs = () => {
+    if (!user) return;
+    setNotifLoading(true);
+    getNotifications({ page: 1, size: 8 })
+      .then(data => setRecentNotifs(data.records || []))
+      .catch(() => {})
+      .finally(() => setNotifLoading(false));
+  };
+
+  useEffect(() => {
+    refreshUnread();
+    const timer = setInterval(refreshUnread, 10000);
+    const onVis = () => { if (!document.hidden) refreshUnread(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', refreshUnread);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', refreshUnread);
+    };
+  }, [user]);
+
   const handleNav = (path: string) => {
     navigate(path);
     setMobileOpen(false);
   };
 
-  useEffect(() => {
-    if (!user) return;
-    const fetch = () => { getUnreadCount().then(setUnreadCount).catch(() => {}); };
-    fetch();
-    const timer = setInterval(fetch, 30000);
-    return () => clearInterval(timer);
-  }, [user]);
+  const openNotif = (e: React.MouseEvent<HTMLElement>) => {
+    setNotifAnchor(e.currentTarget);
+    loadRecentNotifs();
+  };
+
+  const closeNotif = () => setNotifAnchor(null);
+
+  const handleNotifClick = (item: NotificationVO) => {
+    if (item.isRead === 0) {
+      markRead(item.id).then(() => {
+        setRecentNotifs(prev => prev.map(n => n.id === item.id ? { ...n, isRead: 1 } : n));
+        refreshUnread();
+      }).catch(() => {});
+    }
+    closeNotif();
+    navigate('/notifications');
+  };
+
+  const handleQuickApprove = async (e: React.MouseEvent, item: NotificationVO) => {
+    e.stopPropagation();
+    if (!item.relatedId || item.relatedType !== 'CLAIM_APPLICATION') return;
+    setProcessingId(item.id);
+    try {
+      await processClaim(item.relatedId, 'APPROVED');
+      await markRead(item.id);
+      setRecentNotifs(prev => prev.map(n => n.id === item.id ? { ...n, isRead: 1 } : n));
+      refreshUnread();
+      closeNotif();
+    } catch {
+      // ignore
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const notifOpen = Boolean(notifAnchor);
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -97,9 +161,74 @@ export default function Layout() {
             </IconButton>
           )}
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>校园失物招领系统</Typography>
-          <IconButton color="inherit" onClick={() => navigate('/notifications')}>
+          <IconButton color="inherit" onClick={openNotif}>
             <Badge badgeContent={unreadCount} color="error"><NotificationsIcon /></Badge>
           </IconButton>
+          <Popover
+            open={notifOpen}
+            anchorEl={notifAnchor}
+            onClose={closeNotif}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            slotProps={{ paper: { sx: { width: 360, maxHeight: 420, overflow: 'auto' } } }}
+          >
+            <Paper>
+              <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle2">通知</Typography>
+                <Button size="small" onClick={() => { closeNotif(); navigate('/notifications'); }}>查看全部</Button>
+              </Box>
+              {notifLoading ? (
+                <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>
+              ) : recentNotifs.length === 0 ? (
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography color="text.secondary" variant="body2">暂无通知</Typography>
+                </Box>
+              ) : (
+                <Stack divider={<Divider />}>
+                  {recentNotifs.map(item => (
+                    <Box
+                      key={item.id}
+                      onClick={() => handleNotifClick(item)}
+                      sx={{
+                        p: 1.5,
+                        cursor: 'pointer',
+                        bgcolor: item.isRead === 0 ? 'action.hover' : 'transparent',
+                        '&:hover': { bgcolor: 'action.selected' }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ fontWeight: item.isRead === 0 ? 'bold' : 'normal', mb: 0.5 }}>
+                            {item.isRead === 0 && <Box component="span" sx={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main', mr: 0.8, verticalAlign: 'middle' }} />}
+                            {item.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {item.content}
+                          </Typography>
+                          <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: 'block' }}>
+                            {new Date(item.createdAt).toLocaleString('zh-CN')}
+                          </Typography>
+                        </Box>
+                        {item.type === 'CLAIM' && item.relatedType === 'CLAIM_APPLICATION' && (
+                          <Tooltip title="确认已被该用户认领/找到">
+                            <Button
+                              size="small"
+                              variant="contained"
+                              disabled={processingId === item.id}
+                              onClick={(e) => handleQuickApprove(e, item)}
+                              sx={{ flexShrink: 0, fontSize: '0.7rem', px: 1, py: 0.3, minWidth: 'auto' }}
+                            >
+                              {processingId === item.id ? '...' : '确认'}
+                            </Button>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+          </Popover>
           {user ? (
             <>
               <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>

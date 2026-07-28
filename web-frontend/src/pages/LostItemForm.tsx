@@ -184,7 +184,7 @@ export default function LostItemForm() {
           <Box sx={{ mt: 2 }}>
             <Typography variant="subtitle2" gutterBottom>封面图片</Typography>
             {coverImage ? (
-              <Box sx={{ position: 'relative', width: 200, height: 150, borderRadius: 1, overflow: 'hidden' }}>
+              <Box sx={{ position: 'relative', width: 240, aspectRatio: '16 / 9', borderRadius: 1, overflow: 'hidden' }}>
                 <Box component="img" src={assetUrl(coverImage)}
                   sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <IconButton size="small" onClick={() => setCoverImage('')}
@@ -211,6 +211,7 @@ export default function LostItemForm() {
               </Box>
             )}
             <ImageCropDialog open={cropOpen} imageUrl={assetUrl(coverImage)}
+              aspect={16 / 9}
               onClose={() => setCropOpen(false)} onCropped={setCoverImage} />
           </Box>
 

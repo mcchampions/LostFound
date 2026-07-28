@@ -114,6 +114,8 @@ CREATE TABLE IF NOT EXISTS `notification` (
     `title` VARCHAR(200) NOT NULL,
     `content` TEXT,
     `type` VARCHAR(50) DEFAULT NULL,
+    `related_id` BIGINT DEFAULT NULL,
+    `related_type` VARCHAR(50) DEFAULT NULL,
     `is_read` TINYINT DEFAULT 0,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Paper, TextField, Button, List, ListItemButton,
@@ -8,7 +8,7 @@ import { Send as SendIcon } from '@mui/icons-material';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from '../store/AuthContext';
-import { getConversations, getMessages, sendMessage as sendMsg } from '../api/chat';
+import { getConversations, getMessages, sendMessage as sendMsg, markConversationRead } from '../api/chat';
 import type { ConversationVO, MessageVO } from '../api/chat';
 import { WS_ENDPOINT } from '../config';
 
@@ -16,6 +16,7 @@ export default function Chat() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const targetUserId = Number(searchParams.get('to')) || null;
+  const targetName = searchParams.get('name');
   const [conversations, setConversations] = useState<ConversationVO[]>([]);
   const [selectedConv, setSelectedConv] = useState<string | null>(searchParams.get('conv'));
   const [messages, setMessages] = useState<MessageVO[]>([]);
@@ -24,6 +25,7 @@ export default function Chat() {
   const [sendError, setSendError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const selectedConvRef = useRef<string | null>(null);
 
   const loadConversations = useCallback(async () => {
     try { setConversations(await getConversations()); } catch { /* ignore */ }
@@ -38,8 +40,8 @@ export default function Chat() {
     getMessages(selectedConv)
       .then(data => {
         if (!controller.signal.aborted) {
-          const msgs = [...(data?.records || [])].reverse();
-          setMessages(msgs);
+          setMessages(data?.records || []);
+          markConversationRead(selectedConv).then(loadConversations).catch(() => {});
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       })
@@ -47,6 +49,10 @@ export default function Chat() {
         if (!controller.signal.aborted) setMessages([]);
       });
     return () => controller.abort();
+  }, [selectedConv]);
+
+  useEffect(() => {
+    selectedConvRef.current = selectedConv;
   }, [selectedConv]);
 
   // WebSocket connection with auth headers
@@ -61,9 +67,13 @@ export default function Chat() {
           try {
             const m: MessageVO = JSON.parse(msg.body);
             setMessages(prev => {
+              if (m.conversationId !== selectedConvRef.current) return prev;
               if (prev.some(x => x.id === m.id)) return prev;
               return [...prev, m];
             });
+            if (m.conversationId === selectedConvRef.current) {
+              markConversationRead(m.conversationId).then(loadConversations).catch(() => {});
+            }
             loadConversations();
             setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
           } catch { /* ignore malformed messages */ }
@@ -74,12 +84,10 @@ export default function Chat() {
     client.activate();
     return () => {
       client.deactivate();
-      // Clear state when user changes
-      setMessages([]);
-      setConversations([]);
-      setSelectedConv(null);
     };
-  }, [user, loadConversations]);
+    // 依赖 user?.id 而非 user 引用：资料更新（user 引用变化）不再重建连接、清空对话
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, loadConversations]);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -102,7 +110,22 @@ export default function Chat() {
     }
   };
 
-  const selectedUser = conversations.find(c => c.conversationId === selectedConv);
+  const displayConversations = useMemo(() => {
+    if (!selectedConv || !targetUserId || !targetName) return conversations;
+    if (conversations.some(c => c.conversationId === selectedConv)) return conversations;
+    const temp: ConversationVO = {
+      conversationId: selectedConv,
+      otherUserId: targetUserId,
+      otherUserName: decodeURIComponent(targetName),
+      otherUserAvatar: undefined,
+      lastMessage: '',
+      lastMessageTime: '',
+      unreadCount: 0,
+    };
+    return [temp, ...conversations];
+  }, [conversations, selectedConv, targetUserId, targetName]);
+
+  const selectedUser = displayConversations.find(c => c.conversationId === selectedConv);
 
   if (!user) return <Alert severity="warning">请先登录</Alert>;
 
@@ -119,7 +142,7 @@ export default function Chat() {
               <Typography sx={{ p: 3, color: 'text.secondary', textAlign: 'center' }}>
                 暂无对话
               </Typography>
-            ) : conversations.map(c => (
+            ) : displayConversations.map(c => (
               <ListItemButton key={c.conversationId}
                 selected={selectedConv === c.conversationId}
                 onClick={() => setSelectedConv(c.conversationId)}

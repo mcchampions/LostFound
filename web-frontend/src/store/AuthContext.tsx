@@ -18,6 +18,7 @@ interface AuthCtx {
   login: (token: string, user: User) => void;
   logout: () => void;
   isAdmin: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthCtx | null>(null);
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthCtx | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [loading, setLoading] = useState<boolean>(!!localStorage.getItem('token'));
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
@@ -35,7 +37,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const stored = localStorage.getItem('token');
     if (stored) {
-      client.get('/users/me').then(res => setUser(res.data.data)).catch(() => logout());
+      client.get('/users/me')
+        .then(res => setUser(res.data.data))
+        .catch(() => logout())
+        .finally(() => setLoading(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -56,7 +61,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAdmin = user?.role === 'ADMIN';
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAdmin }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, token, login, logout, isAdmin, loading }}>{children}</AuthContext.Provider>
   );
 };
 

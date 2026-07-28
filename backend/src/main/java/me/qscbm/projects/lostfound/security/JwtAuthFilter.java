@@ -41,10 +41,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtUtils.parse(token);
                 Long userId = jwtUtils.getUserId(claims);
-                String role = jwtUtils.getRole(claims);
 
                 User user = userMapper.selectById(userId);
-                if (user == null || "INACTIVE".equals(user.getStatus())) {
+                // 仅允许 ACTIVE 用户；角色以数据库为准，防止旧 token 越权
+                if (user == null || !"ACTIVE".equals(user.getStatus())) {
                     SecurityContextHolder.clearContext();
                     filterChain.doFilter(request, response);
                     return;
@@ -54,7 +54,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         new UsernamePasswordAuthenticationToken(
                                 userId,
                                 null,
-                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
                         );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (Exception e) {

@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../store/AuthContext';
 import { getNotifications, markRead, markAllRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
+import { processClaim } from '../api/claims';
 
 const typeIcons: Record<string, React.ReactElement> = {
   CLAIM: <ClaimIcon fontSize="small" />,
@@ -44,6 +45,7 @@ export default function Notifications() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selected, setSelected] = useState<NotificationVO | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   const pageSize = 10;
 
@@ -94,6 +96,23 @@ export default function Notifications() {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setSelected(null);
+  };
+
+  const handleQuickApprove = async () => {
+    if (!selected?.relatedId || selected.relatedType !== 'CLAIM_APPLICATION') return;
+    setProcessing(true);
+    try {
+      await processClaim(selected.relatedId, 'APPROVED');
+      await markRead(selected.id);
+      const id = selected.id;
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: 1 } : n));
+      handleCloseDialog();
+      fetchNotifications();
+    } catch {
+      // ignore
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handlePageChange = (_: any, value: number) => {
@@ -223,6 +242,11 @@ export default function Notifications() {
           </Typography>
         </DialogContent>
         <DialogActions>
+          {selected?.type === 'CLAIM' && selected?.relatedType === 'CLAIM_APPLICATION' && (
+            <Button onClick={handleQuickApprove} disabled={processing} variant="contained" color="primary">
+              {processing ? '处理中...' : '确认已被该用户认领/找到'}
+            </Button>
+          )}
           <Button onClick={handleCloseDialog}>关闭</Button>
         </DialogActions>
       </Dialog>

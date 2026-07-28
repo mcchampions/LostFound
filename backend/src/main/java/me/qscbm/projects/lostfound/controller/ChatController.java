@@ -53,4 +53,12 @@ public class ChatController {
         messageService.markRead(userId, id);
         return Result.success();
     }
+
+    @PutMapping("/conversations/{conversationId}/read")
+    public Result<?> markConversationRead(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String conversationId) {
+        messageService.markConversationRead(userId, conversationId);
+        return Result.success();
+    }
 }

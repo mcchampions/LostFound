@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Paper, Avatar, Chip, TextField,
@@ -25,6 +25,8 @@ export default function Profile() {
   const [newAvatarUrl, setNewAvatarUrl] = useState(user?.avatar || '');
   const [cropOpen, setCropOpen] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const cropImageUrl = useMemo(() => (cropFile ? URL.createObjectURL(cropFile) : ''), [cropFile]);
+  useEffect(() => () => { if (cropImageUrl) URL.revokeObjectURL(cropImageUrl); }, [cropImageUrl]);
   const [countryCode, setCountryCode] = useState('+86');
   const [phoneNumber, setPhoneNumber] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -398,7 +400,7 @@ export default function Profile() {
       {cropFile && (
         <ImageCropDialog
           open={cropOpen}
-          imageUrl={URL.createObjectURL(cropFile)}
+          imageUrl={cropImageUrl}
           circular
           aspect={1}
           onCropped={handleCropConfirm}

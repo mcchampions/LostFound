@@ -131,12 +131,11 @@ public class FoundItemServiceImpl implements FoundItemService {
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权修改他人的失物招领状态");
         }
-        try {
-            ItemStatus.valueOf(status.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException("无效的物品状态");
+        String normalized = status.toUpperCase();
+        if (!"UNCLAIMED".equals(normalized) && !"CLAIMED".equals(normalized)) {
+            throw new BusinessException("招领信息状态仅支持 UNCLAIMED 或 CLAIMED");
         }
-        item.setStatus(status);
+        item.setStatus(normalized);
         foundItemMapper.updateById(item);
     }
 
@@ -145,14 +144,16 @@ public class FoundItemServiceImpl implements FoundItemService {
         FoundItem item = foundItemMapper.selectById(id);
         if (item == null) throw new BusinessException("失物招领不存在");
         if (!item.getUserId().equals(userId)) throw new BusinessException("无权修改他人的失物招领状态");
-        try { ItemStatus.valueOf(status.toUpperCase()); }
-        catch (IllegalArgumentException e) { throw new BusinessException("无效的物品状态"); }
+        String normalized = status.toUpperCase();
+        if (!"UNCLAIMED".equals(normalized) && !"CLAIMED".equals(normalized)) {
+            throw new BusinessException("招领信息状态仅支持 UNCLAIMED 或 CLAIMED");
+        }
         item.setResolvedType(resolvedType);
         item.setResolvedBy(resolvedBy);
         if (resolvedNote != null && !resolvedNote.isBlank()) {
             item.setDescription((item.getDescription() != null ? item.getDescription() + "\n\n" : "") + "[补充说明] " + resolvedNote);
         }
-        item.setStatus(status);
+        item.setStatus(normalized);
         foundItemMapper.updateById(item);
     }
 

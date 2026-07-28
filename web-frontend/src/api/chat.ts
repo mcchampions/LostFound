@@ -37,3 +37,6 @@ export const sendMessage = (conversationId: string, receiverId: number, content:
 
 export const markRead = (id: number) =>
   client.put(`/chat/messages/${id}/read`).then(r => r.data.data);
+
+export const markConversationRead = (conversationId: string) =>
+  client.put(`/chat/conversations/${conversationId}/read`).then(r => r.data.data);

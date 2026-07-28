@@ -10,6 +10,7 @@ import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private final Map<Long, VerificationCode> verifyCodes = new ConcurrentHashMap<>();
     private final LongSupplier currentTimeMillis;
 
+    @Autowired
     public UserServiceImpl(UserMapper userMapper,
                            PasswordEncoder passwordEncoder,
                            JavaMailSender mailSender) {
@@ -92,6 +94,9 @@ public class UserServiceImpl implements UserService {
     public void updateStatus(Long userId, String status) {
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
+        if ("ADMIN".equals(user.getRole())) {
+            throw new BusinessException("不能修改管理员账户状态");
+        }
         try {
             user.setStatus(UserStatus.valueOf(status.toUpperCase()).getValue());
         } catch (IllegalArgumentException e) {

@@ -60,15 +60,19 @@ public class LostItemController {
     public Result<?> updateStatus(@AuthenticationPrincipal Long userId,
                                   @PathVariable Long id,
                                   @RequestBody Map<String, Object> body) {
-        String status = (String) body.get("status");
+        String status = asString(body.get("status"));
         if (status == null || status.isBlank()) {
             throw new BusinessException("状态不能为空");
         }
-        String resolvedType = (String) body.get("resolvedType");
+        String resolvedType = asString(body.get("resolvedType"));
         Object rb = body.get("resolvedBy");
         Long resolvedBy = rb instanceof Number ? ((Number) rb).longValue() : null;
-        String resolvedNote = (String) body.get("resolvedNote");
+        String resolvedNote = asString(body.get("resolvedNote"));
         lostItemService.updateStatus(id, userId, status, resolvedType, resolvedBy, resolvedNote);
         return Result.success();
+    }
+
+    private static String asString(Object o) {
+        return o instanceof String ? (String) o : null;
     }
 }

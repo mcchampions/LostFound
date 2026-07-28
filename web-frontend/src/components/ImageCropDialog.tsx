@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Slider, Typography, Box } from '@mui/material';
+import { useState, useCallback, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Slider, Typography, Box, IconButton } from '@mui/material';
+import { RotateRight as RotateRightIcon } from '@mui/icons-material';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { uploadImage } from '../api/upload';
@@ -13,33 +14,79 @@ interface Props {
   aspect?: number;
 }
 
+const createImage = (url: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('load failed'));
+    img.src = url;
+  });
+
 export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, circular, aspect }: Props) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  // 工作图：旋转后用 canvas 生成的新图，cropper 始终拿它、rotation=0，避免 cropper 旋转联动缩放
+  const [workingUrl, setWorkingUrl] = useState(imageUrl);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [processing, setProcessing] = useState(false);
+
+  // 图片源变化时重置工作图（并释放之前旋转产生的 blob）
+  useEffect(() => {
+    setWorkingUrl(prev => {
+      if (prev && prev.startsWith('blob:') && prev !== imageUrl) URL.revokeObjectURL(prev);
+      return imageUrl;
+    });
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+  }, [imageUrl]);
+
+  // 组件卸载时释放旋转 blob
+  useEffect(() => () => {
+    if (workingUrl && workingUrl.startsWith('blob:') && workingUrl !== imageUrl) {
+      URL.revokeObjectURL(workingUrl);
+    }
+  }, [workingUrl, imageUrl]);
 
   const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
     setCroppedAreaPixels(croppedPixels);
   }, []);
 
+  // 真正把图片旋转 90°（生成新图），预览即所得
+  const handleRotate = async () => {
+    try {
+      const img = await createImage(workingUrl);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.height;
+      canvas.height = img.width;
+      const ctx = canvas.getContext('2d')!;
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      const blob = await new Promise<Blob | null>(resolve =>
+        canvas.toBlob(resolve, 'image/jpeg', 0.95)
+      );
+      if (!blob) return;
+      setWorkingUrl(prev => {
+        if (prev && prev.startsWith('blob:') && prev !== imageUrl) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const handleConfirm = async () => {
     if (!croppedAreaPixels) return;
     setProcessing(true);
     try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = imageUrl;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('load failed'));
-      });
-
+      const img = await createImage(workingUrl);
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d')!;
       canvas.width = croppedAreaPixels.width;
       canvas.height = croppedAreaPixels.height;
-
       ctx.drawImage(
         img,
         croppedAreaPixels.x, croppedAreaPixels.y,
@@ -47,7 +94,6 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
         0, 0,
         croppedAreaPixels.width, croppedAreaPixels.height
       );
-
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
       if (!blob) throw new Error('crop failed');
 
@@ -56,8 +102,7 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
       onCropped(url);
       onClose();
     } catch {
-      // fallback: use original URL
-      onCropped(imageUrl);
+      onCropped(workingUrl);
       onClose();
     } finally {
       setProcessing(false);
@@ -69,11 +114,11 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
       <DialogTitle>裁剪封面</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          拖动图片调整位置，滑动缩放。裁剪后的区域将作为列表封面显示。
+          拖动调整位置，滑动缩放，点击旋转修正方向。裁剪后的区域将作为封面显示。
         </Typography>
         <Box sx={{ position: 'relative', width: '100%', height: 350, bgcolor: '#333', borderRadius: 1, overflow: 'hidden' }}>
           <Cropper
-            image={imageUrl}
+            image={workingUrl}
             crop={crop}
             zoom={zoom}
             aspect={aspect ?? 9 / 16}
@@ -87,6 +132,9 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
           <Typography variant="body2">缩放</Typography>
           <Slider min={1} max={3} step={0.01} value={zoom}
             onChange={(_, v) => setZoom(v as number)} sx={{ flex: 1 }} />
+          <IconButton size="small" onClick={handleRotate} title="旋转 90°">
+            <RotateRightIcon />
+          </IconButton>
         </Box>
       </DialogContent>
       <DialogActions>

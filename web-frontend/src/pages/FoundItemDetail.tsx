@@ -114,7 +114,8 @@ export default function FoundItemDetail() {
   const handleStartChat = async (targetUserId: number) => {
     try {
       const data = await startConversation(targetUserId);
-      navigate(`/chat?conv=${data.conversationId}&to=${targetUserId}`);
+      const name = encodeURIComponent(item?.userName || '');
+      navigate(`/chat?conv=${data.conversationId}&to=${targetUserId}&name=${name}`);
     } catch { /* ignore */ }
   };
 
@@ -271,7 +272,7 @@ export default function FoundItemDetail() {
                     我要认领
                   </Button>
                   <Button variant="outlined" onClick={() => handleStartChat(item.userId)}>
-                    发消息
+                    给拾主发消息
                   </Button>
                 </>
               )

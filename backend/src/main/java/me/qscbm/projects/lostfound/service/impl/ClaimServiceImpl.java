@@ -1,6 +1,8 @@
 package me.qscbm.projects.lostfound.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
@@ -55,12 +57,18 @@ public class ClaimServiceImpl implements ClaimService {
             if (item == null) {
                 throw new BusinessException("寻物启事不存在");
             }
+            if (!"LOST".equals(item.getStatus())) {
+                throw new BusinessException("该物品已被标记为已找到，无法申请认领");
+            }
             publisherId = item.getUserId();
             itemTitle = item.getTitle();
         } else if ("FOUND".equalsIgnoreCase(req.getItemType())) {
             FoundItem item = foundItemMapper.selectById(req.getItemId());
             if (item == null) {
                 throw new BusinessException("失物招领不存在");
+            }
+            if (!"UNCLAIMED".equals(item.getStatus())) {
+                throw new BusinessException("该物品已被认领，无法重复申请");
             }
             publisherId = item.getUserId();
             itemTitle = item.getTitle();
@@ -86,11 +94,19 @@ public class ClaimServiceImpl implements ClaimService {
         String applicantName = getUserName(applicantId);
         Notification notification = new Notification();
         notification.setUserId(publisherId);
-        notification.setTitle("新的认领申请");
-        notification.setContent(applicantName + " 申请认领你的物品「" + itemTitle + "」"
-                + (req.getMessage() != null ? "，留言：" + req.getMessage() : ""));
         notification.setType("CLAIM");
+        notification.setRelatedId(claim.getId());
+        notification.setRelatedType("CLAIM_APPLICATION");
         notification.setIsRead(0);
+        if ("LOST".equalsIgnoreCase(req.getItemType())) {
+            notification.setTitle("有人找到了你丢失的物品");
+            notification.setContent(applicantName + " 联系你表示找到了你丢失的物品「" + itemTitle + "」"
+                    + (req.getMessage() != null ? "，留言：" + req.getMessage() : "，请尽快确认。"));
+        } else {
+            notification.setTitle("新的认领申请");
+            notification.setContent(applicantName + " 申请认领你的物品「" + itemTitle + "」"
+                    + (req.getMessage() != null ? "，留言：" + req.getMessage() : ""));
+        }
         notificationMapper.insert(notification);
 
         return toVO(claim);
@@ -157,6 +173,13 @@ public class ClaimServiceImpl implements ClaimService {
                     foundItemMapper.updateById(foundItem);
                 }
             }
+            // 级联拒绝同物品的其他待处理申请，保证数据一致
+            claimApplicationMapper.update(null, new UpdateWrapper<ClaimApplication>()
+                    .set("status", "REJECTED")
+                    .eq("item_type", claim.getItemType())
+                    .eq("item_id", claim.getItemId())
+                    .eq("status", "PENDING")
+                    .ne("id", claim.getId()));
             // Auto-create conversation
             String convId = "claim_" + claim.getId();
             messageService.systemMessage(convId, userId, claim.getApplicantId(),

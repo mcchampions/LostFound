@@ -33,7 +33,8 @@ public class DatabaseInitializer implements ApplicationRunner {
     private static final String[] SQL_SCRIPTS = {
             "db/init.sql",
             "db/migration_add_message.sql",
-            "db/migration_add_resolver_email.sql"
+            "db/migration_add_resolver_email.sql",
+            "db/migration_add_notification_related.sql"
     };
 
     private final JdbcTemplate jdbcTemplate;

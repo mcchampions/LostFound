@@ -42,8 +42,9 @@ public class UserController {
     public Result<List<Map<String, Object>>> search(@RequestParam String q) {
         var users = userMapper.selectList(
             new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<me.qscbm.projects.lostfound.entity.User>()
-                .like(me.qscbm.projects.lostfound.entity.User::getUsername, q).or()
-                .like(me.qscbm.projects.lostfound.entity.User::getRealName, q)
+                .eq(me.qscbm.projects.lostfound.entity.User::getStatus, "ACTIVE")
+                .and(w -> w.like(me.qscbm.projects.lostfound.entity.User::getUsername, q).or()
+                    .like(me.qscbm.projects.lostfound.entity.User::getRealName, q))
                 .last("LIMIT 10"));
         var list = users.stream().map(u -> {
             Map<String, Object> m = new LinkedHashMap<>();

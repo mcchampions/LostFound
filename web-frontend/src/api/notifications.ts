@@ -6,6 +6,8 @@ export interface NotificationVO {
   title: string;
   content: string;
   type: string;
+  relatedId?: number;
+  relatedType?: string;
   isRead: number;
   createdAt: string;
 }

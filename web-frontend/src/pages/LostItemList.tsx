@@ -5,7 +5,7 @@ import {
   InputLabel, Grid, Card, CardMedia, CardContent, CardActionArea, Chip,
   Pagination, CircularProgress, Alert, InputAdornment
 } from '@mui/material';
-import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Add as AddIcon, ImageOutlined as ImageIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../store/AuthContext';
 import { assetUrl } from '../config';
@@ -169,11 +169,21 @@ export default function LostItemList() {
                     onClick={() => navigate(`/lost-items/${item.id}`)}
                     sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
                   >
-                    <CardMedia
-                      component="img"
-                      image={item.coverImage ? assetUrl(item.coverImage) : ''}
-                      sx={{ height: 200, objectFit: 'cover', bgcolor: 'grey.200' }}
-                    />
+                    {item.coverImage ? (
+                      <CardMedia
+                        component="img"
+                        image={assetUrl(item.coverImage)}
+                        sx={{ aspectRatio: '16 / 9', width: '100%', objectFit: 'cover', bgcolor: 'grey.200', display: 'block' }}
+                      />
+                    ) : (
+                      <Box sx={{
+                        aspectRatio: '16 / 9', width: '100%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        bgcolor: 'grey.100'
+                      }}>
+                        <ImageIcon sx={{ fontSize: 48, color: 'grey.400' }} />
+                      </Box>
+                    )}
                     <CardContent sx={{ flex: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 'bold', flex: 1 }} noWrap>
