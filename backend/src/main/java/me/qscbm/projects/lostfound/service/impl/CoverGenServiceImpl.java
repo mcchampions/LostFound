@@ -46,6 +46,7 @@ public class CoverGenServiceImpl implements CoverGenService {
     private static final Set<String> ALLOWED_TEMPLATES = Set.of(
             "xhs-note", "xhs-note-green", "xhs-quote-blue", "xhs-date-note");
     private static final Set<String> ALLOWED_THEMES = Set.of("cream", "blue", "green");
+    private static final int MAX_CONTENT_CODE_POINTS = 72;
 
     public CoverGenServiceImpl(
             @Value("${app.postgen.enabled:true}") boolean enabled,
@@ -83,9 +84,13 @@ public class CoverGenServiceImpl implements CoverGenService {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("title", req.getTitle());
-            if (req.getSubtitle() != null && !req.getSubtitle().isBlank()) {
-                payload.put("subtitle", req.getSubtitle());
+            String content = truncateContent(req.getContent());
+            if (!content.isBlank()) {
+                payload.put("content", content);
             }
+            putIfNotBlank(payload, "category", req.getCategory());
+            putIfNotBlank(payload, "location", req.getLocation());
+            putIfNotBlank(payload, "date", req.getDate());
             payload.put("template", req.getTemplate());
             if (req.getTheme() != null && !req.getTheme().isBlank()) {
                 payload.put("theme", req.getTheme());
@@ -141,5 +146,24 @@ public class CoverGenServiceImpl implements CoverGenService {
             return v;
         });
         return window[1] <= rateLimitPerMinute;
+    }
+
+    private String truncateContent(String value) {
+        if (value == null) {
+            return "";
+        }
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        int count = normalized.codePointCount(0, normalized.length());
+        if (count <= MAX_CONTENT_CODE_POINTS) {
+            return normalized;
+        }
+        int endIndex = normalized.offsetByCodePoints(0, MAX_CONTENT_CODE_POINTS - 1);
+        return normalized.substring(0, endIndex) + "…";
+    }
+
+    private void putIfNotBlank(Map<String, Object> payload, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            payload.put(key, value.trim());
+        }
     }
 }

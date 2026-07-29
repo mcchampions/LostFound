@@ -19,6 +19,7 @@ import me.qscbm.projects.lostfound.mapper.LostItemMapper;
 import me.qscbm.projects.lostfound.mapper.NotificationMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.ClaimService;
+import me.qscbm.projects.lostfound.service.MailNotificationService;
 import me.qscbm.projects.lostfound.service.MessageService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +42,7 @@ public class ClaimServiceImpl implements ClaimService {
     private final UserMapper userMapper;
     private final NotificationMapper notificationMapper;
     private final MessageService messageService;
+    private final MailNotificationService mailNotificationService;
 
     @Override
     @Transactional
@@ -119,6 +121,10 @@ public class ClaimServiceImpl implements ClaimService {
                     + (req.getMessage() != null ? "，留言：" + req.getMessage() : ""));
         }
         notificationMapper.insert(notification);
+        mailNotificationService.notifyUserAfterCommit(
+                publisherId,
+                "校园失物招领 - " + notification.getTitle(),
+                notification.getContent());
 
         return toVO(claim);
     }
@@ -247,6 +253,10 @@ public class ClaimServiceImpl implements ClaimService {
         notification.setRelatedType(lostItemClaim ? "LOST_ITEM" : "FOUND_ITEM");
         notification.setIsRead(0);
         notificationMapper.insert(notification);
+        mailNotificationService.notifyUserAfterCommit(
+                claim.getApplicantId(),
+                "校园失物招领 - " + notification.getTitle(),
+                notification.getContent());
     }
 
     private ClaimVO toVO(ClaimApplication claim) {

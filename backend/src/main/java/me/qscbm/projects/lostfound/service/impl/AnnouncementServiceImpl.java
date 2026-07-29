@@ -8,6 +8,7 @@ import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.entity.Announcement;
 import me.qscbm.projects.lostfound.mapper.AnnouncementMapper;
 import me.qscbm.projects.lostfound.service.AnnouncementService;
+import me.qscbm.projects.lostfound.service.MailNotificationService;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 public class AnnouncementServiceImpl implements AnnouncementService {
 
     private final AnnouncementMapper announcementMapper;
+    private final MailNotificationService mailNotificationService;
 
     @Override
     public IPage<Announcement> list(int page, int size) {
@@ -30,6 +32,7 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         announcement.setTitle(title);
         announcement.setContent(content);
         announcementMapper.insert(announcement);
+        mailNotificationService.notifyAnnouncementAfterCommit(title, content);
         return announcement;
     }
 

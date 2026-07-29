@@ -2,7 +2,10 @@ import client from './client';
 
 export interface CoverGenParams {
   title: string;
-  subtitle?: string;
+  content?: string;
+  category?: string;
+  location?: string;
+  date?: string;
   template?: string;
   theme?: string;
 }

@@ -41,7 +41,8 @@ public class DatabaseInitializer implements ApplicationRunner {
             "db/migration_add_message.sql",
             "db/migration_add_resolver_email.sql",
             "db/migration_add_notification_related.sql",
-            "db/migration_performance_integrity.sql"
+            "db/migration_performance_integrity.sql",
+            "db/migration_email_reliability.sql"
     };
 
     private final JdbcTemplate jdbcTemplate;

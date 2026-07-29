@@ -16,12 +16,27 @@ CREATE TABLE IF NOT EXISTS `user` (
     `phone` VARCHAR(20) DEFAULT NULL,
     `avatar` VARCHAR(500) DEFAULT NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    `email_verified` TINYINT DEFAULT 0,
+    `notify_email` TINYINT DEFAULT 0,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_username` (`username`),
+    UNIQUE KEY `uk_user_email` (`email`),
     KEY `idx_role` (`role`),
     KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `email_verification_code` (
+    `user_id` BIGINT NOT NULL,
+    `email` VARCHAR(100) NOT NULL,
+    `code_hash` VARCHAR(255) NOT NULL,
+    `sent_at` BIGINT NOT NULL,
+    `expires_at` BIGINT NOT NULL,
+    `attempts` INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (`user_id`),
+    CONSTRAINT `fk_email_verification_user`
+        FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

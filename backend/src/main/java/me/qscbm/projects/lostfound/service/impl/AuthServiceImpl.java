@@ -3,6 +3,7 @@ package me.qscbm.projects.lostfound.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.common.EmailNormalizer;
 import me.qscbm.projects.lostfound.dto.*;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.enums.UserRole;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.springframework.dao.DuplicateKeyException;
 
 @Slf4j
 @Service
@@ -30,12 +32,17 @@ public class AuthServiceImpl implements AuthService {
                 new LambdaQueryWrapper<User>()
                         .eq(User::getUsername, req.getUsername()));
         if (exists) throw new BusinessException("用户名已存在");
+        String email = EmailNormalizer.normalize(req.getEmail());
+        if (email != null && userMapper.exists(
+                new LambdaQueryWrapper<User>().eq(User::getEmail, email))) {
+            throw new BusinessException("该邮箱已被其他账号使用");
+        }
 
         User user = new User();
         user.setUsername(req.getUsername());
         user.setPassword(passwordEncoder.encode(req.getPassword()));
         user.setRealName(req.getRealName());
-        user.setEmail(req.getEmail());
+        user.setEmail(email);
         user.setPhone(req.getPhone());
 
         UserRole role;
@@ -54,7 +61,11 @@ public class AuthServiceImpl implements AuthService {
         } else {
             user.setStatus(UserStatus.PENDING.getValue());
         }
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException("用户名或邮箱已存在");
+        }
         return toVO(user);
     }
 

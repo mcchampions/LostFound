@@ -3,12 +3,17 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
   Box, Typography, CircularProgress, Alert, MenuItem, Select, FormControl, InputLabel
 } from '@mui/material';
+import { ContentPaste as ContentPasteIcon } from '@mui/icons-material';
 import { generateCover } from '../api/cover';
 import { assetUrl } from '../config';
 
 interface Props {
   open: boolean;
   initialTitle?: string;
+  initialContent?: string;
+  initialCategory?: string;
+  initialLocation?: string;
+  initialDate?: string;
   onClose: () => void;
   onGenerated: (url: string) => void;
 }
@@ -26,9 +31,36 @@ const THEMES = [
   { value: 'green', label: '绿色' },
 ];
 
-export default function TextCoverDialog({ open, initialTitle, onClose, onGenerated }: Props) {
+const MAX_CONTENT_LENGTH = 72;
+
+const truncateContent = (value: string) => {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return Array.from(normalized).length > MAX_CONTENT_LENGTH
+    ? `${Array.from(normalized).slice(0, MAX_CONTENT_LENGTH - 1).join('')}…`
+    : normalized;
+};
+
+const formatCoverDate = (value?: string) => {
+  const date = value?.trim() ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return value || '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export default function TextCoverDialog({
+  open,
+  initialTitle,
+  initialContent,
+  initialCategory,
+  initialLocation,
+  initialDate,
+  onClose,
+  onGenerated,
+}: Props) {
   const [title, setTitle] = useState('');
-  const [subtitle, setSubtitle] = useState('');
+  const [content, setContent] = useState('');
   const [template, setTemplate] = useState('xhs-note');
   const [theme, setTheme] = useState('cream');
   const [loading, setLoading] = useState(false);
@@ -36,8 +68,11 @@ export default function TextCoverDialog({ open, initialTitle, onClose, onGenerat
   const [previewUrl, setPreviewUrl] = useState('');
 
   useEffect(() => {
-    if (open && initialTitle) {
-      setTitle(initialTitle);
+    if (open) {
+      setTitle(initialTitle || '');
+      setContent('');
+      setPreviewUrl('');
+      setError('');
     }
   }, [open, initialTitle]);
 
@@ -50,9 +85,14 @@ export default function TextCoverDialog({ open, initialTitle, onClose, onGenerat
     setError('');
     setPreviewUrl('');
     try {
+      const renderedContent = truncateContent(content);
+      setContent(renderedContent);
       const res = await generateCover({
         title: title.trim(),
-        subtitle: subtitle.trim() || undefined,
+        content: renderedContent || undefined,
+        category: initialCategory?.trim() || undefined,
+        location: initialLocation?.trim() || undefined,
+        date: formatCoverDate(initialDate),
         template,
         theme,
       });
@@ -87,11 +127,23 @@ export default function TextCoverDialog({ open, initialTitle, onClose, onGenerat
         />
         <TextField
           fullWidth margin="normal"
-          label="副标题（可选）"
-          value={subtitle}
-          onChange={e => setSubtitle(e.target.value)}
-          placeholder="输入副标题"
+          label="正文（可选）"
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          placeholder="输入需要显示在封面上的正文"
+          helperText={`生成时最多保留 ${MAX_CONTENT_LENGTH} 个字符，超出部分自动以省略号结尾`}
+          multiline
+          minRows={3}
+          maxRows={5}
         />
+        <Button
+          size="small"
+          startIcon={<ContentPasteIcon />}
+          onClick={() => setContent(truncateContent(initialContent || ''))}
+          disabled={!initialContent?.trim()}
+        >
+          填入原文
+        </Button>
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
           <FormControl size="small" sx={{ minWidth: 140 }}>
             <InputLabel>模板</InputLabel>
@@ -115,7 +167,7 @@ export default function TextCoverDialog({ open, initialTitle, onClose, onGenerat
           <Box sx={{ mt: 2 }}>
             <Typography variant="caption" color="text.secondary">预览效果：</Typography>
             <Box sx={{ width: '100%', aspectRatio: '16 / 9', borderRadius: 1, overflow: 'hidden', mt: 0.5, border: 1, borderColor: 'divider' }}>
-              <Box component="img" src={assetUrl(previewUrl)} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <Box component="img" src={assetUrl(previewUrl)} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </Box>
           </Box>
         )}

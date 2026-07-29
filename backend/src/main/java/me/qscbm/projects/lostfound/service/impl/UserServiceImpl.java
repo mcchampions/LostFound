@@ -4,22 +4,26 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.common.EmailNormalizer;
 import me.qscbm.projects.lostfound.dto.UpdateProfileRequest;
 import me.qscbm.projects.lostfound.dto.UserVO;
+import me.qscbm.projects.lostfound.entity.EmailVerificationCode;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.enums.UserStatus;
+import me.qscbm.projects.lostfound.mapper.EmailVerificationCodeMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
 @Service
@@ -27,28 +31,35 @@ public class UserServiceImpl implements UserService {
 
     private static final long VERIFY_CODE_TTL_MS = 5 * 60 * 1000L;
     private static final long VERIFY_CODE_SEND_INTERVAL_MS = 60 * 1000L;
+    private static final int VERIFY_CODE_MAX_ATTEMPTS = 5;
 
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JavaMailSender mailSender;
+    private final EmailVerificationCodeMapper verificationCodeMapper;
     private final SecureRandom secureRandom = new SecureRandom();
-    private final Map<Long, VerificationCode> verifyCodes = new ConcurrentHashMap<>();
     private final LongSupplier currentTimeMillis;
+
+    @Value("${spring.mail.username:}")
+    private String mailFrom;
 
     @Autowired
     public UserServiceImpl(UserMapper userMapper,
                            PasswordEncoder passwordEncoder,
-                           JavaMailSender mailSender) {
-        this(userMapper, passwordEncoder, mailSender, System::currentTimeMillis);
+                           JavaMailSender mailSender,
+                           EmailVerificationCodeMapper verificationCodeMapper) {
+        this(userMapper, passwordEncoder, mailSender, verificationCodeMapper, System::currentTimeMillis);
     }
 
     UserServiceImpl(UserMapper userMapper,
                     PasswordEncoder passwordEncoder,
                     JavaMailSender mailSender,
+                    EmailVerificationCodeMapper verificationCodeMapper,
                     LongSupplier currentTimeMillis) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.mailSender = mailSender;
+        this.verificationCodeMapper = verificationCodeMapper;
         this.currentTimeMillis = currentTimeMillis;
     }
 
@@ -65,17 +76,27 @@ public class UserServiceImpl implements UserService {
         if (user == null) throw new BusinessException("用户不存在");
         if (req.getRealName() != null) user.setRealName(req.getRealName());
         if (req.getEmail() != null) {
-            String newEmail = req.getEmail().isBlank() ? null : req.getEmail().trim();
+            String newEmail = EmailNormalizer.normalize(req.getEmail());
             if (!Objects.equals(user.getEmail(), newEmail)) {
+                if (newEmail != null && userMapper.exists(
+                        new LambdaQueryWrapper<User>()
+                                .eq(User::getEmail, newEmail)
+                                .ne(User::getId, userId))) {
+                    throw new BusinessException("该邮箱已被其他账号使用");
+                }
                 user.setEmailVerified(0);
                 user.setNotifyEmail(0);
-                verifyCodes.remove(userId);
+                verificationCodeMapper.deleteById(userId);
             }
             user.setEmail(newEmail);
         }
         if (req.getPhone() != null) user.setPhone(req.getPhone());
         if (req.getAvatar() != null) user.setAvatar(req.getAvatar());
-        userMapper.updateById(user);
+        try {
+            userMapper.updateById(user);
+        } catch (DuplicateKeyException e) {
+            throw new BusinessException("该邮箱已被其他账号使用");
+        }
         return toVO(user);
     }
 
@@ -117,6 +138,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void sendVerifyCode(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
@@ -124,50 +146,82 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("请先设置邮箱");
         }
         long now = currentTimeMillis.getAsLong();
-        VerificationCode verificationCode = verifyCodes.compute(userId, (id, existing) -> {
-            if (existing != null && now - existing.sentAt() < VERIFY_CODE_SEND_INTERVAL_MS) {
-                long waitSeconds =
-                        (VERIFY_CODE_SEND_INTERVAL_MS - (now - existing.sentAt()) + 999) / 1000;
-                throw new BusinessException("验证码发送过于频繁，请 " + waitSeconds + " 秒后再试");
+        String code = String.format("%06d", secureRandom.nextInt(1000000));
+        EmailVerificationCode verificationCode = new EmailVerificationCode();
+        verificationCode.setUserId(userId);
+        verificationCode.setEmail(user.getEmail());
+        verificationCode.setCodeHash(passwordEncoder.encode(code));
+        verificationCode.setSentAt(now);
+        verificationCode.setExpiresAt(now + VERIFY_CODE_TTL_MS);
+        verificationCode.setAttempts(0);
+
+        int updated = verificationCodeMapper.updateIfCooldown(
+                verificationCode, now - VERIFY_CODE_SEND_INTERVAL_MS);
+        if (updated == 0) {
+            try {
+                verificationCodeMapper.insert(verificationCode);
+            } catch (DuplicateKeyException e) {
+                throw new BusinessException("验证码发送过于频繁，请稍后再试");
             }
-            String code = String.format("%06d", secureRandom.nextInt(1000000));
-            return new VerificationCode(code, user.getEmail(), now, now + VERIFY_CODE_TTL_MS);
-        });
+        }
         try {
             SimpleMailMessage msg = new SimpleMailMessage();
+            if (mailFrom != null && !mailFrom.isBlank()) {
+                msg.setFrom(mailFrom);
+            }
             msg.setTo(user.getEmail());
             msg.setSubject("校园失物招领 - 邮箱验证码");
-            msg.setText("您的验证码是：" + verificationCode.code() + "，5分钟内有效。");
+            msg.setText("您的验证码是：" + code + "，5分钟内有效。");
             mailSender.send(msg);
         } catch (Exception e) {
-            verifyCodes.remove(userId, verificationCode);
+            verificationCodeMapper.deleteMatching(userId, verificationCode.getCodeHash());
             throw new BusinessException("验证码发送失败，请检查邮箱配置");
         }
     }
 
     @Override
+    @Transactional
     public void verifyEmail(Long userId, String code) {
         if (code == null || code.isBlank()) throw new BusinessException("验证码不能为空");
-        VerificationCode expected = verifyCodes.get(userId);
+        EmailVerificationCode expected = verificationCodeMapper.selectById(userId);
         if (expected == null) {
             throw new BusinessException("验证码错误或已过期");
         }
-        if (currentTimeMillis.getAsLong() > expected.expiresAt()) {
-            verifyCodes.remove(userId);
+        if (currentTimeMillis.getAsLong() > expected.getExpiresAt()) {
+            verificationCodeMapper.deleteById(userId);
             throw new BusinessException("验证码错误或已过期");
+        }
+        int attempts = expected.getAttempts() == null ? 0 : expected.getAttempts();
+        if (attempts >= VERIFY_CODE_MAX_ATTEMPTS) {
+            verificationCodeMapper.deleteById(userId);
+            throw new BusinessException("验证码错误次数过多，请重新发送");
         }
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
-        if (!Objects.equals(user.getEmail(), expected.email())) {
-            verifyCodes.remove(userId);
+        if (!Objects.equals(user.getEmail(), expected.getEmail())) {
+            verificationCodeMapper.deleteById(userId);
             throw new BusinessException("邮箱已变更，请重新发送验证码");
         }
-        if (!expected.code().equals(code.trim())) {
-            throw new BusinessException("验证码错误或已过期");
+        if (userMapper.exists(
+                new LambdaQueryWrapper<User>()
+                        .eq(User::getEmail, user.getEmail())
+                        .eq(User::getEmailVerified, 1)
+                        .ne(User::getId, userId))) {
+            verificationCodeMapper.deleteById(userId);
+            throw new BusinessException("该邮箱已被其他账号验证");
+        }
+        if (!passwordEncoder.matches(code.trim(), expected.getCodeHash())) {
+            verificationCodeMapper.incrementAttempts(userId, VERIFY_CODE_MAX_ATTEMPTS);
+            int remaining = VERIFY_CODE_MAX_ATTEMPTS - attempts - 1;
+            if (remaining <= 0) {
+                verificationCodeMapper.deleteById(userId);
+                throw new BusinessException("验证码错误次数过多，请重新发送");
+            }
+            throw new BusinessException("验证码错误，还可尝试 " + remaining + " 次");
         }
         user.setEmailVerified(1);
         userMapper.updateById(user);
-        verifyCodes.remove(userId);
+        verificationCodeMapper.deleteById(userId);
     }
 
     private UserVO toVO(User user) {
@@ -177,8 +231,5 @@ public class UserServiceImpl implements UserService {
                 .email(user.getEmail()).phone(user.getPhone())
                 .avatar(user.getAvatar())
                 .status(user.getStatus()).build();
-    }
-
-    private record VerificationCode(String code, String email, long sentAt, long expiresAt) {
     }
 }

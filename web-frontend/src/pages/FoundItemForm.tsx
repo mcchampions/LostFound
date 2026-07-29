@@ -218,7 +218,9 @@ export default function FoundItemForm() {
             <ImageCropDialog open={cropOpen} imageUrl={assetUrl(coverImage)}
               aspect={16 / 9}
               onClose={() => setCropOpen(false)} onCropped={setCoverImage} />
-            <TextCoverDialog open={textCoverOpen} initialTitle={title}
+            <TextCoverDialog open={textCoverOpen} initialTitle={title} initialContent={description}
+              initialCategory={categories.find(category => category.id === categoryId)?.name}
+              initialLocation={locationVal} initialDate={foundTime}
               onClose={() => setTextCoverOpen(false)} onGenerated={setCoverImage} />
           </Box>
 

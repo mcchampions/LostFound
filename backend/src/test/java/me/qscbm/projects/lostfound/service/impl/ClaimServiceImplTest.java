@@ -11,6 +11,7 @@ import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
 import me.qscbm.projects.lostfound.mapper.NotificationMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
+import me.qscbm.projects.lostfound.service.MailNotificationService;
 import me.qscbm.projects.lostfound.service.MessageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ class ClaimServiceImplTest {
     private UserMapper userMapper;
     private NotificationMapper notificationMapper;
     private MessageService messageService;
+    private MailNotificationService mailNotificationService;
     private ClaimServiceImpl service;
 
     @BeforeEach
@@ -38,13 +40,15 @@ class ClaimServiceImplTest {
         userMapper = mock(UserMapper.class);
         notificationMapper = mock(NotificationMapper.class);
         messageService = mock(MessageService.class);
+        mailNotificationService = mock(MailNotificationService.class);
         service = new ClaimServiceImpl(
                 claimMapper,
                 lostItemMapper,
                 foundItemMapper,
                 userMapper,
                 notificationMapper,
-                messageService
+                messageService,
+                mailNotificationService
         );
     }
 
@@ -102,6 +106,10 @@ class ClaimServiceImplTest {
                         && notification.getTitle().contains("已通过")
                         && notification.getContent().contains("认领申请")
                         && notification.getIsRead() == 0));
+        verify(mailNotificationService).notifyUserAfterCommit(
+                eq(2L),
+                contains("已通过"),
+                contains("认领申请"));
     }
 
     @Test
