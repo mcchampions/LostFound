@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -83,6 +85,40 @@ class MessageServiceImplTest {
         verify(messageMapper, times(2)).selectCount(any());
     }
 
+    @Test
+    void systemMessageUsesTheStableDirectConversationId() {
+        doAnswer(invocation -> {
+            Message message = invocation.getArgument(0);
+            message.setId(12L);
+            message.setCreatedAt(LocalDateTime.now());
+            return 1;
+        }).when(messageMapper).insert(any(Message.class));
+
+        service.systemMessage("claim_9", 2L, 1L, "approved");
+
+        verify(messageMapper).insert(argThat(message -> "1_2".equals(message.getConversationId())));
+        verify(messagingTemplate).convertAndSendToUser(eq("1"), eq("/queue/messages"), any(MessageVO.class));
+    }
+
+    @Test
+    void conversationListMergesMultipleThreadsWithTheSamePerson() {
+        LocalDateTime older = LocalDateTime.of(2026, 7, 29, 10, 0);
+        LocalDateTime newer = older.plusMinutes(5);
+        when(messageMapper.selectMaps(any())).thenReturn(List.of(
+                Map.of("conversationId", "claim_9", "latestId", 9L, "unreadCount", 1L),
+                Map.of("conversationId", "1_2", "latestId", 10L, "unreadCount", 2L)));
+        Message oldMessage = message(9L, "claim_9", 2L, 1L, older);
+        Message newMessage = message(10L, "1_2", 1L, 2L, newer);
+        when(messageMapper.selectBatchIds(any())).thenReturn(List.of(oldMessage, newMessage));
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of(user(2L, "Receiver")));
+
+        var conversations = service.getConversations(1L);
+
+        assertThat(conversations).hasSize(1);
+        assertThat(conversations.get(0).getConversationId()).isEqualTo("1_2");
+        assertThat(conversations.get(0).getUnreadCount()).isEqualTo(3);
+    }
+
     private MessageRequest request(String conversationId, Long receiverId, String content) {
         MessageRequest request = new MessageRequest();
         request.setConversationId(conversationId);
@@ -97,5 +133,17 @@ class MessageServiceImplTest {
         user.setRealName(realName);
         user.setStatus("ACTIVE");
         return user;
+    }
+
+    private Message message(Long id, String conversationId, Long senderId, Long receiverId, LocalDateTime createdAt) {
+        Message message = new Message();
+        message.setId(id);
+        message.setConversationId(conversationId);
+        message.setSenderId(senderId);
+        message.setReceiverId(receiverId);
+        message.setContent("message");
+        message.setIsRead(0);
+        message.setCreatedAt(createdAt);
+        return message;
     }
 }

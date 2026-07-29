@@ -46,7 +46,7 @@ public class CoverGenServiceImpl implements CoverGenService {
     private static final Set<String> ALLOWED_TEMPLATES = Set.of(
             "xhs-note", "xhs-note-green", "xhs-quote-blue", "xhs-date-note");
     private static final Set<String> ALLOWED_THEMES = Set.of("cream", "blue", "green");
-    private static final int MAX_CONTENT_CODE_POINTS = 72;
+    private static final int MAX_CONTENT_CODE_POINTS = 144;
 
     public CoverGenServiceImpl(
             @Value("${app.postgen.enabled:true}") boolean enabled,
@@ -78,7 +78,8 @@ public class CoverGenServiceImpl implements CoverGenService {
             throw new BusinessException("不支持的主题配色: " + req.getTheme());
         }
         if (!tryAcquire(userId)) {
-            throw new BusinessException("操作过于频繁，请稍后再试（每分钟限" + rateLimitPerMinute + "次）");
+            throw new BusinessException(429,
+                    "已达到封面生成速率限制，请稍后再试（每分钟最多" + rateLimitPerMinute + "次）");
         }
 
         try {
@@ -152,7 +153,7 @@ public class CoverGenServiceImpl implements CoverGenService {
         if (value == null) {
             return "";
         }
-        String normalized = value.replaceAll("\\s+", " ").trim();
+        String normalized = value.replace("\r\n", "\n").replace('\r', '\n').trim();
         int count = normalized.codePointCount(0, normalized.length());
         if (count <= MAX_CONTENT_CODE_POINTS) {
             return normalized;

@@ -31,13 +31,24 @@ const THEMES = [
   { value: 'green', label: '绿色' },
 ];
 
-const MAX_CONTENT_LENGTH = 72;
+const MAX_CONTENT_LENGTH = 144;
 
 const truncateContent = (value: string) => {
-  const normalized = value.replace(/\s+/g, ' ').trim();
+  const normalized = value.replace(/\r\n?/g, '\n').trim();
   return Array.from(normalized).length > MAX_CONTENT_LENGTH
     ? `${Array.from(normalized).slice(0, MAX_CONTENT_LENGTH - 1).join('')}…`
     : normalized;
+};
+
+const coverErrorMessage = (error: unknown) => {
+  const response = (error as {
+    response?: { status?: number; data?: { code?: number; message?: string } }
+  })?.response;
+  const message = response?.data?.message;
+  if (response?.status === 429 || response?.data?.code === 429) {
+    return message || '已达到封面生成速率限制，请稍后再试';
+  }
+  return message || '生成失败，请重试';
 };
 
 const formatCoverDate = (value?: string) => {
@@ -97,8 +108,8 @@ export default function TextCoverDialog({
         theme,
       });
       setPreviewUrl(res.url);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '生成失败，请重试');
+    } catch (err: unknown) {
+      setError(coverErrorMessage(err));
     } finally {
       setLoading(false);
     }

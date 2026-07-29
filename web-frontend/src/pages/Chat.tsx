@@ -10,7 +10,7 @@ import SockJS from 'sockjs-client';
 import { useAuth } from '../store/AuthContext';
 import { getConversations, getMessages, sendMessage as sendMsg, markConversationRead } from '../api/chat';
 import type { ConversationVO, MessageVO } from '../api/chat';
-import { WS_ENDPOINT } from '../config';
+import { assetUrl, WS_ENDPOINT } from '../config';
 
 export default function Chat() {
   const { user } = useAuth();
@@ -138,7 +138,7 @@ export default function Chat() {
           <CircularProgress sx={{ m: 3, alignSelf: 'center' }} />
         ) : (
           <List sx={{ flex: 1, overflow: 'auto' }}>
-            {conversations.length === 0 ? (
+            {displayConversations.length === 0 ? (
               <Typography sx={{ p: 3, color: 'text.secondary', textAlign: 'center' }}>
                 暂无对话
               </Typography>
@@ -149,7 +149,7 @@ export default function Chat() {
               >
                 <ListItemAvatar>
                   <Badge color="error" variant="dot" invisible={c.unreadCount === 0}>
-                    <Avatar src={c.otherUserAvatar || undefined}>
+                    <Avatar src={assetUrl(c.otherUserAvatar || '') || undefined}>
                       {c.otherUserName?.charAt(0) || '?'}
                     </Avatar>
                   </Badge>

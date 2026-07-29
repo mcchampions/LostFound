@@ -25,7 +25,7 @@ const TEMPLATE_HEIGHT = 1440;
 const OUTPUT_WIDTH = 1280;
 const OUTPUT_HEIGHT = 720;
 const VISUAL_WIDTH = 760;
-const MAX_CONTENT_LENGTH = 72;
+const MAX_CONTENT_LENGTH = 144;
 const MAX_REQUEST_SIZE = 64 * 1024;
 const fontDataPromise = Promise.all([
   readFile(FONT_REG),
@@ -36,10 +36,10 @@ const ALLOWED_TEMPLATES = new Set(['xhs-note', 'xhs-note-green', 'xhs-quote-blue
 const ALLOWED_THEMES = new Set(['cream', 'blue', 'green']);
 
 function truncateContent(value) {
-  const normalized = String(value ?? '').replace(/\s+/g, ' ').trim();
+  const normalized = String(value ?? '').replace(/\r\n?/g, '\n').trim();
   const characters = Array.from(normalized);
   return characters.length > MAX_CONTENT_LENGTH
-    ? `${characters.slice(0, MAX_CONTENT_LENGTH - 1).join('')}…`
+    ? `${characters.slice(0, MAX_CONTENT_LENGTH - 1).join('')}\u2026`
     : normalized;
 }
 
@@ -86,10 +86,9 @@ function resolvePalette(template, theme) {
   return { background: '#F7F2E8', accent: '#E0B54B', muted: '#756D5D' };
 }
 
-async function composeHorizontalCover(png, content, metadata, template, theme) {
+async function composeHorizontalCover(png, metadata, template, theme) {
   const [fontRegular, fontBold] = await fontDataPromise;
   const palette = resolvePalette(template, theme);
-  const leftLines = content ? wrapContent(content, 18) : [];
   const metadataRows = [
     { label: '类别', value: truncateMetadata(metadata.category) || '未填写' },
     { label: '地点', value: truncateMetadata(metadata.location) || '未填写' },
@@ -114,59 +113,6 @@ async function composeHorizontalCover(png, content, metadata, template, theme) {
         color: '#202020',
       },
     },
-    content && leftLines.length > 0
-      ? React.createElement(
-        'div',
-        {
-          style: {
-            position: 'absolute',
-            left: 64,
-            bottom: 44,
-            width: 632,
-            display: 'flex',
-            flexDirection: 'column',
-            padding: '20px 26px 22px',
-            borderRadius: 18,
-            background: 'rgba(255,255,255,0.9)',
-            border: `2px solid ${palette.accent}`,
-          },
-        },
-        React.createElement(
-          'div',
-          {
-            style: {
-              display: 'flex',
-              marginBottom: 10,
-              fontSize: 21,
-              fontWeight: 800,
-              color: palette.muted,
-            },
-          },
-          '正文',
-        ),
-        React.createElement(
-          'div',
-          {
-            style: {
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-              fontSize: 28,
-              lineHeight: 1.32,
-              fontWeight: 400,
-            },
-          },
-          ...leftLines.map((line, index) => React.createElement('div', {
-            key: index,
-            style: {
-              display: 'flex',
-              whiteSpace: 'nowrap',
-              flexWrap: 'nowrap',
-            },
-          }, line)),
-        ),
-      )
-      : null,
     React.createElement(
       'div',
       {
@@ -366,8 +312,9 @@ const server = http.createServer(async (req, res) => {
   const pngPath = join(WORK_DIR, `${id}.png`);
 
   const data = { title };
-  if (theme) data.theme = theme;
   const renderedContent = truncateContent(content);
+  if (renderedContent) data.subtitle = renderedContent;
+  if (theme) data.theme = theme;
 
   try {
     await writeFile(jsonPath, JSON.stringify(data));
@@ -385,7 +332,6 @@ const server = http.createServer(async (req, res) => {
 
     const png = await composeHorizontalCover(
       await readFile(pngPath),
-      renderedContent,
       { category, location, date },
       template,
       theme,

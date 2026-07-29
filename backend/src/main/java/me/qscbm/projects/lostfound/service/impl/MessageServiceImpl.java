@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -132,7 +133,22 @@ public class MessageServiceImpl implements MessageService {
                     .unreadCount(number(summary, "unreadCount").intValue())
                     .build());
         }
-        return result;
+        // A user can have both an old claim conversation and a direct conversation
+        // with the same person. Keep one row per person and retain the unread total.
+        Map<Long, ConversationVO> uniqueByOtherUser = new LinkedHashMap<>();
+        for (ConversationVO conversation : result) {
+            ConversationVO previous = uniqueByOtherUser.get(conversation.getOtherUserId());
+            if (previous == null) {
+                uniqueByOtherUser.put(conversation.getOtherUserId(), conversation);
+                continue;
+            }
+            int unreadTotal = previous.getUnreadCount() + conversation.getUnreadCount();
+            ConversationVO latest = isAfter(conversation.getLastMessageTime(), previous.getLastMessageTime())
+                    ? conversation : previous;
+            latest.setUnreadCount(unreadTotal);
+            uniqueByOtherUser.put(conversation.getOtherUserId(), latest);
+        }
+        return new ArrayList<>(uniqueByOtherUser.values());
     }
 
     @Override
@@ -164,7 +180,8 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public void systemMessage(String conversationId, Long senderId, Long receiverId, String content) {
         Message msg = new Message();
-        msg.setConversationId(conversationId);
+        // System messages belong to the same direct thread as normal messages.
+        msg.setConversationId(directConversationId(senderId, receiverId));
         msg.setSenderId(senderId);
         msg.setReceiverId(receiverId);
         msg.setContent(content);
@@ -207,6 +224,10 @@ public class MessageServiceImpl implements MessageService {
         long a = Math.min(userId1, userId2);
         long b = Math.max(userId1, userId2);
         return a + "_" + b;
+    }
+
+    private boolean isAfter(java.time.LocalDateTime candidate, java.time.LocalDateTime reference) {
+        return candidate != null && (reference == null || candidate.isAfter(reference));
     }
 
     private MessageVO toVO(Message msg) {

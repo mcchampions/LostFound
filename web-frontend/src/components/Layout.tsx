@@ -18,6 +18,7 @@ import { useAuth } from '../store/AuthContext';
 import { getUnreadCount, getNotifications, markRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
+import { assetUrl } from '../config';
 
 const DRAWER_WIDTH = 240;
 
@@ -232,7 +233,7 @@ export default function Layout() {
           {user ? (
             <>
               <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
-                <Avatar src={user?.avatar || undefined} sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                <Avatar src={assetUrl(user?.avatar || '') || undefined} sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
                   {user.realName?.charAt(0) || user.username.charAt(0)}
                 </Avatar>
               </IconButton>
