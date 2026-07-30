@@ -6,6 +6,7 @@ import me.qscbm.projects.lostfound.dto.MessageVO;
 import me.qscbm.projects.lostfound.entity.Message;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
+import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ class MessageServiceImplTest {
 
     private MessageMapper messageMapper;
     private UserMapper userMapper;
+    private UserEmailPreferenceMapper emailPreferenceMapper;
     private SimpMessagingTemplate messagingTemplate;
     private MessageServiceImpl service;
 
@@ -31,8 +33,9 @@ class MessageServiceImplTest {
     void setUp() {
         messageMapper = mock(MessageMapper.class);
         userMapper = mock(UserMapper.class);
+        emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
         messagingTemplate = mock(SimpMessagingTemplate.class);
-        service = new MessageServiceImpl(messageMapper, userMapper, messagingTemplate);
+        service = new MessageServiceImpl(messageMapper, userMapper, emailPreferenceMapper, messagingTemplate);
     }
 
     @Test

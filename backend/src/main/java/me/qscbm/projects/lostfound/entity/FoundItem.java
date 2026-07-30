@@ -16,6 +16,7 @@ public class FoundItem {
     private Long categoryId;
     private String location;
     private LocalDateTime foundTime;
+    private LocalDateTime foundTimeEnd;
     private String imageUrls;
     private String coverImage;
     private String status;

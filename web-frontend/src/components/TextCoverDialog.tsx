@@ -14,6 +14,7 @@ interface Props {
   initialCategory?: string;
   initialLocation?: string;
   initialDate?: string;
+  initialDateEnd?: string;
   onClose: () => void;
   onGenerated: (url: string) => void;
 }
@@ -51,13 +52,23 @@ const coverErrorMessage = (error: unknown) => {
   return message || '生成失败，请重试';
 };
 
-const formatCoverDate = (value?: string) => {
-  const date = value?.trim() ? new Date(value) : new Date();
-  if (Number.isNaN(date.getTime())) return value || '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+const formatCoverDate = (start?: string, end?: string) => {
+  const startDate = start?.trim() ? new Date(start) : new Date();
+  if (Number.isNaN(startDate.getTime())) return start || '';
+  const fmt = (d: Date) => {
+    const M = String(d.getMonth() + 1).padStart(2, '0');
+    const D = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${M}-${D} ${h}:${m}`;
+  };
+  if (!end?.trim()) return fmt(startDate);
+  const endDate = new Date(end);
+  if (Number.isNaN(endDate.getTime())) return fmt(startDate);
+  const sameDay = startDate.toDateString() === endDate.toDateString();
+  return sameDay
+    ? `${fmt(startDate)}~${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+    : `${fmt(startDate)} ~ ${fmt(endDate)}`;
 };
 
 export default function TextCoverDialog({
@@ -67,6 +78,7 @@ export default function TextCoverDialog({
   initialCategory,
   initialLocation,
   initialDate,
+  initialDateEnd,
   onClose,
   onGenerated,
 }: Props) {
@@ -103,7 +115,7 @@ export default function TextCoverDialog({
         content: renderedContent || undefined,
         category: initialCategory?.trim() || undefined,
         location: initialLocation?.trim() || undefined,
-        date: formatCoverDate(initialDate),
+        date: formatCoverDate(initialDate, initialDateEnd),
         template,
         theme,
       });

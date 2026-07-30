@@ -10,6 +10,7 @@ export interface FoundItemVO {
   categoryName: string;
   location: string;
   foundTime: string;
+  foundTimeEnd?: string;
   imageUrls: string[];
   status: string;
   resolvedBy?: number;

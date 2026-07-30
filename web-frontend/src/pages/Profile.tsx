@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Paper, Avatar, Chip, TextField,
-  Alert, Divider, Grid, MenuItem, Select, FormControl, Switch, FormControlLabel
+  Alert, Divider, Grid, MenuItem, Select, FormControl, FormControlLabel, Checkbox
 } from '@mui/material';
 import { Edit as EditIcon, ListAlt as ListIcon } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
@@ -41,8 +41,14 @@ export default function Profile() {
   const [verifyCode, setVerifyCode] = useState('');
   const [sendingCode, setSendingCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [notifyEmail, setNotifyEmail] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [emailPrefs, setEmailPrefs] = useState({
+    claim_request: false,
+    claim_result: false,
+    announcement: false,
+    message: false,
+    system: true,
+  });
 
   useEffect(() => {
     if (user) {
@@ -50,9 +56,16 @@ export default function Profile() {
       setEmail(user.email || '');
       setPhone(user.phone || '');
       setNewAvatarUrl(user.avatar || '');
-      client.get('/users/me/preferences').then(r => {
-        setNotifyEmail(r.data.data?.notifyEmail || false);
-        setEmailVerified(r.data.data?.emailVerified || false);
+      client.get('/users/me/email-preferences').then(r => {
+        const d = r.data.data || {};
+        setEmailVerified(d.emailVerified || false);
+        setEmailPrefs({
+          claim_request: d.claim_request || false,
+          claim_result: d.claim_result || false,
+          announcement: d.announcement || false,
+          message: d.message || false,
+          system: true,
+        });
       }).catch(() => {});
     }
   }, [user]);
@@ -162,10 +175,14 @@ export default function Profile() {
     finally { setVerifying(false); }
   };
 
-  const handleNotifyToggle = async (val: boolean) => {
-    setNotifyEmail(val);
-    try { await client.put('/users/me/preferences', { notifyEmail: val }); }
-    catch { setNotifyEmail(!val); }
+  const handlePrefChange = async (key: string, val: boolean) => {
+    setEmailPrefs(prev => ({ ...prev, [key]: val }));
+    try {
+      await client.put('/users/me/email-preferences', { [key]: val });
+    } catch (err: any) {
+      setEmailPrefs(prev => ({ ...prev, [key]: !val }));
+      setError(err.response?.data?.message || '更新失败');
+    }
   };
 
   const getRoleChip = (role: string) => {
@@ -335,12 +352,39 @@ export default function Profile() {
       </Paper>
 
       <Paper sx={{ p: 3, maxWidth: 600, mb: 4 }}>
-        <Typography variant="h6" gutterBottom>通知设置</Typography>
+        <Typography variant="h6" gutterBottom>邮件提醒设置</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          选择您希望接收邮件提醒的内容（系统邮件不可关闭）
+        </Typography>
+        {!emailVerified && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            请先验证邮箱后才能开启邮件提醒
+          </Alert>
+        )}
         <FormControlLabel
-          control={<Switch checked={notifyEmail} onChange={e => handleNotifyToggle(e.target.checked)} />}
-          label="接收邮件通知（认领进度、系统公告等）"
+          control={<Checkbox checked={emailPrefs.claim_request} disabled={!emailVerified}
+            onChange={e => handlePrefChange('claim_request', e.target.checked)} />}
+          label="有人提交认领申请或失物线索"
         />
-        {!emailVerified && <Typography variant="caption" color="text.secondary">需先验证邮箱才能接收邮件通知</Typography>}
+        <FormControlLabel
+          control={<Checkbox checked={emailPrefs.claim_result} disabled={!emailVerified}
+            onChange={e => handlePrefChange('claim_result', e.target.checked)} />}
+          label="自己提交的申请被通过或拒绝"
+        />
+        <FormControlLabel
+          control={<Checkbox checked={emailPrefs.announcement} disabled={!emailVerified}
+            onChange={e => handlePrefChange('announcement', e.target.checked)} />}
+          label="系统发布新公告"
+        />
+        <FormControlLabel
+          control={<Checkbox checked={emailPrefs.message} disabled={!emailVerified}
+            onChange={e => handlePrefChange('message', e.target.checked)} />}
+          label="对话有新的未读消息"
+        />
+        <FormControlLabel
+          control={<Checkbox checked disabled />}
+          label="账号安全、邮箱验证等系统邮件"
+        />
       </Paper>
 
       <Paper sx={{ p: 3, maxWidth: 600, mb: 4 }}>

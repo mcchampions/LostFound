@@ -34,6 +34,7 @@ export default function FoundItemForm() {
   const [description, setDescription] = useState('');
   const [locationVal, setLocationVal] = useState('');
   const [foundTime, setFoundTime] = useState('');
+  const [foundTimeEnd, setFoundTimeEnd] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [coverImage, setCoverImage] = useState<string>('');
   const [cropOpen, setCropOpen] = useState(false);
@@ -65,6 +66,7 @@ export default function FoundItemForm() {
     setDescription(item.description || '');
     setLocationVal(item.location || '');
     setFoundTime(item.foundTime ? item.foundTime.substring(0, 16) : '');
+    setFoundTimeEnd(item.foundTimeEnd ? item.foundTimeEnd.substring(0, 16) : '');
     setImageUrls(item.imageUrls || []);
     setCoverImage(item.coverImage || '');
   };
@@ -91,6 +93,7 @@ export default function FoundItemForm() {
       description: description.trim(),
       location: locationVal.trim(),
       foundTime: foundTime ? new Date(foundTime).toISOString() : new Date().toISOString(),
+      foundTimeEnd: foundTimeEnd ? new Date(foundTimeEnd).toISOString() : null,
       imageUrls,
       coverImage: coverImage || null,
     };
@@ -176,6 +179,15 @@ export default function FoundItemForm() {
 
           <TextField
             fullWidth margin="normal"
+            type="datetime-local"
+            label="发现时间（结束）"
+            value={foundTimeEnd}
+            onChange={e => setFoundTimeEnd(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+
+          <TextField
+            fullWidth margin="normal"
             label="详细描述"
             multiline rows={4}
             value={description}
@@ -220,7 +232,7 @@ export default function FoundItemForm() {
               onClose={() => setCropOpen(false)} onCropped={setCoverImage} />
             <TextCoverDialog open={textCoverOpen} initialTitle={title} initialContent={description}
               initialCategory={categories.find(category => category.id === categoryId)?.name}
-              initialLocation={locationVal} initialDate={foundTime}
+              initialLocation={locationVal} initialDate={foundTime} initialDateEnd={foundTimeEnd}
               onClose={() => setTextCoverOpen(false)} onGenerated={setCoverImage} />
           </Box>
 

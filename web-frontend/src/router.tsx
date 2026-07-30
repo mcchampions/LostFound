@@ -11,6 +11,7 @@ import FoundItemDetail from './pages/FoundItemDetail';
 import FoundItemForm from './pages/FoundItemForm';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
+import UserProfile from './pages/UserProfile';
 import Claims from './pages/Claims';
 import Chat from './pages/Chat';
 import AdminUsers from './pages/admin/AdminUsers';
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
       { path: 'profile', element: <Profile /> },
       { path: 'claims', element: <Claims /> },
       { path: 'chat', element: <Chat /> },
+      { path: 'users/:id', element: <UserProfile /> },
       { path: 'admin/users', element: <ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute> },
       { path: 'admin/categories', element: <ProtectedRoute adminOnly><AdminCategories /></ProtectedRoute> },
       { path: 'admin/stats', element: <ProtectedRoute adminOnly><AdminStats /></ProtectedRoute> },

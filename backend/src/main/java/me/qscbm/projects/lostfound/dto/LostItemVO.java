@@ -18,6 +18,7 @@ public class LostItemVO {
     private String categoryName;
     private String location;
     private LocalDateTime lostTime;
+    private LocalDateTime lostTimeEnd;
     private List<String> imageUrls;
     private String coverImage;
     private String status;

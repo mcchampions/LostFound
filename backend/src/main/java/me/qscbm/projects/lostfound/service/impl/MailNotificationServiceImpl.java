@@ -15,8 +15,8 @@ public class MailNotificationServiceImpl implements MailNotificationService {
     private final AsyncMailSender asyncMailSender;
 
     @Override
-    public void notifyUserAfterCommit(Long userId, String subject, String content) {
-        afterCommit(() -> asyncMailSender.sendUserNotification(userId, subject, content));
+    public void notifyUserAfterCommit(Long userId, String subject, String content, String preferenceKey) {
+        afterCommit(() -> asyncMailSender.sendUserNotification(userId, subject, content, preferenceKey));
     }
 
     @Override

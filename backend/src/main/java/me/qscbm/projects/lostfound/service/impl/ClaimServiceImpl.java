@@ -124,7 +124,8 @@ public class ClaimServiceImpl implements ClaimService {
         mailNotificationService.notifyUserAfterCommit(
                 publisherId,
                 "校园失物招领 - " + notification.getTitle(),
-                notification.getContent());
+                notification.getContent(),
+                "claim_request");
 
         return toVO(claim);
     }
@@ -256,7 +257,8 @@ public class ClaimServiceImpl implements ClaimService {
         mailNotificationService.notifyUserAfterCommit(
                 claim.getApplicantId(),
                 "校园失物招领 - " + notification.getTitle(),
-                notification.getContent());
+                notification.getContent(),
+                "claim_result");
     }
 
     private ClaimVO toVO(ClaimApplication claim) {

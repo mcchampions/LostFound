@@ -5,12 +5,20 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
+import me.qscbm.projects.lostfound.dto.PublicProfileVO;
 import me.qscbm.projects.lostfound.dto.UpdateProfileRequest;
+import me.qscbm.projects.lostfound.dto.UserItemVO;
 import me.qscbm.projects.lostfound.dto.UserVO;
 import me.qscbm.projects.lostfound.entity.EmailVerificationCode;
+import me.qscbm.projects.lostfound.entity.FoundItem;
+import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.mapper.EmailVerificationCodeMapper;
+import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
+import me.qscbm.projects.lostfound.mapper.LostItemMapper;
+import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,8 +31,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -37,6 +46,9 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final JavaMailSender mailSender;
     private final EmailVerificationCodeMapper verificationCodeMapper;
+    private final LostItemMapper lostItemMapper;
+    private final FoundItemMapper foundItemMapper;
+    private final UserEmailPreferenceMapper emailPreferenceMapper;
     private final SecureRandom secureRandom = new SecureRandom();
     private final LongSupplier currentTimeMillis;
 
@@ -47,19 +59,29 @@ public class UserServiceImpl implements UserService {
     public UserServiceImpl(UserMapper userMapper,
                            PasswordEncoder passwordEncoder,
                            JavaMailSender mailSender,
-                           EmailVerificationCodeMapper verificationCodeMapper) {
-        this(userMapper, passwordEncoder, mailSender, verificationCodeMapper, System::currentTimeMillis);
+                           EmailVerificationCodeMapper verificationCodeMapper,
+                           LostItemMapper lostItemMapper,
+                           FoundItemMapper foundItemMapper,
+                           UserEmailPreferenceMapper emailPreferenceMapper) {
+        this(userMapper, passwordEncoder, mailSender, verificationCodeMapper,
+             lostItemMapper, foundItemMapper, emailPreferenceMapper, System::currentTimeMillis);
     }
 
     UserServiceImpl(UserMapper userMapper,
                     PasswordEncoder passwordEncoder,
                     JavaMailSender mailSender,
                     EmailVerificationCodeMapper verificationCodeMapper,
+                    LostItemMapper lostItemMapper,
+                    FoundItemMapper foundItemMapper,
+                    UserEmailPreferenceMapper emailPreferenceMapper,
                     LongSupplier currentTimeMillis) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.mailSender = mailSender;
         this.verificationCodeMapper = verificationCodeMapper;
+        this.lostItemMapper = lostItemMapper;
+        this.foundItemMapper = foundItemMapper;
+        this.emailPreferenceMapper = emailPreferenceMapper;
         this.currentTimeMillis = currentTimeMillis;
     }
 
@@ -87,6 +109,7 @@ public class UserServiceImpl implements UserService {
                 user.setEmailVerified(0);
                 user.setNotifyEmail(0);
                 verificationCodeMapper.deleteById(userId);
+                emailPreferenceMapper.deleteById(userId);
             }
             user.setEmail(newEmail);
         }
@@ -222,6 +245,173 @@ public class UserServiceImpl implements UserService {
         user.setEmailVerified(1);
         userMapper.updateById(user);
         verificationCodeMapper.deleteById(userId);
+    }
+
+    @Override
+    public PublicProfileVO getPublicProfile(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null || !"ACTIVE".equals(user.getStatus())) {
+            throw new BusinessException("用户不存在");
+        }
+        Long lostCount = lostItemMapper.selectCount(
+                new LambdaQueryWrapper<LostItem>().eq(LostItem::getUserId, userId));
+        Long foundCount = foundItemMapper.selectCount(
+                new LambdaQueryWrapper<FoundItem>().eq(FoundItem::getUserId, userId));
+        Long resolvedLost = lostItemMapper.selectCount(
+                new LambdaQueryWrapper<LostItem>()
+                        .eq(LostItem::getUserId, userId)
+                        .eq(LostItem::getStatus, "FOUND"));
+        Long resolvedFound = foundItemMapper.selectCount(
+                new LambdaQueryWrapper<FoundItem>()
+                        .eq(FoundItem::getUserId, userId)
+                        .eq(FoundItem::getStatus, "CLAIMED"));
+        Long pendingLost = lostItemMapper.selectCount(
+                new LambdaQueryWrapper<LostItem>()
+                        .eq(LostItem::getUserId, userId)
+                        .eq(LostItem::getStatus, "LOST"));
+        Long pendingFound = foundItemMapper.selectCount(
+                new LambdaQueryWrapper<FoundItem>()
+                        .eq(FoundItem::getUserId, userId)
+                        .eq(FoundItem::getStatus, "UNCLAIMED"));
+        Long helpedLost = lostItemMapper.selectCount(
+                new LambdaQueryWrapper<LostItem>()
+                        .eq(LostItem::getResolvedBy, userId));
+        Long helpedFound = foundItemMapper.selectCount(
+                new LambdaQueryWrapper<FoundItem>()
+                        .eq(FoundItem::getResolvedBy, userId));
+        return PublicProfileVO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .realName(user.getRealName())
+                .avatar(user.getAvatar())
+                .createdAt(user.getCreatedAt())
+                .lostCount(lostCount != null ? lostCount.intValue() : 0)
+                .foundCount(foundCount != null ? foundCount.intValue() : 0)
+                .resolvedCount((resolvedLost != null ? resolvedLost.intValue() : 0)
+                        + (resolvedFound != null ? resolvedFound.intValue() : 0))
+                .helpedCount((helpedLost != null ? helpedLost.intValue() : 0)
+                        + (helpedFound != null ? helpedFound.intValue() : 0))
+                .pendingCount((pendingLost != null ? pendingLost.intValue() : 0)
+                        + (pendingFound != null ? pendingFound.intValue() : 0))
+                .build();
+    }
+
+    @Override
+    public IPage<UserItemVO> getUserItems(Long userId, String scope, String type, int page, int size) {
+        boolean includeLost = "all".equals(type) || "lost".equals(type);
+        boolean includeFound = "all".equals(type) || "found".equals(type);
+        boolean resolvedOnly = "resolved".equals(scope);
+        boolean helpedOnly = "helped".equals(scope);
+
+        List<UserItemVO> allItems = new ArrayList<>();
+
+        if (includeLost) {
+            LambdaQueryWrapper<LostItem> qw = new LambdaQueryWrapper<>();
+            if (helpedOnly) {
+                qw.eq(LostItem::getResolvedBy, userId);
+            } else {
+                qw.eq(LostItem::getUserId, userId);
+                if (resolvedOnly) {
+                    qw.eq(LostItem::getStatus, "FOUND");
+                }
+            }
+            qw.orderByDesc(LostItem::getCreatedAt);
+            List<LostItem> lostItems = lostItemMapper.selectList(qw);
+            allItems.addAll(lostItems.stream().map(item -> UserItemVO.builder()
+                    .id(item.getId())
+                    .userId(item.getUserId())
+                    .itemType("LOST")
+                    .title(item.getTitle())
+                    .status(item.getStatus())
+                    .coverImage(item.getCoverImage())
+                    .location(item.getLocation())
+                    .createdAt(item.getCreatedAt())
+                    .eventTime(item.getLostTime())
+                    .eventTimeEnd(item.getLostTimeEnd())
+                    .resolvedType(item.getResolvedType())
+                    .resolvedBy(item.getResolvedBy())
+                    .resolvedNote(item.getResolvedNote())
+                    .build()).toList());
+        }
+
+        if (includeFound) {
+            LambdaQueryWrapper<FoundItem> qw = new LambdaQueryWrapper<>();
+            if (helpedOnly) {
+                qw.eq(FoundItem::getResolvedBy, userId);
+            } else {
+                qw.eq(FoundItem::getUserId, userId);
+                if (resolvedOnly) {
+                    qw.eq(FoundItem::getStatus, "CLAIMED");
+                }
+            }
+            qw.orderByDesc(FoundItem::getCreatedAt);
+            List<FoundItem> foundItems = foundItemMapper.selectList(qw);
+            allItems.addAll(foundItems.stream().map(item -> UserItemVO.builder()
+                    .id(item.getId())
+                    .userId(item.getUserId())
+                    .itemType("FOUND")
+                    .title(item.getTitle())
+                    .status(item.getStatus())
+                    .coverImage(item.getCoverImage())
+                    .location(item.getLocation())
+                    .createdAt(item.getCreatedAt())
+                    .eventTime(item.getFoundTime())
+                    .eventTimeEnd(item.getFoundTimeEnd())
+                    .resolvedType(item.getResolvedType())
+                    .resolvedBy(item.getResolvedBy())
+                    .resolvedNote(item.getResolvedNote())
+                    .build()).toList());
+        }
+
+        // Sort by createdAt desc and apply manual pagination
+        allItems.sort((a, b) -> {
+            if (a.getCreatedAt() == null) return 1;
+            if (b.getCreatedAt() == null) return -1;
+            return b.getCreatedAt().compareTo(a.getCreatedAt());
+        });
+
+        // Batch load resolver names for resolved items
+        Set<Long> resolverIds = allItems.stream()
+                .map(UserItemVO::getResolvedBy)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, User> resolvers = resolverIds.isEmpty() ? Collections.emptyMap()
+                : userMapper.selectBatchIds(resolverIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        allItems.forEach(item -> {
+            if (item.getResolvedBy() != null) {
+                User resolver = resolvers.get(item.getResolvedBy());
+                item.setResolvedByName(resolver != null
+                        ? (resolver.getRealName() != null ? resolver.getRealName() : resolver.getUsername())
+                        : "用户已不可用");
+            }
+        });
+
+        // Batch load publisher names
+        Set<Long> publisherIds = allItems.stream()
+                .map(UserItemVO::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, User> publishers = publisherIds.isEmpty() ? Collections.emptyMap()
+                : userMapper.selectBatchIds(publisherIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+        allItems.forEach(item -> {
+            if (item.getUserId() != null) {
+                User publisher = publishers.get(item.getUserId());
+                item.setPublisherName(publisher != null
+                        ? (publisher.getRealName() != null ? publisher.getRealName() : publisher.getUsername())
+                        : "用户已不可用");
+            }
+        });
+
+        int total = allItems.size();
+        int fromIndex = Math.min((page - 1) * size, total);
+        int toIndex = Math.min(fromIndex + size, total);
+        List<UserItemVO> pageRecords = allItems.subList(fromIndex, toIndex);
+
+        Page<UserItemVO> result = new Page<>(page, size, total);
+        result.setRecords(pageRecords);
+        return result;
     }
 
     private UserVO toVO(User user) {

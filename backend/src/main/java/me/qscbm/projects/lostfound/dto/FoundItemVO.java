@@ -18,6 +18,7 @@ public class FoundItemVO {
     private String categoryName;
     private String location;
     private LocalDateTime foundTime;
+    private LocalDateTime foundTimeEnd;
     private List<String> imageUrls;
     private String coverImage;
     private String status;

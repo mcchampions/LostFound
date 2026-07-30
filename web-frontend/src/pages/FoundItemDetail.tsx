@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Box, Typography, Paper, Chip, Button, CircularProgress, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
@@ -161,13 +161,6 @@ export default function FoundItemDetail() {
   }
 
   const isOwner = user && user.id === item.userId;
-  const resolutionText = item.resolvedType === 'SELF'
-    ? '失主本人已认领'
-    : item.resolvedType === 'USER'
-      ? `已归还给站内用户 ${item.resolvedByName || '未知用户'}`
-      : item.resolvedType === 'OTHER'
-        ? '已通过其他渠道归还'
-        : '已确认归还';
 
   return (
     <Box>
@@ -194,10 +187,10 @@ export default function FoundItemDetail() {
           发现地点：{item.location}
         </Typography>
         <Typography variant="body1" color="text.secondary" gutterBottom>
-          发现时间：{new Date(item.foundTime).toLocaleString('zh-CN')}
+          发现时间：{new Date(item.foundTime).toLocaleString('zh-CN')}{item.foundTimeEnd && ` ~ ${new Date(item.foundTimeEnd).toLocaleString('zh-CN')}`}
         </Typography>
         <Typography variant="body1" color="text.secondary" gutterBottom>
-          发布者：{item.userName}
+          发布者：<Link to={`/users/${item.userId}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>{item.userName}</Link>
         </Typography>
         <Typography variant="body1" color="text.secondary" gutterBottom>
           发布时间：{new Date(item.createdAt).toLocaleString('zh-CN')}
@@ -224,7 +217,12 @@ export default function FoundItemDetail() {
             <Typography variant="subtitle1" color="success.main" gutterBottom>
               归还情况
             </Typography>
-            <Typography variant="body2">{resolutionText}</Typography>
+            <Typography variant="body2">
+              {item.resolvedType === 'SELF' && '失主本人已认领'}
+              {item.resolvedType === 'USER' && (<>已归还给站内用户 <Link to={`/users/${item.resolvedBy}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>{item.resolvedByName || '未知用户'}</Link></>)}
+              {item.resolvedType === 'OTHER' && '已通过其他渠道归还'}
+              {!item.resolvedType && '已确认归还'}
+            </Typography>
             {item.resolvedNote && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
                 补充说明：{item.resolvedNote}

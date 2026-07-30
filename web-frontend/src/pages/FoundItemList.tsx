@@ -198,7 +198,7 @@ export default function FoundItemList() {
                         地点：{item.location}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        时间：{new Date(item.foundTime).toLocaleString('zh-CN')}
+                        时间：{new Date(item.foundTime).toLocaleString('zh-CN')}{item.foundTimeEnd && ` ~ ${new Date(item.foundTimeEnd).toLocaleString('zh-CN')}`}
                       </Typography>
                       <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
                         发布者：{item.userName}

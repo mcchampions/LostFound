@@ -16,6 +16,7 @@ public class LostItem {
     private Long categoryId;
     private String location;
     private LocalDateTime lostTime;
+    private LocalDateTime lostTimeEnd;
     private String imageUrls;
     private String coverImage;
     private String status;

@@ -79,6 +79,7 @@ public class LostItemServiceImpl implements LostItemService {
         item.setCategoryId(req.getCategoryId());
         item.setLocation(req.getLocation());
         item.setLostTime(req.getLostTime());
+        item.setLostTimeEnd(req.getLostTimeEnd());
         item.setImageUrls(serializeImageUrls(req.getImageUrls()));
         item.setCoverImage(req.getCoverImage());
         item.setStatus("LOST");
@@ -109,6 +110,9 @@ public class LostItemServiceImpl implements LostItemService {
         }
         if (req.getLostTime() != null) {
             item.setLostTime(req.getLostTime());
+        }
+        if (req.getLostTimeEnd() != null) {
+            item.setLostTimeEnd(req.getLostTimeEnd());
         }
         if (req.getImageUrls() != null) {
             item.setImageUrls(serializeImageUrls(req.getImageUrls()));
@@ -228,6 +232,7 @@ public class LostItemServiceImpl implements LostItemService {
                 .categoryName(category != null ? category.getName() : null)
                 .location(item.getLocation())
                 .lostTime(item.getLostTime())
+                .lostTimeEnd(item.getLostTimeEnd())
                 .imageUrls(deserializeImageUrls(item.getImageUrls()))
                 .coverImage(item.getCoverImage())
                 .status(item.getStatus())

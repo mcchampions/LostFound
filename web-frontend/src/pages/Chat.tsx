@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import {
   Box, Typography, Paper, TextField, Button, List, ListItemButton,
   ListItemText, ListItemAvatar, Avatar, Divider, Badge, CircularProgress, Alert, Snackbar
@@ -178,7 +178,13 @@ export default function Chat() {
         ) : (
           <>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="h6">{selectedUser?.otherUserName || '新对话'}</Typography>
+              <Typography variant="h6">
+                {selectedUser ? (
+                  <Link to={`/users/${selectedUser.otherUserId}`} style={{ color: 'inherit', textDecoration: 'none' }} title="查看用户主页">
+                    {selectedUser.otherUserName}
+                  </Link>
+                ) : '新对话'}
+              </Typography>
             </Box>
             <Box sx={{
               flex: 1, overflow: 'auto', p: 2,

@@ -34,6 +34,7 @@ export default function LostItemForm() {
   const [description, setDescription] = useState('');
   const [locationVal, setLocationVal] = useState('');
   const [lostTime, setLostTime] = useState('');
+  const [lostTimeEnd, setLostTimeEnd] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [coverImage, setCoverImage] = useState<string>('');
   const [cropOpen, setCropOpen] = useState(false);
@@ -65,6 +66,7 @@ export default function LostItemForm() {
     setDescription(item.description || '');
     setLocationVal(item.location || '');
     setLostTime(item.lostTime ? item.lostTime.substring(0, 16) : '');
+    setLostTimeEnd(item.lostTimeEnd ? item.lostTimeEnd.substring(0, 16) : '');
     setImageUrls(item.imageUrls || []);
     setCoverImage(item.coverImage || '');
   };
@@ -91,6 +93,7 @@ export default function LostItemForm() {
       description: description.trim(),
       location: locationVal.trim(),
       lostTime: lostTime ? new Date(lostTime).toISOString() : new Date().toISOString(),
+      lostTimeEnd: lostTimeEnd ? new Date(lostTimeEnd).toISOString() : null,
       imageUrls,
       coverImage: coverImage || null,
     };
@@ -176,6 +179,15 @@ export default function LostItemForm() {
 
           <TextField
             fullWidth margin="normal"
+            type="datetime-local"
+            label="丢失时间（结束）"
+            value={lostTimeEnd}
+            onChange={e => setLostTimeEnd(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+
+          <TextField
+            fullWidth margin="normal"
             label="详细描述"
             multiline rows={4}
             value={description}
@@ -220,7 +232,7 @@ export default function LostItemForm() {
               onClose={() => setCropOpen(false)} onCropped={setCoverImage} />
             <TextCoverDialog open={textCoverOpen} initialTitle={title} initialContent={description}
               initialCategory={categories.find(category => category.id === categoryId)?.name}
-              initialLocation={locationVal} initialDate={lostTime}
+              initialLocation={locationVal} initialDate={lostTime} initialDateEnd={lostTimeEnd}
               onClose={() => setTextCoverOpen(false)} onGenerated={setCoverImage} />
           </Box>
 

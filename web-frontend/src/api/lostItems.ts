@@ -10,6 +10,7 @@ export interface LostItemVO {
   categoryName: string;
   location: string;
   lostTime: string;
+  lostTimeEnd?: string;
   imageUrls: string[];
   status: string;
   resolvedBy?: number;

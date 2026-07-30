@@ -109,7 +109,8 @@ class ClaimServiceImplTest {
         verify(mailNotificationService).notifyUserAfterCommit(
                 eq(2L),
                 contains("已通过"),
-                contains("认领申请"));
+                contains("认领申请"),
+                eq("claim_result"));
     }
 
     @Test

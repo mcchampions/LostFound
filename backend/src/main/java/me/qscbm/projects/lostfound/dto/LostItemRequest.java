@@ -21,6 +21,7 @@ public class LostItemRequest {
     private String location;
     @NotNull
     private LocalDateTime lostTime;
+    private LocalDateTime lostTimeEnd;
     private List<String> imageUrls;
     @Size(max = 500)
     private String coverImage;

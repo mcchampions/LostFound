@@ -79,6 +79,7 @@ public class FoundItemServiceImpl implements FoundItemService {
         item.setCategoryId(req.getCategoryId());
         item.setLocation(req.getLocation());
         item.setFoundTime(req.getFoundTime());
+        item.setFoundTimeEnd(req.getFoundTimeEnd());
         item.setImageUrls(serializeImageUrls(req.getImageUrls()));
         item.setCoverImage(req.getCoverImage());
         item.setStatus("UNCLAIMED");
@@ -109,6 +110,9 @@ public class FoundItemServiceImpl implements FoundItemService {
         }
         if (req.getFoundTime() != null) {
             item.setFoundTime(req.getFoundTime());
+        }
+        if (req.getFoundTimeEnd() != null) {
+            item.setFoundTimeEnd(req.getFoundTimeEnd());
         }
         if (req.getImageUrls() != null) {
             item.setImageUrls(serializeImageUrls(req.getImageUrls()));
@@ -228,6 +232,7 @@ public class FoundItemServiceImpl implements FoundItemService {
                 .categoryName(category != null ? category.getName() : null)
                 .location(item.getLocation())
                 .foundTime(item.getFoundTime())
+                .foundTimeEnd(item.getFoundTimeEnd())
                 .imageUrls(deserializeImageUrls(item.getImageUrls()))
                 .coverImage(item.getCoverImage())
                 .status(item.getStatus())

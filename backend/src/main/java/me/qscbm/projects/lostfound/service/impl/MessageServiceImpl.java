@@ -12,7 +12,9 @@ import me.qscbm.projects.lostfound.dto.MessageRequest;
 import me.qscbm.projects.lostfound.dto.MessageVO;
 import me.qscbm.projects.lostfound.entity.Message;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
+import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.MessageService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -34,6 +36,7 @@ public class MessageServiceImpl implements MessageService {
 
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
+    private final UserEmailPreferenceMapper emailPreferenceMapper;
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
@@ -175,6 +178,19 @@ public class MessageServiceImpl implements MessageService {
                 .eq(Message::getIsRead, 0)
                 .set(Message::getIsRead, 1);
         messageMapper.update(null, uw);
+
+        // Clear message notification state when all messages are read
+        Long remainingUnread = messageMapper.selectCount(
+                new LambdaQueryWrapper<Message>()
+                        .eq(Message::getReceiverId, userId)
+                        .eq(Message::getIsRead, 0));
+        if (remainingUnread == null || remainingUnread == 0) {
+            UserEmailPreference pref = emailPreferenceMapper.selectById(userId);
+            if (pref != null && pref.getLastMessageNotifiedAt() != null) {
+                pref.setLastMessageNotifiedAt(null);
+                emailPreferenceMapper.updateById(pref);
+            }
+        }
     }
 
     @Override

@@ -21,6 +21,7 @@ public class FoundItemRequest {
     private String location;
     @NotNull
     private LocalDateTime foundTime;
+    private LocalDateTime foundTimeEnd;
     private List<String> imageUrls;
     @Size(max = 500)
     private String coverImage;

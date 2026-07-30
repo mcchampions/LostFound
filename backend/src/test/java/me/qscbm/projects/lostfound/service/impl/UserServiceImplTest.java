@@ -5,6 +5,9 @@ import me.qscbm.projects.lostfound.dto.UpdateProfileRequest;
 import me.qscbm.projects.lostfound.entity.EmailVerificationCode;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.EmailVerificationCodeMapper;
+import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
+import me.qscbm.projects.lostfound.mapper.LostItemMapper;
+import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,9 @@ class UserServiceImplTest {
     private PasswordEncoder passwordEncoder;
     private JavaMailSender mailSender;
     private EmailVerificationCodeMapper verificationCodeMapper;
+    private LostItemMapper lostItemMapper;
+    private FoundItemMapper foundItemMapper;
+    private UserEmailPreferenceMapper emailPreferenceMapper;
     private AtomicLong now;
     private UserServiceImpl service;
 
@@ -36,9 +42,13 @@ class UserServiceImplTest {
         passwordEncoder = mock(PasswordEncoder.class);
         mailSender = mock(JavaMailSender.class);
         verificationCodeMapper = mock(EmailVerificationCodeMapper.class);
+        lostItemMapper = mock(LostItemMapper.class);
+        foundItemMapper = mock(FoundItemMapper.class);
+        emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
         now = new AtomicLong(1_000_000L);
         service = new UserServiceImpl(
-                userMapper, passwordEncoder, mailSender, verificationCodeMapper, now::get);
+                userMapper, passwordEncoder, mailSender, verificationCodeMapper,
+                lostItemMapper, foundItemMapper, emailPreferenceMapper, now::get);
         when(passwordEncoder.encode(anyString()))
                 .thenAnswer(invocation -> "hash:" + invocation.getArgument(0));
         when(passwordEncoder.matches(anyString(), anyString()))

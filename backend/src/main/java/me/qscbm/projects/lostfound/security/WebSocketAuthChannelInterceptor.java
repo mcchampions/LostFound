@@ -3,6 +3,7 @@ package me.qscbm.projects.lostfound.security;
 import io.jsonwebtoken.Claims;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
+import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -22,10 +23,13 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
     private final JwtUtils jwtUtils;
     private final UserMapper userMapper;
+    private final WebSocketPresenceService presenceService;
 
-    public WebSocketAuthChannelInterceptor(JwtUtils jwtUtils, UserMapper userMapper) {
+    public WebSocketAuthChannelInterceptor(JwtUtils jwtUtils, UserMapper userMapper,
+                                           WebSocketPresenceService presenceService) {
         this.jwtUtils = jwtUtils;
         this.userMapper = userMapper;
+        this.presenceService = presenceService;
     }
 
     @Override
@@ -57,10 +61,19 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
                         );
                 accessor.setUser(authentication);
+                presenceService.onConnect(userId);
             } catch (AccessDeniedException e) {
                 throw e;
             } catch (Exception e) {
                 throw new AccessDeniedException("WebSocket Token 无效", e);
+            }
+        }
+
+        if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
+            var principal = accessor.getUser();
+            if (principal instanceof UsernamePasswordAuthenticationToken auth) {
+                Long userId = (Long) auth.getPrincipal();
+                presenceService.onDisconnect(userId);
             }
         }
 

@@ -198,7 +198,7 @@ export default function LostItemList() {
                         地点：{item.location}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        时间：{new Date(item.lostTime).toLocaleString('zh-CN')}
+                        时间：{new Date(item.lostTime).toLocaleString('zh-CN')}{item.lostTimeEnd && ` ~ ${new Date(item.lostTimeEnd).toLocaleString('zh-CN')}`}
                       </Typography>
                       <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
                         发布者：{item.userName}
