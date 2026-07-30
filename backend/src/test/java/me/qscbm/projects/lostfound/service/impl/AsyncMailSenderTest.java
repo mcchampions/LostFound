@@ -87,10 +87,10 @@ class AsyncMailSenderTest {
         User user = eligibleUser();
         when(userMapper.selectById(1L)).thenReturn(user);
         UserEmailPreference pref = prefWithAllEnabled();
-        pref.setSystem(0); // even if system is 0, it should still send
+        pref.setSystemMessage(0); // even if system is 0, it should still send
         when(emailPreferenceMapper.selectById(1L)).thenReturn(pref);
 
-        asyncMailSender.sendUserNotification(1L, "Subject", "Content", "system");
+        asyncMailSender.sendUserNotification(1L, "Subject", "Content", "system_message");
 
         verify(mailSender).send(any(SimpleMailMessage.class));
     }
@@ -112,7 +112,7 @@ class AsyncMailSenderTest {
         pref.setClaimResult(1);
         pref.setAnnouncement(1);
         pref.setMessage(1);
-        pref.setSystem(1);
+        pref.setSystemMessage(1);
         return pref;
     }
 }

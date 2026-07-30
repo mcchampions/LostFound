@@ -17,7 +17,7 @@ public class UserEmailPreference {
     private Integer claimResult;
     private Integer announcement;
     private Integer message;
-    private Integer system;
+    private Integer systemMessage;
     private LocalDateTime lastMessageNotifiedAt;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

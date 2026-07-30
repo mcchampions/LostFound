@@ -64,7 +64,7 @@ public class AsyncMailSender {
             return false;
         }
         // system emails are always allowed
-        if ("system".equals(preferenceKey)) {
+        if ("system_message".equals(preferenceKey)) {
             return true;
         }
         UserEmailPreference pref = emailPreferenceMapper.selectById(user.getId());

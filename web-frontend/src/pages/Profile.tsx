@@ -47,7 +47,7 @@ export default function Profile() {
     claim_result: false,
     announcement: false,
     message: false,
-    system: true,
+    system_message: true,
   });
 
   useEffect(() => {
@@ -64,7 +64,7 @@ export default function Profile() {
           claim_result: d.claim_result || false,
           announcement: d.announcement || false,
           message: d.message || false,
-          system: true,
+          system_message: true,
         });
       }).catch(() => {});
     }

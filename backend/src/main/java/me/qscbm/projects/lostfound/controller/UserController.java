@@ -112,13 +112,13 @@ public class UserController {
             m.put("claim_result", legacy);
             m.put("announcement", legacy);
             m.put("message", legacy);
-            m.put("system", true);
+            m.put("system_message", true);
         } else {
             m.put("claim_request", pref.getClaimRequest() != null && pref.getClaimRequest() == 1);
             m.put("claim_result", pref.getClaimResult() != null && pref.getClaimResult() == 1);
             m.put("announcement", pref.getAnnouncement() != null && pref.getAnnouncement() == 1);
             m.put("message", pref.getMessage() != null && pref.getMessage() == 1);
-            m.put("system", true);
+            m.put("system_message", true);
         }
         return Result.success(m);
     }
@@ -137,7 +137,7 @@ public class UserController {
             pref.setClaimResult(legacy ? 1 : 0);
             pref.setAnnouncement(legacy ? 1 : 0);
             pref.setMessage(legacy ? 1 : 0);
-            pref.setSystem(1);
+            pref.setSystemMessage(1);
         }
         for (String key : List.of("claim_request", "claim_result", "announcement", "message")) {
             if (body.containsKey(key)) {
@@ -153,8 +153,8 @@ public class UserController {
                 }
             }
         }
-        // system is always on
-        pref.setSystem(1);
+        // system_message is always on
+        pref.setSystemMessage(1);
         if (emailPreferenceMapper.selectById(userId) == null) {
             emailPreferenceMapper.insert(pref);
         } else {
