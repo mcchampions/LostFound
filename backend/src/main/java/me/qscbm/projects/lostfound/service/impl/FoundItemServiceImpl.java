@@ -42,6 +42,7 @@ public class FoundItemServiceImpl implements FoundItemService {
     private final CategoryMapper categoryMapper;
     private final ClaimApplicationMapper claimApplicationMapper;
     private final ObjectMapper objectMapper;
+    private final OperationLogRecorder operationLogRecorder;
 
     @Override
     public IPage<FoundItemVO> page(int page, int size, String keyword, Long categoryId, String status) {
@@ -86,6 +87,9 @@ public class FoundItemServiceImpl implements FoundItemService {
         item.setStatus("UNCLAIMED");
         validateTimeRange(item.getFoundTime(), item.getFoundTimeEnd());
         foundItemMapper.insert(item);
+        log.info("招领发布: userId={} 发布招领 id={} 标题={}", userId, item.getId(), item.getTitle());
+        operationLogRecorder.log(userId, "FOUND_ITEM_CREATE", "FOUND_ITEM", item.getId(),
+                "发布招领：" + item.getTitle());
         return toVO(item);
     }
 
@@ -122,6 +126,8 @@ public class FoundItemServiceImpl implements FoundItemService {
         }
         validateTimeRange(item.getFoundTime(), item.getFoundTimeEnd());
         foundItemMapper.updateById(item);
+        operationLogRecorder.log(userId, "FOUND_ITEM_UPDATE", "FOUND_ITEM", id,
+                "更新招领：" + item.getTitle());
         return toVO(item);
     }
 
@@ -156,6 +162,9 @@ public class FoundItemServiceImpl implements FoundItemService {
             throw new BusinessException("该招领信息已有申请记录，不能删除");
         }
         foundItemMapper.deleteById(id);
+        log.info("招领删除: userId={} 删除招领 id={}", userId, id);
+        operationLogRecorder.log(userId, "FOUND_ITEM_DELETE", "FOUND_ITEM", id,
+                "删除招领：" + item.getTitle());
     }
 
     @Override
@@ -173,6 +182,9 @@ public class FoundItemServiceImpl implements FoundItemService {
         }
         item.setStatus(normalized);
         foundItemMapper.updateById(item);
+        log.info("招领状态变更: userId={} 招领 id={} 状态={}", userId, id, normalized);
+        operationLogRecorder.log(userId, "FOUND_ITEM_STATUS", "FOUND_ITEM", id,
+                "状态改为 " + normalized);
     }
 
     @Override

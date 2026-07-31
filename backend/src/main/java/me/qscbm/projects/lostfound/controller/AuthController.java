@@ -34,4 +34,16 @@ public class AuthController {
     public Result<LoginResponse> refresh(@AuthenticationPrincipal Long userId) {
         return Result.success(authService.refresh(userId));
     }
+
+    @PostMapping("/forgot-password")
+    public Result<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        authService.sendPasswordResetCode(req.getEmail());
+        return Result.success();
+    }
+
+    @PostMapping("/reset-password")
+    public Result<?> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        authService.resetPassword(req.getEmail(), req.getCode(), req.getNewPassword());
+        return Result.success();
+    }
 }

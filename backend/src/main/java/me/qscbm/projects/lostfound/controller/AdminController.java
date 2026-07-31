@@ -17,10 +17,12 @@ import me.qscbm.projects.lostfound.mapper.LostItemMapper;
 import me.qscbm.projects.lostfound.service.OperationLogService;
 import me.qscbm.projects.lostfound.service.StatsService;
 import me.qscbm.projects.lostfound.service.UserService;
+import me.qscbm.projects.lostfound.service.impl.OperationLogRecorder;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 
 import java.io.IOException;
@@ -38,6 +40,7 @@ public class AdminController {
     private final OperationLogService logService;
     private final LostItemMapper lostItemMapper;
     private final FoundItemMapper foundItemMapper;
+    private final OperationLogRecorder operationLogRecorder;
 
     @GetMapping("/users")
     public Result<PageResult<UserVO>> listUsers(
@@ -49,10 +52,13 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/status")
-    public Result<?> updateUserStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public Result<?> updateUserStatus(@AuthenticationPrincipal Long operatorId,
+                                      @PathVariable Long id, @RequestBody Map<String, String> body) {
         String status = body.get("status");
         if (status == null || status.isBlank()) throw new BusinessException("状态不能为空");
         userService.updateStatus(id, status);
+        operationLogRecorder.log(operatorId, "UPDATE_USER_STATUS", "USER", id,
+                "修改用户状态为 " + status.toUpperCase());
         return Result.success();
     }
 
@@ -62,7 +68,9 @@ public class AdminController {
     }
 
     @GetMapping("/export/lost-items")
-    public void exportLostItems(HttpServletResponse response) throws IOException {
+    public void exportLostItems(@AuthenticationPrincipal Long userId,
+                                HttpServletResponse response) throws IOException {
+        operationLogRecorder.log(userId, "EXPORT", "LOST_ITEM", null, "导出失物数据");
         List<LostItem> items = lostItemMapper.selectList(null);
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=lost-items.xlsx");
@@ -92,7 +100,9 @@ public class AdminController {
     }
 
     @GetMapping("/export/found-items")
-    public void exportFoundItems(HttpServletResponse response) throws IOException {
+    public void exportFoundItems(@AuthenticationPrincipal Long userId,
+                                 HttpServletResponse response) throws IOException {
+        operationLogRecorder.log(userId, "EXPORT", "FOUND_ITEM", null, "导出招领数据");
         List<FoundItem> items = foundItemMapper.selectList(null);
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=found-items.xlsx");

@@ -7,4 +7,6 @@ public interface AuthService {
     LoginResponse login(LoginRequest req);
     LoginResponse refresh(Long userId);
     LoginResponse adminLogin(LoginRequest req);
+    void sendPasswordResetCode(String email);
+    void resetPassword(String email, String code, String newPassword);
 }

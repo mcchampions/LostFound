@@ -42,6 +42,7 @@ public class LostItemServiceImpl implements LostItemService {
     private final CategoryMapper categoryMapper;
     private final ClaimApplicationMapper claimApplicationMapper;
     private final ObjectMapper objectMapper;
+    private final OperationLogRecorder operationLogRecorder;
 
     @Override
     public IPage<LostItemVO> page(int page, int size, String keyword, Long categoryId, String status) {
@@ -86,6 +87,9 @@ public class LostItemServiceImpl implements LostItemService {
         item.setStatus("LOST");
         validateTimeRange(item.getLostTime(), item.getLostTimeEnd());
         lostItemMapper.insert(item);
+        log.info("失物发布: userId={} 发布失物 id={} 标题={}", userId, item.getId(), item.getTitle());
+        operationLogRecorder.log(userId, "LOST_ITEM_CREATE", "LOST_ITEM", item.getId(),
+                "发布失物：" + item.getTitle());
         return toVO(item);
     }
 
@@ -122,6 +126,8 @@ public class LostItemServiceImpl implements LostItemService {
         }
         validateTimeRange(item.getLostTime(), item.getLostTimeEnd());
         lostItemMapper.updateById(item);
+        operationLogRecorder.log(userId, "LOST_ITEM_UPDATE", "LOST_ITEM", id,
+                "更新失物：" + item.getTitle());
         return toVO(item);
     }
 
@@ -156,6 +162,9 @@ public class LostItemServiceImpl implements LostItemService {
             throw new BusinessException("该失物已有申请记录，不能删除");
         }
         lostItemMapper.deleteById(id);
+        log.info("失物删除: userId={} 删除失物 id={}", userId, id);
+        operationLogRecorder.log(userId, "LOST_ITEM_DELETE", "LOST_ITEM", id,
+                "删除失物：" + item.getTitle());
     }
 
     @Override
@@ -173,6 +182,9 @@ public class LostItemServiceImpl implements LostItemService {
         }
         item.setStatus(normalized);
         lostItemMapper.updateById(item);
+        log.info("失物状态变更: userId={} 失物 id={} 状态={}", userId, id, normalized);
+        operationLogRecorder.log(userId, "LOST_ITEM_STATUS", "LOST_ITEM", id,
+                "状态改为 " + normalized);
     }
 
     @Override

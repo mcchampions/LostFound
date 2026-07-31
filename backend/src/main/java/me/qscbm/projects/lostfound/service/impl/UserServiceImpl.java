@@ -21,6 +21,7 @@ import me.qscbm.projects.lostfound.mapper.LostItemMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.UserService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
@@ -35,6 +36,7 @@ import java.util.*;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class UserServiceImpl implements UserService {
 
@@ -49,6 +51,7 @@ public class UserServiceImpl implements UserService {
     private final LostItemMapper lostItemMapper;
     private final FoundItemMapper foundItemMapper;
     private final UserEmailPreferenceMapper emailPreferenceMapper;
+    private final OperationLogRecorder operationLogRecorder;
     private final SecureRandom secureRandom = new SecureRandom();
     private final LongSupplier currentTimeMillis;
 
@@ -62,9 +65,11 @@ public class UserServiceImpl implements UserService {
                            EmailVerificationCodeMapper verificationCodeMapper,
                            LostItemMapper lostItemMapper,
                            FoundItemMapper foundItemMapper,
-                           UserEmailPreferenceMapper emailPreferenceMapper) {
+                           UserEmailPreferenceMapper emailPreferenceMapper,
+                           OperationLogRecorder operationLogRecorder) {
         this(userMapper, passwordEncoder, mailSender, verificationCodeMapper,
-             lostItemMapper, foundItemMapper, emailPreferenceMapper, System::currentTimeMillis);
+             lostItemMapper, foundItemMapper, emailPreferenceMapper, operationLogRecorder,
+             System::currentTimeMillis);
     }
 
     UserServiceImpl(UserMapper userMapper,
@@ -74,6 +79,7 @@ public class UserServiceImpl implements UserService {
                     LostItemMapper lostItemMapper,
                     FoundItemMapper foundItemMapper,
                     UserEmailPreferenceMapper emailPreferenceMapper,
+                    OperationLogRecorder operationLogRecorder,
                     LongSupplier currentTimeMillis) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
@@ -82,6 +88,7 @@ public class UserServiceImpl implements UserService {
         this.lostItemMapper = lostItemMapper;
         this.foundItemMapper = foundItemMapper;
         this.emailPreferenceMapper = emailPreferenceMapper;
+        this.operationLogRecorder = operationLogRecorder;
         this.currentTimeMillis = currentTimeMillis;
     }
 
@@ -120,6 +127,7 @@ public class UserServiceImpl implements UserService {
         } catch (DuplicateKeyException e) {
             throw new BusinessException("该邮箱已被其他账号使用");
         }
+        operationLogRecorder.log(userId, "UPDATE_PROFILE", "USER", userId, "更新个人资料");
         return toVO(user);
     }
 
@@ -158,6 +166,8 @@ public class UserServiceImpl implements UserService {
         }
         user.setPassword(passwordEncoder.encode(newPassword));
         userMapper.updateById(user);
+        log.info("用户操作: userId={} 修改密码", userId);
+        operationLogRecorder.log(userId, "CHANGE_PASSWORD", "USER", userId, "修改登录密码");
     }
 
     @Override
@@ -245,6 +255,8 @@ public class UserServiceImpl implements UserService {
         user.setEmailVerified(1);
         userMapper.updateById(user);
         verificationCodeMapper.deleteById(userId);
+        log.info("用户操作: userId={} 邮箱验证成功", userId);
+        operationLogRecorder.log(userId, "VERIFY_EMAIL", "USER", userId, "邮箱验证成功");
     }
 
     @Override

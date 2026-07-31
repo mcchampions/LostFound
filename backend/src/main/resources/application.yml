@@ -42,7 +42,8 @@ app:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # SQL 默认不直接打印到 stdout；需要时用 MYBATIS_LOG_IMPL 覆盖
+    log-impl: ${MYBATIS_LOG_IMPL:org.apache.ibatis.logging.slf4j.Slf4jImpl}
   global-config:
     db-config:
       id-type: auto
@@ -51,4 +52,8 @@ mybatis-plus:
 
 logging:
   level:
-    "me.qscbm.projects.lostfound": debug
+    root: info
+    # 业务包默认 info；本地调试可 LOG_LEVEL_APP=debug
+    "me.qscbm.projects.lostfound": ${LOG_LEVEL_APP:info}
+    # SQL 默认关闭；本地调试可 LOG_LEVEL_SQL=debug
+    "me.qscbm.projects.lostfound.mapper": ${LOG_LEVEL_SQL:off}

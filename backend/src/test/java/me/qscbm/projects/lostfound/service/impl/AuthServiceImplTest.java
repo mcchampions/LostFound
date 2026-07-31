@@ -5,8 +5,13 @@ import me.qscbm.projects.lostfound.dto.LoginRequest;
 import me.qscbm.projects.lostfound.dto.RegisterRequest;
 import me.qscbm.projects.lostfound.dto.UserVO;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.PasswordResetCode;
+import me.qscbm.projects.lostfound.mapper.PasswordResetCodeMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.security.JwtUtils;
+import org.mockito.ArgumentCaptor;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,13 +26,19 @@ class AuthServiceImplTest {
     private UserMapper userMapper;
     private PasswordEncoder passwordEncoder;
     private AuthServiceImpl service;
+    private PasswordResetCodeMapper passwordResetCodeMapper;
+    private JavaMailSender mailSender;
 
     @BeforeEach
     void setUp() {
         userMapper = mock(UserMapper.class);
         passwordEncoder = mock(PasswordEncoder.class);
         JwtUtils jwtUtils = mock(JwtUtils.class);
-        service = new AuthServiceImpl(userMapper, passwordEncoder, jwtUtils);
+        passwordResetCodeMapper = mock(PasswordResetCodeMapper.class);
+        mailSender = mock(JavaMailSender.class);
+        OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
+        service = new AuthServiceImpl(userMapper, passwordEncoder, jwtUtils,
+                passwordResetCodeMapper, mailSender, operationLogRecorder);
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
     }
 
@@ -83,6 +94,82 @@ class AuthServiceImplTest {
         assertThatThrownBy(() -> service.login(request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("账号已被禁用");
+    }
+
+    @Test
+    void sendsPasswordResetCodeToActiveUser() {
+        when(userMapper.selectOne(any())).thenReturn(activeUser("user@example.com"));
+        when(passwordResetCodeMapper.updateIfCooldown(any(), anyLong())).thenReturn(0);
+        when(passwordResetCodeMapper.insert(any())).thenReturn(1);
+
+        service.sendPasswordResetCode("user@example.com");
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        SimpleMailMessage mail = captor.getValue();
+        assertThat(mail.getTo()).containsExactly("user@example.com");
+        assertThat(mail.getText()).contains("重置密码验证码");
+        verify(passwordResetCodeMapper).insert(argThat(record ->
+                record.getUserId().equals(1L) && "user@example.com".equals(record.getEmail())));
+    }
+
+    @Test
+    void skipsSendingResetCodeForUnknownEmail() {
+        when(userMapper.selectOne(any())).thenReturn(null);
+
+        service.sendPasswordResetCode("nobody@example.com");
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(passwordResetCodeMapper, never()).insert(any());
+    }
+
+    @Test
+    void resetsPasswordWithValidCode() {
+        when(userMapper.selectOne(any())).thenReturn(activeUser("user@example.com"));
+        PasswordResetCode record = resetRecord(0, System.currentTimeMillis() + 300_000);
+        when(passwordResetCodeMapper.selectById(1L)).thenReturn(record);
+        when(passwordEncoder.matches("123456", "hash-of-123456")).thenReturn(true);
+        when(passwordEncoder.encode("newpass123")).thenReturn("encoded-new");
+
+        service.resetPassword("user@example.com", "123456", "newpass123");
+
+        verify(userMapper).updateById(argThat(user ->
+                "encoded-new".equals(user.getPassword())));
+        verify(passwordResetCodeMapper).deleteById(1L);
+    }
+
+    @Test
+    void rejectsWrongResetCodeAndCountsAttempts() {
+        when(userMapper.selectOne(any())).thenReturn(activeUser("user@example.com"));
+        when(passwordResetCodeMapper.selectById(1L)).thenReturn(
+                resetRecord(0, System.currentTimeMillis() + 300_000));
+        when(passwordEncoder.matches("000000", "hash-of-123456")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.resetPassword("user@example.com", "000000", "newpass123"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("还可尝试");
+        verify(passwordResetCodeMapper).incrementAttempts(1L, 5);
+        verify(userMapper, never()).updateById(any());
+    }
+
+    private User activeUser(String email) {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("student");
+        user.setEmail(email);
+        user.setStatus("ACTIVE");
+        return user;
+    }
+
+    private PasswordResetCode resetRecord(int attempts, long expiresAt) {
+        PasswordResetCode record = new PasswordResetCode();
+        record.setUserId(1L);
+        record.setEmail("user@example.com");
+        record.setCodeHash("hash-of-123456");
+        record.setSentAt(System.currentTimeMillis());
+        record.setExpiresAt(expiresAt);
+        record.setAttempts(attempts);
+        return record;
     }
 
     private RegisterRequest registerRequest(String role) {

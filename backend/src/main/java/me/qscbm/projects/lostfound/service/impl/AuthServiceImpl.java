@@ -5,26 +5,45 @@ import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
 import me.qscbm.projects.lostfound.dto.*;
+import me.qscbm.projects.lostfound.entity.PasswordResetCode;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.enums.UserRole;
 import me.qscbm.projects.lostfound.entity.enums.UserStatus;
+import me.qscbm.projects.lostfound.mapper.PasswordResetCodeMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.security.JwtUtils;
 import me.qscbm.projects.lostfound.service.AuthService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.springframework.dao.DuplicateKeyException;
+
+import java.security.SecureRandom;
+import java.util.Objects;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
+    private static final long RESET_CODE_TTL_MS = 5 * 60 * 1000L;
+    private static final long RESET_CODE_SEND_INTERVAL_MS = 60 * 1000L;
+    private static final int RESET_CODE_MAX_ATTEMPTS = 5;
+
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
+    private final PasswordResetCodeMapper passwordResetCodeMapper;
+    private final JavaMailSender mailSender;
+    private final OperationLogRecorder operationLogRecorder;
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    @Value("${spring.mail.username:}")
+    private String mailFrom;
 
     @Override
     public UserVO register(RegisterRequest req) {
@@ -66,6 +85,9 @@ public class AuthServiceImpl implements AuthService {
         } catch (DuplicateKeyException e) {
             throw new BusinessException("用户名或邮箱已存在");
         }
+        log.info("用户注册: userId={} username={} role={}", user.getId(), user.getUsername(), user.getRole());
+        operationLogRecorder.log(user.getId(), "REGISTER", "USER", user.getId(),
+                "注册账号（角色：" + user.getRole() + "）");
         return toVO(user);
     }
 
@@ -84,6 +106,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("账号已被禁用");
         }
         String token = jwtUtils.generate(user.getId(), user.getUsername(), user.getRole());
+        log.info("用户登录: userId={} username={}", user.getId(), user.getUsername());
+        operationLogRecorder.log(user.getId(), "LOGIN", "USER", user.getId(), "用户登录");
         return new LoginResponse(token, toVO(user));
     }
 
@@ -102,6 +126,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("账号已被禁用");
         }
         String token = jwtUtils.generate(user.getId(), user.getUsername(), user.getRole());
+        log.info("管理员登录: userId={} username={}", user.getId(), user.getUsername());
+        operationLogRecorder.log(user.getId(), "ADMIN_LOGIN", "USER", user.getId(), "管理员登录");
         return new LoginResponse(token, toVO(user));
     }
 
@@ -119,6 +145,112 @@ public class AuthServiceImpl implements AuthService {
         }
         String token = jwtUtils.generate(user.getId(), user.getUsername(), user.getRole());
         return new LoginResponse(token, toVO(user));
+    }
+
+    @Override
+    public void sendPasswordResetCode(String email) {
+        String normalized = EmailNormalizer.normalize(email);
+        if (normalized == null) {
+            return;
+        }
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getEmail, normalized));
+        // 统一响应，不暴露邮箱是否已注册
+        if (user == null || !UserStatus.ACTIVE.getValue().equals(user.getStatus())) {
+            log.info("密码重置: 邮箱 {} 无可用账号，不发送", maskEmail(normalized));
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        String code = String.format("%06d", secureRandom.nextInt(1000000));
+        PasswordResetCode record = new PasswordResetCode();
+        record.setUserId(user.getId());
+        record.setEmail(normalized);
+        record.setCodeHash(passwordEncoder.encode(code));
+        record.setSentAt(now);
+        record.setExpiresAt(now + RESET_CODE_TTL_MS);
+        record.setAttempts(0);
+
+        int updated = passwordResetCodeMapper.updateIfCooldown(
+                record, now - RESET_CODE_SEND_INTERVAL_MS);
+        if (updated == 0) {
+            try {
+                passwordResetCodeMapper.insert(record);
+            } catch (DuplicateKeyException e) {
+                throw new BusinessException("验证码发送过于频繁，请稍后再试");
+            }
+        }
+        try {
+            SimpleMailMessage msg = new SimpleMailMessage();
+            if (mailFrom != null && !mailFrom.isBlank()) {
+                msg.setFrom(mailFrom);
+            }
+            msg.setTo(normalized);
+            msg.setSubject("校园失物招领 - 重置密码验证码");
+            msg.setText("您的重置密码验证码是：" + code
+                    + "，5分钟内有效。如非本人操作，请忽略此邮件。");
+            mailSender.send(msg);
+        } catch (Exception e) {
+            passwordResetCodeMapper.deleteMatching(user.getId(), record.getCodeHash());
+            throw new BusinessException("验证码发送失败，请检查邮箱配置");
+        }
+        log.info("密码重置: userId={} 已发送重置验证码", user.getId());
+        operationLogRecorder.log(user.getId(), "SEND_PASSWORD_RESET", "USER",
+                user.getId(), "发送重置密码验证码");
+    }
+
+    @Override
+    public void resetPassword(String email, String code, String newPassword) {
+        String normalized = EmailNormalizer.normalize(email);
+        if (normalized == null || code == null || code.isBlank()) {
+            throw new BusinessException("验证码错误或已过期");
+        }
+        User user = userMapper.selectOne(
+                new LambdaQueryWrapper<User>().eq(User::getEmail, normalized));
+        if (user == null) {
+            throw new BusinessException("验证码错误或已过期");
+        }
+        PasswordResetCode record = passwordResetCodeMapper.selectById(user.getId());
+        if (record == null) {
+            throw new BusinessException("验证码错误或已过期");
+        }
+        if (System.currentTimeMillis() > record.getExpiresAt()) {
+            passwordResetCodeMapper.deleteById(user.getId());
+            throw new BusinessException("验证码错误或已过期");
+        }
+        int attempts = record.getAttempts() == null ? 0 : record.getAttempts();
+        if (attempts >= RESET_CODE_MAX_ATTEMPTS) {
+            passwordResetCodeMapper.deleteById(user.getId());
+            throw new BusinessException("验证码错误次数过多，请重新发送");
+        }
+        if (!Objects.equals(normalized, record.getEmail())) {
+            passwordResetCodeMapper.deleteById(user.getId());
+            throw new BusinessException("验证码错误或已过期");
+        }
+        if (!passwordEncoder.matches(code.trim(), record.getCodeHash())) {
+            passwordResetCodeMapper.incrementAttempts(user.getId(), RESET_CODE_MAX_ATTEMPTS);
+            int remaining = RESET_CODE_MAX_ATTEMPTS - attempts - 1;
+            if (remaining <= 0) {
+                passwordResetCodeMapper.deleteById(user.getId());
+                throw new BusinessException("验证码错误次数过多，请重新发送");
+            }
+            throw new BusinessException("验证码错误，还可尝试 " + remaining + " 次");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userMapper.updateById(user);
+        passwordResetCodeMapper.deleteById(user.getId());
+        log.info("密码重置: userId={} 重置密码成功", user.getId());
+        operationLogRecorder.log(user.getId(), "RESET_PASSWORD", "USER",
+                user.getId(), "通过邮箱验证码重置密码");
+    }
+
+    private String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 2) {
+            return "***" + (at >= 0 ? email.substring(at) : "");
+        }
+        return email.substring(0, 2) + "***" + email.substring(at);
     }
 
     private UserVO toVO(User user) {

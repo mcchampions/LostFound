@@ -41,6 +41,7 @@ class ClaimServiceImplTest {
         notificationMapper = mock(NotificationMapper.class);
         messageService = mock(MessageService.class);
         mailNotificationService = mock(MailNotificationService.class);
+        OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
         service = new ClaimServiceImpl(
                 claimMapper,
                 lostItemMapper,
@@ -48,7 +49,8 @@ class ClaimServiceImplTest {
                 userMapper,
                 notificationMapper,
                 messageService,
-                mailNotificationService
+                mailNotificationService,
+                operationLogRecorder
         );
     }
 

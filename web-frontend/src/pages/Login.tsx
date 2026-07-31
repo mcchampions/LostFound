@@ -112,6 +112,11 @@ export default function Login() {
               立即注册
             </Link>
           </Typography>
+          <Typography variant="body2" align="center" sx={{ mt: 1 }}>
+            <Link component={RouterLink} to="/forgot-password">
+              忘记密码？
+            </Link>
+          </Typography>
         </CardContent>
       </Card>
     </Box>

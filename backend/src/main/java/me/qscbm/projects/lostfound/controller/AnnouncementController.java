@@ -41,12 +41,12 @@ public class AnnouncementController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long id,
             @Valid @RequestBody AnnouncementRequest req) {
-        return Result.success(announcementService.update(id, req.getTitle(), req.getContent()));
+        return Result.success(announcementService.update(id, userId, req.getTitle(), req.getContent()));
     }
 
     @DeleteMapping("/api/v1/admin/announcements/{id}")
     public Result<?> delete(@AuthenticationPrincipal Long userId, @PathVariable Long id) {
-        announcementService.delete(id);
+        announcementService.delete(id, userId);
         return Result.success();
     }
 }

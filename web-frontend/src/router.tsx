@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import LostItemList from './pages/LostItemList';
 import LostItemDetail from './pages/LostItemDetail';
 import LostItemForm from './pages/LostItemForm';
@@ -29,6 +30,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'login', element: <Login /> },
       { path: 'register', element: <Register /> },
+      { path: 'forgot-password', element: <ForgotPassword /> },
       { path: 'lost-items', element: <LostItemList /> },
       { path: 'lost-items/:id', element: <LostItemDetail /> },
       { path: 'lost-items/create', element: <ProtectedRoute><LostItemForm /></ProtectedRoute> },

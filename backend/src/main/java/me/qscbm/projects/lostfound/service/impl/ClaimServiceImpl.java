@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.dto.ClaimRequest;
 import me.qscbm.projects.lostfound.dto.ClaimVO;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ClaimServiceImpl implements ClaimService {
@@ -43,6 +45,7 @@ public class ClaimServiceImpl implements ClaimService {
     private final NotificationMapper notificationMapper;
     private final MessageService messageService;
     private final MailNotificationService mailNotificationService;
+    private final OperationLogRecorder operationLogRecorder;
 
     @Override
     @Transactional
@@ -127,6 +130,10 @@ public class ClaimServiceImpl implements ClaimService {
                 notification.getContent(),
                 "claim_request");
 
+        log.info("认领申请: userId={} 申请 {}(id={})", applicantId, req.getItemType(), req.getItemId());
+        operationLogRecorder.log(applicantId, "CLAIM_APPLY",
+                "LOST".equalsIgnoreCase(req.getItemType()) ? "LOST_ITEM" : "FOUND_ITEM",
+                req.getItemId(), "提交认领申请：" + itemTitle);
         return toVO(claim);
     }
 
@@ -259,6 +266,9 @@ public class ClaimServiceImpl implements ClaimService {
                 "校园失物招领 - " + notification.getTitle(),
                 notification.getContent(),
                 "claim_result");
+        log.info("认领处理: userId={} 处理申请 id={} 结果={}", userId, id, status);
+        operationLogRecorder.log(userId, "CLAIM_PROCESS", "CLAIM_APPLICATION", id,
+                "认领申请" + statusText);
     }
 
     private ClaimVO toVO(ClaimApplication claim) {

@@ -14,3 +14,9 @@ export const register = (data: {
   email?: string;
   phone?: string;
 }) => client.post('/auth/register', data).then(r => r.data.data);
+
+export const forgotPassword = (email: string) =>
+  client.post('/auth/forgot-password', { email }).then(r => r.data.data);
+
+export const resetPassword = (data: { email: string; code: string; newPassword: string }) =>
+  client.post('/auth/reset-password', data).then(r => r.data.data);
