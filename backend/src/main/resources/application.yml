@@ -24,6 +24,8 @@ server:
   port: 8080
 
 app:
+  site:
+    base-url: ${SITE_BASE_URL:http://localhost:5173}
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: 86400000

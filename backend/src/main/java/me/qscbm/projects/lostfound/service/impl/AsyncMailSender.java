@@ -7,9 +7,10 @@ import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ public class AsyncMailSender {
     private final UserMapper userMapper;
     private final UserEmailPreferenceMapper emailPreferenceMapper;
     private final JavaMailSender mailSender;
+    private final EmailContentBuilder emailContentBuilder;
 
     @Value("${spring.mail.username:}")
     private String mailFrom;
@@ -33,7 +35,8 @@ public class AsyncMailSender {
         if (!canReceiveEmail(user, preferenceKey)) {
             return;
         }
-        send(user.getEmail(), subject, content);
+        String[] action = actionFor(preferenceKey);
+        send(user.getEmail(), subject, content, action[0], action[1]);
     }
 
     @Async("mailTaskExecutor")
@@ -45,9 +48,18 @@ public class AsyncMailSender {
                         .isNotNull(User::getEmail));
         for (User user : users) {
             if (canReceiveEmail(user, "announcement")) {
-                send(user.getEmail(), "校园失物招领 - 新公告：" + title, content);
+                send(user.getEmail(), "校园失物招领 - 新公告：" + title, content,
+                        "查看公告", "/");
             }
         }
+    }
+
+    private String[] actionFor(String preferenceKey) {
+        return switch (preferenceKey) {
+            case "claim_request" -> new String[]{"查看认领申请", "/claims"};
+            case "claim_result" -> new String[]{"查看认领结果", "/claims"};
+            default -> new String[]{null, null};
+        };
     }
 
     /**
@@ -82,15 +94,19 @@ public class AsyncMailSender {
         return enabled != null && enabled == 1;
     }
 
-    private void send(String recipient, String subject, String content) {
+    private void send(String recipient, String subject, String content,
+                      String actionText, String actionUrl) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             if (mailFrom != null && !mailFrom.isBlank()) {
-                message.setFrom(mailFrom);
+                helper.setFrom(mailFrom);
             }
-            message.setTo(recipient);
-            message.setSubject(subject);
-            message.setText(content);
+            helper.setTo(recipient);
+            helper.setSubject(subject);
+            helper.setText(
+                    emailContentBuilder.plainBody(content, actionText, actionUrl),
+                    emailContentBuilder.htmlBody(content, actionText, actionUrl));
             mailSender.send(message);
         } catch (Exception e) {
             log.error("邮件发送失败，recipient={}, subject={}", recipient, subject, e);

@@ -5,15 +5,15 @@ import {
   ListItemText, ListItemAvatar, Avatar, Divider, Badge, CircularProgress, Alert, Snackbar
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
 import { useAuth } from '../store/AuthContext';
+import { useChatSocket } from '../store/ChatSocketContext';
 import { getConversations, getMessages, sendMessage as sendMsg, markConversationRead } from '../api/chat';
 import type { ConversationVO, MessageVO } from '../api/chat';
-import { assetUrl, WS_ENDPOINT } from '../config';
+import { assetUrl } from '../config';
 
 export default function Chat() {
   const { user } = useAuth();
+  const { subscribe, setActiveConversation, refreshUnread } = useChatSocket();
   const [searchParams] = useSearchParams();
   const targetUserId = Number(searchParams.get('to')) || null;
   const targetName = searchParams.get('name');
@@ -41,7 +41,13 @@ export default function Chat() {
       .then(data => {
         if (!controller.signal.aborted) {
           setMessages(data?.records || []);
-          markConversationRead(selectedConv).then(loadConversations).catch(() => {});
+          setActiveConversation(selectedConv);
+          markConversationRead(selectedConv)
+            .then(() => {
+              loadConversations();
+              refreshUnread();
+            })
+            .catch(() => {});
           setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }
       })
@@ -55,39 +61,29 @@ export default function Chat() {
     selectedConvRef.current = selectedConv;
   }, [selectedConv]);
 
-  // WebSocket connection with auth headers
+  // 全局 WebSocket 消息：当前会话直接追加，其他会话由侧边栏红点提示
   useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('token');
-    const client = new Client({
-      webSocketFactory: () => new SockJS(WS_ENDPOINT),
-      connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
-      onConnect: () => {
-        client.subscribe('/user/queue/messages', (msg) => {
-          try {
-            const m: MessageVO = JSON.parse(msg.body);
-            setMessages(prev => {
-              if (m.conversationId !== selectedConvRef.current) return prev;
-              if (prev.some(x => x.id === m.id)) return prev;
-              return [...prev, m];
-            });
-            if (m.conversationId === selectedConvRef.current) {
-              markConversationRead(m.conversationId).then(loadConversations).catch(() => {});
-            }
-            loadConversations();
-            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-          } catch { /* ignore malformed messages */ }
-        });
-      },
-      reconnectDelay: 5000,
+    const unsubscribe = subscribe((m: MessageVO) => {
+      if (m.conversationId !== selectedConvRef.current) return;
+      setMessages(prev => {
+        if (prev.some(x => x.id === m.id)) return prev;
+        return [...prev, m];
+      });
+      markConversationRead(m.conversationId)
+        .then(() => {
+          loadConversations();
+          refreshUnread();
+        })
+        .catch(() => {});
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     });
-    client.activate();
-    return () => {
-      client.deactivate();
-    };
-    // 依赖 user?.id 而非 user 引用：资料更新（user 引用变化）不再重建连接、清空对话
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, loadConversations]);
+    return unsubscribe;
+  }, [subscribe, loadConversations, refreshUnread]);
+
+  // 离开对话页时清空活动会话，避免未读红点漏计
+  useEffect(() => {
+    return () => setActiveConversation(null);
+  }, [setActiveConversation]);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }

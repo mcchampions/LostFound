@@ -105,6 +105,9 @@ public class DatabaseInitializer implements ApplicationRunner {
         ClassPathResource resource = new ClassPathResource(scriptPath);
         String sql = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
+        // 先剔除整行注释：否则注释块会与下一条语句合并成一条 SQL（中间没有分号），
+        // 例如 "注释行\nALTER TABLE ..." 会被 MySQL 判定为 bad SQL grammar
+        sql = stripCommentLines(sql);
         String[] statements = sql.split(";");
         int success = 0;
         int failed = 0;
@@ -141,6 +144,22 @@ public class DatabaseInitializer implements ApplicationRunner {
         }
 
         return new int[]{success, failed};
+    }
+
+    /**
+     * 移除所有整行注释（trim 后以 "--" 开头）与空行。
+     * 只处理整行注释，不影响 SQL 语句中字符串字面量（如 VALUES ('--xx')）。
+     */
+    static String stripCommentLines(String sql) {
+        StringBuilder cleaned = new StringBuilder(sql.length());
+        for (String line : sql.split("\n", -1)) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("--")) {
+                continue;
+            }
+            cleaned.append(line).append('\n');
+        }
+        return cleaned.toString();
     }
 
     /**

@@ -53,6 +53,7 @@ public class UserServiceImpl implements UserService {
     private final FoundItemMapper foundItemMapper;
     private final UserEmailPreferenceMapper emailPreferenceMapper;
     private final OperationLogRecorder operationLogRecorder;
+    private final EmailContentBuilder emailContentBuilder;
     private final SecureRandom secureRandom = new SecureRandom();
     private final LongSupplier currentTimeMillis;
 
@@ -67,10 +68,11 @@ public class UserServiceImpl implements UserService {
                            LostItemMapper lostItemMapper,
                            FoundItemMapper foundItemMapper,
                            UserEmailPreferenceMapper emailPreferenceMapper,
-                           OperationLogRecorder operationLogRecorder) {
+                           OperationLogRecorder operationLogRecorder,
+                           EmailContentBuilder emailContentBuilder) {
         this(userMapper, passwordEncoder, mailSender, verificationCodeMapper,
              lostItemMapper, foundItemMapper, emailPreferenceMapper, operationLogRecorder,
-             System::currentTimeMillis);
+             emailContentBuilder, System::currentTimeMillis);
     }
 
     UserServiceImpl(UserMapper userMapper,
@@ -81,6 +83,7 @@ public class UserServiceImpl implements UserService {
                     FoundItemMapper foundItemMapper,
                     UserEmailPreferenceMapper emailPreferenceMapper,
                     OperationLogRecorder operationLogRecorder,
+                    EmailContentBuilder emailContentBuilder,
                     LongSupplier currentTimeMillis) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
@@ -90,6 +93,7 @@ public class UserServiceImpl implements UserService {
         this.foundItemMapper = foundItemMapper;
         this.emailPreferenceMapper = emailPreferenceMapper;
         this.operationLogRecorder = operationLogRecorder;
+        this.emailContentBuilder = emailContentBuilder;
         this.currentTimeMillis = currentTimeMillis;
     }
 
@@ -206,7 +210,8 @@ public class UserServiceImpl implements UserService {
             }
             msg.setTo(user.getEmail());
             msg.setSubject("校园失物招领 - 邮箱验证码");
-            msg.setText("您的验证码是：" + code + "，5分钟内有效。");
+            msg.setText("您的验证码是：" + code + "，5分钟内有效。"
+                    + "\n\n如无法完成验证，请访问：" + emailContentBuilder.url("/profile"));
             mailSender.send(msg);
         } catch (Exception e) {
             verificationCodeMapper.deleteMatching(userId, verificationCode.getCodeHash());

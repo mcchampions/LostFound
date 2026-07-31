@@ -40,8 +40,10 @@ class AuthServiceImplTest {
         mailSender = mock(JavaMailSender.class);
         OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
         loginAttemptService = mock(LoginAttemptService.class);
+        EmailContentBuilder emailContentBuilder = new EmailContentBuilder("http://localhost:5173");
         service = new AuthServiceImpl(userMapper, passwordEncoder, jwtUtils,
-                passwordResetCodeMapper, mailSender, operationLogRecorder, loginAttemptService);
+                passwordResetCodeMapper, mailSender, operationLogRecorder,
+                loginAttemptService, emailContentBuilder);
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
     }
 

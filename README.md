@@ -50,7 +50,7 @@ Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
 各子目录已提供 `docker-compose.yml`，把其中的占位值改成真实凭据后，直接启动。
 
 ### 后端
-编辑 `backend/docker-compose.yml`，填写 `DB_PASSWORD`、`MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`、`JWT_SECRET` 等真实值，并把 `APP_CORS_ALLOWED_ORIGINS` 改为前端对外访问地址。邮件相关可选项：`MAIL_DIGEST_INTERVAL_MS`（离线未读摘要邮件发送间隔，默认 180000ms）、`MAIL_STATE_CLEAR_INTERVAL_MS`（已提醒状态清空间隔，默认 86400000ms）。
+编辑 `backend/docker-compose.yml`，填写 `DB_PASSWORD`、`MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`、`JWT_SECRET` 等真实值，并把 `APP_CORS_ALLOWED_ORIGINS`、`SITE_BASE_URL`（邮件跳转链接使用的前端地址）改为前端对外访问地址。邮件相关可选项：`MAIL_DIGEST_INTERVAL_MS`（离线未读摘要邮件发送间隔，默认 180000ms）、`MAIL_STATE_CLEAR_INTERVAL_MS`（已提醒状态清空间隔，默认 86400000ms）。
 ```bash
 cd backend
 docker compose up -d --build
@@ -77,4 +77,4 @@ java -Dfile.encoding=UTF-8 -jar target/lost-found-1.0.0.jar
 
 ## 开发进度
 
-已实现：认证（注册/登录/邮箱验证/忘记密码）、登录防爆破（连续失败锁定 + IP 限流，改密后旧 token 立即失效）、用户、失物、招领、认领申请、通知、公告、分类、上传、即时聊天、离线未读摘要邮件（每轮离线仅提醒一次，上线或 24 小时后可再次提醒）、数据统计、操作日志（关键业务操作落库 + 管理端查看）、Excel 导出、管理后台；前端 21 个页面 + i18n 中文化。后端含 60 个单元测试。
+已实现：认证（注册/登录/邮箱验证/忘记密码）、登录防爆破（连续失败锁定 + IP 限流，改密后旧 token 立即失效）、用户、失物、招领、认领申请、通知、公告、分类、上传、即时聊天、离线未读摘要邮件（每轮离线仅提醒一次，上线或 24 小时后可再次提醒；邮件含快速跳转链接）、登录后全局 WebSocket（任意页面实时收消息，侧边栏「对话」红点提示）、数据统计、操作日志（关键业务操作落库 + 管理端查看）、Excel 导出、管理后台；前端 21 个页面 + i18n 中文化。后端含 67 个单元测试。

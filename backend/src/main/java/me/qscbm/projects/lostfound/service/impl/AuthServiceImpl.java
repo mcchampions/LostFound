@@ -45,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     private final JavaMailSender mailSender;
     private final OperationLogRecorder operationLogRecorder;
     private final LoginAttemptService loginAttemptService;
+    private final EmailContentBuilder emailContentBuilder;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${spring.mail.username:}")
@@ -203,7 +204,8 @@ public class AuthServiceImpl implements AuthService {
             msg.setTo(normalized);
             msg.setSubject("校园失物招领 - 重置密码验证码");
             msg.setText("您的重置密码验证码是：" + code
-                    + "，5分钟内有效。如非本人操作，请忽略此邮件。");
+                    + "，5分钟内有效。如非本人操作，请忽略此邮件。"
+                    + "\n\n前往找回密码页面：" + emailContentBuilder.url("/forgot-password"));
             mailSender.send(msg);
         } catch (Exception e) {
             passwordResetCodeMapper.deleteMatching(user.getId(), record.getCodeHash());

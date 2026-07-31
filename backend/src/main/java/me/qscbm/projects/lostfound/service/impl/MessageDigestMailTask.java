@@ -9,8 +9,9 @@ import me.qscbm.projects.lostfound.mapper.MessageMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -36,6 +37,7 @@ public class MessageDigestMailTask {
     private final MessageMapper messageMapper;
     private final JavaMailSender mailSender;
     private final WebSocketPresenceService presenceService;
+    private final EmailContentBuilder emailContentBuilder;
 
     @Value("${spring.mail.username:}")
     private String mailFrom;
@@ -98,9 +100,9 @@ public class MessageDigestMailTask {
             }
 
             String subject = "校园失物招领 - 您有 " + unreadCount + " 条未读消息";
-            String content = "您在校园失物招领系统中有 " + unreadCount + " 条未读消息（"
-                    + conversationList.size() + " 个会话），请登录查看。";
-            sendMail(user.getEmail(), subject, content);
+            String summary = "您在校园失物招领系统中有 " + unreadCount + " 条未读消息（"
+                    + conversationList.size() + " 个会话），点击下方按钮快速查看。";
+            sendMail(user.getEmail(), subject, summary, "查看未读消息", "/chat");
 
             offlineTracker.markSent(userId);
             log.info("离线邮件:userId={} 摘要已发送,未读 {} 条,会话 {} 个",
@@ -111,14 +113,22 @@ public class MessageDigestMailTask {
         }
     }
 
-    private void sendMail(String recipient, String subject, String content) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        if (mailFrom != null && !mailFrom.isBlank()) {
-            message.setFrom(mailFrom);
+    private void sendMail(String recipient, String subject, String summary,
+                          String actionText, String actionUrl) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            if (mailFrom != null && !mailFrom.isBlank()) {
+                helper.setFrom(mailFrom);
+            }
+            helper.setTo(recipient);
+            helper.setSubject(subject);
+            helper.setText(
+                    emailContentBuilder.plainBody(summary, actionText, actionUrl),
+                    emailContentBuilder.htmlBody(summary, actionText, actionUrl));
+            mailSender.send(message);
+        } catch (Exception e) {
+            throw new IllegalStateException("摘要邮件发送失败", e);
         }
-        message.setTo(recipient);
-        message.setSubject(subject);
-        message.setText(content);
-        mailSender.send(message);
     }
 }

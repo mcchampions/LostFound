@@ -46,11 +46,12 @@ class UserServiceImplTest {
         foundItemMapper = mock(FoundItemMapper.class);
         emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
         OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
+        EmailContentBuilder emailContentBuilder = new EmailContentBuilder("http://localhost:5173");
         now = new AtomicLong(1_000_000L);
         service = new UserServiceImpl(
                 userMapper, passwordEncoder, mailSender, verificationCodeMapper,
                 lostItemMapper, foundItemMapper, emailPreferenceMapper,
-                operationLogRecorder, now::get);
+                operationLogRecorder, emailContentBuilder, now::get);
         when(passwordEncoder.encode(anyString()))
                 .thenAnswer(invocation -> "hash:" + invocation.getArgument(0));
         when(passwordEncoder.matches(anyString(), anyString()))

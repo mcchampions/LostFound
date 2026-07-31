@@ -15,6 +15,7 @@ import {
   Menu as MenuIcon
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
+import { useChatSocket } from '../store/ChatSocketContext';
 import { getUnreadCount, getNotifications, markRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
@@ -24,6 +25,7 @@ const DRAWER_WIDTH = 240;
 
 function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
   const { isAdmin } = useAuth();
+  const { unreadTotal } = useChatSocket();
   const location = useLocation();
   const menuItems = [
     { text: '首页', icon: <HomeIcon />, path: '/' },
@@ -45,7 +47,13 @@ function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
         <ListItem key={item.path} disablePadding>
           <ListItemButton selected={location.pathname === item.path}
             onClick={() => onNavigate(item.path)}>
-            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemIcon>
+              {item.path === '/chat' && unreadTotal > 0 ? (
+                <Badge badgeContent={unreadTotal} color="error" max={99}>
+                  {item.icon}
+                </Badge>
+              ) : item.icon}
+            </ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItemButton>
         </ListItem>

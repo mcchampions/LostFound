@@ -4,13 +4,18 @@ import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
+import jakarta.mail.Multipart;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.util.List;
+import java.util.Properties;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -26,21 +31,28 @@ class AsyncMailSenderTest {
         userMapper = mock(UserMapper.class);
         emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
         mailSender = mock(JavaMailSender.class);
-        asyncMailSender = new AsyncMailSender(userMapper, emailPreferenceMapper, mailSender);
+        EmailContentBuilder emailContentBuilder = new EmailContentBuilder("http://localhost:5173");
+        when(mailSender.createMimeMessage())
+                .thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
+        asyncMailSender = new AsyncMailSender(
+                userMapper, emailPreferenceMapper, mailSender, emailContentBuilder);
     }
 
     @Test
-    void sendsNotificationOnlyToVerifiedOptedInUser() {
+    void sendsNotificationOnlyToVerifiedOptedInUser() throws Exception {
         User user = eligibleUser();
         when(userMapper.selectById(1L)).thenReturn(user);
         when(emailPreferenceMapper.selectById(1L)).thenReturn(prefWithAllEnabled());
 
         asyncMailSender.sendUserNotification(1L, "Subject", "Content", "claim_request");
 
-        verify(mailSender).send(argThat((SimpleMailMessage message) ->
-                "user@example.com".equals(message.getTo()[0])
-                        && "Subject".equals(message.getSubject())
-                        && "Content".equals(message.getText())));
+        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(captor.capture());
+        MimeMessage message = captor.getValue();
+        assertThat(message.getSubject()).isEqualTo("Subject");
+        String body = readBody(message.getContent());
+        assertThat(body).contains("Content");
+        assertThat(body).contains("http://localhost:5173/claims");
     }
 
     @Test
@@ -53,7 +65,7 @@ class AsyncMailSenderTest {
 
         asyncMailSender.sendUserNotification(1L, "Subject", "Content", "claim_request");
 
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
     @Test
@@ -64,7 +76,7 @@ class AsyncMailSenderTest {
 
         asyncMailSender.sendUserNotification(1L, "Subject", "Content", "claim_request");
 
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        verify(mailSender).send(any(MimeMessage.class));
     }
 
     @Test
@@ -79,7 +91,7 @@ class AsyncMailSenderTest {
 
         asyncMailSender.sendAnnouncement("Notice", "Announcement content");
 
-        verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        verify(mailSender, times(2)).send(any(MimeMessage.class));
     }
 
     @Test
@@ -92,7 +104,21 @@ class AsyncMailSenderTest {
 
         asyncMailSender.sendUserNotification(1L, "Subject", "Content", "system_message");
 
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        verify(mailSender).send(any(MimeMessage.class));
+    }
+
+    private String readBody(Object content) throws Exception {
+        if (content instanceof String text) {
+            return text;
+        }
+        if (content instanceof Multipart multipart) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                sb.append(readBody(multipart.getBodyPart(i).getContent()));
+            }
+            return sb.toString();
+        }
+        return "";
     }
 
     private User eligibleUser() {
