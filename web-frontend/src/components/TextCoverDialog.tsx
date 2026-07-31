@@ -52,22 +52,47 @@ const coverErrorMessage = (error: unknown) => {
   return message || '生成失败，请重试';
 };
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * 把 "YYYY-MM-DDTHH:mm[:ss]"（datetime-local / 后端 LocalDateTime 序列化）
+ * 解析为本地时间 Date。带时区后缀（Z 或 ±HH:mm）的字符串按标准 ISO 解析。
+ * 不带秒的写法在部分浏览器（如 Safari）会被 new Date 判为无效，这里手工构造，
+ * 保证各浏览器行为一致。解析失败返回 null，绝不把原始字符串回传给封面。
+ */
+const parseLocalDateTime = (value: string): Date | null => {
+  const raw = value.trim();
+  if (!raw) return null;
+  const match = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?$/
+  );
+  if (!match) return null;
+  if (match[7]) {
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const date = new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5]),
+    match[6] ? Number(match[6]) : 0
+  );
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 const formatCoverDate = (start?: string, end?: string) => {
-  const startDate = start?.trim() ? new Date(start) : new Date();
-  if (Number.isNaN(startDate.getTime())) return start || '';
-  const fmt = (d: Date) => {
-    const M = String(d.getMonth() + 1).padStart(2, '0');
-    const D = String(d.getDate()).padStart(2, '0');
-    const h = String(d.getHours()).padStart(2, '0');
-    const m = String(d.getMinutes()).padStart(2, '0');
-    return `${M}-${D} ${h}:${m}`;
-  };
-  if (!end?.trim()) return fmt(startDate);
-  const endDate = new Date(end);
-  if (Number.isNaN(endDate.getTime())) return fmt(startDate);
+  const fmt = (d: Date) =>
+    `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const startDate = parseLocalDateTime(start || '');
+  const endDate = parseLocalDateTime(end || '');
+  if (!startDate && !endDate) return '';
+  if (!startDate) return fmt(endDate!);
+  if (!endDate) return fmt(startDate);
   const sameDay = startDate.toDateString() === endDate.toDateString();
   return sameDay
-    ? `${fmt(startDate)}~${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+    ? `${fmt(startDate)}~${pad2(endDate.getHours())}:${pad2(endDate.getMinutes())}`
     : `${fmt(startDate)} ~ ${fmt(endDate)}`;
 };
 

@@ -12,6 +12,7 @@ import { createFoundItem, updateFoundItem, getFoundItem } from '../api/foundItem
 import ItemImageUpload from '../components/ItemImageUpload';
 import ImageCropDialog from '../components/ImageCropDialog';
 import TextCoverDialog from '../components/TextCoverDialog';
+import DateTimeRangePicker from '../components/DateTimeRangePicker';
 import { uploadImage } from '../api/upload';
 import { assetUrl } from '../config';
 
@@ -28,6 +29,7 @@ export default function FoundItemForm() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
   const [error, setError] = useState('');
+  const [timeError, setTimeError] = useState('');
 
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState<number | ''>('');
@@ -86,14 +88,24 @@ export default function FoundItemForm() {
       setError('请输入发现地点');
       return;
     }
+    if (!foundTime) {
+      setError('请选择发现时间');
+      setTimeError('请选择发现时间');
+      return;
+    }
+    if (foundTimeEnd && foundTimeEnd < foundTime) {
+      setError('结束时间不能早于开始时间');
+      setTimeError('结束时间不能早于开始时间');
+      return;
+    }
 
     const payload = {
       title: title.trim(),
       categoryId,
       description: description.trim(),
       location: locationVal.trim(),
-      foundTime: foundTime ? new Date(foundTime).toISOString() : new Date().toISOString(),
-      foundTimeEnd: foundTimeEnd ? new Date(foundTimeEnd).toISOString() : null,
+      foundTime,
+      foundTimeEnd: foundTimeEnd || null,
       imageUrls,
       coverImage: coverImage || null,
     };
@@ -168,22 +180,23 @@ export default function FoundItemForm() {
             onChange={e => setLocationVal(e.target.value)}
           />
 
-          <TextField
-            fullWidth margin="normal"
-            type="datetime-local"
+          <DateTimeRangePicker
             label="发现时间"
-            value={foundTime}
-            onChange={e => setFoundTime(e.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-
-          <TextField
-            fullWidth margin="normal"
-            type="datetime-local"
-            label="发现时间（结束）"
-            value={foundTimeEnd}
-            onChange={e => setFoundTimeEnd(e.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
+            startLabel="开始"
+            endLabel="结束"
+            startValue={foundTime}
+            endValue={foundTimeEnd}
+            onStartChange={(value) => {
+              setFoundTime(value);
+              if (timeError) setTimeError('');
+            }}
+            onEndChange={(value) => {
+              setFoundTimeEnd(value);
+              if (timeError) setTimeError('');
+            }}
+            required
+            error={!!timeError}
+            helperText={timeError || '可只填开始时间，表示某个时刻；填写结束时间则表示时间范围'}
           />
 
           <TextField

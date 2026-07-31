@@ -23,6 +23,7 @@ import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.FoundItemService;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -83,6 +84,7 @@ public class FoundItemServiceImpl implements FoundItemService {
         item.setImageUrls(serializeImageUrls(req.getImageUrls()));
         item.setCoverImage(req.getCoverImage());
         item.setStatus("UNCLAIMED");
+        validateTimeRange(item.getFoundTime(), item.getFoundTimeEnd());
         foundItemMapper.insert(item);
         return toVO(item);
     }
@@ -111,17 +113,22 @@ public class FoundItemServiceImpl implements FoundItemService {
         if (req.getFoundTime() != null) {
             item.setFoundTime(req.getFoundTime());
         }
-        if (req.getFoundTimeEnd() != null) {
-            item.setFoundTimeEnd(req.getFoundTimeEnd());
-        }
+        item.setFoundTimeEnd(req.getFoundTimeEnd());
         if (req.getImageUrls() != null) {
             item.setImageUrls(serializeImageUrls(req.getImageUrls()));
         }
         if (req.getCoverImage() != null) {
             item.setCoverImage(req.getCoverImage());
         }
+        validateTimeRange(item.getFoundTime(), item.getFoundTimeEnd());
         foundItemMapper.updateById(item);
         return toVO(item);
+    }
+
+    private void validateTimeRange(LocalDateTime start, LocalDateTime end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new BusinessException("结束时间不能早于开始时间");
+        }
     }
 
     @Override

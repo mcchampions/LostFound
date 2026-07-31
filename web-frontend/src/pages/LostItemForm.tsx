@@ -12,6 +12,7 @@ import { createLostItem, updateLostItem, getLostItem } from '../api/lostItems';
 import ItemImageUpload from '../components/ItemImageUpload';
 import ImageCropDialog from '../components/ImageCropDialog';
 import TextCoverDialog from '../components/TextCoverDialog';
+import DateTimeRangePicker from '../components/DateTimeRangePicker';
 import { uploadImage } from '../api/upload';
 import { assetUrl } from '../config';
 
@@ -28,6 +29,7 @@ export default function LostItemForm() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
   const [error, setError] = useState('');
+  const [timeError, setTimeError] = useState('');
 
   const [title, setTitle] = useState('');
   const [categoryId, setCategoryId] = useState<number | ''>('');
@@ -86,14 +88,24 @@ export default function LostItemForm() {
       setError('请输入丢失地点');
       return;
     }
+    if (!lostTime) {
+      setError('请选择丢失时间');
+      setTimeError('请选择丢失时间');
+      return;
+    }
+    if (lostTimeEnd && lostTimeEnd < lostTime) {
+      setError('结束时间不能早于开始时间');
+      setTimeError('结束时间不能早于开始时间');
+      return;
+    }
 
     const payload = {
       title: title.trim(),
       categoryId,
       description: description.trim(),
       location: locationVal.trim(),
-      lostTime: lostTime ? new Date(lostTime).toISOString() : new Date().toISOString(),
-      lostTimeEnd: lostTimeEnd ? new Date(lostTimeEnd).toISOString() : null,
+      lostTime,
+      lostTimeEnd: lostTimeEnd || null,
       imageUrls,
       coverImage: coverImage || null,
     };
@@ -168,22 +180,23 @@ export default function LostItemForm() {
             onChange={e => setLocationVal(e.target.value)}
           />
 
-          <TextField
-            fullWidth margin="normal"
-            type="datetime-local"
+          <DateTimeRangePicker
             label="丢失时间"
-            value={lostTime}
-            onChange={e => setLostTime(e.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
-
-          <TextField
-            fullWidth margin="normal"
-            type="datetime-local"
-            label="丢失时间（结束）"
-            value={lostTimeEnd}
-            onChange={e => setLostTimeEnd(e.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
+            startLabel="开始"
+            endLabel="结束"
+            startValue={lostTime}
+            endValue={lostTimeEnd}
+            onStartChange={(value) => {
+              setLostTime(value);
+              if (timeError) setTimeError('');
+            }}
+            onEndChange={(value) => {
+              setLostTimeEnd(value);
+              if (timeError) setTimeError('');
+            }}
+            required
+            error={!!timeError}
+            helperText={timeError || '可只填开始时间，表示某个时刻；填写结束时间则表示时间范围'}
           />
 
           <TextField
