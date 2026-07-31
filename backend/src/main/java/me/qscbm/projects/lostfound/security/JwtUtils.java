@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 
 @Component
@@ -54,5 +56,14 @@ public class JwtUtils {
 
     public String getRole(Claims claims) {
         return claims.get("role", String.class);
+    }
+
+    /** token 签发时间是否早于用户最近一次改密时间（是则视为已吊销）。 */
+    public static boolean issuedBeforePasswordChange(Claims claims, LocalDateTime passwordChangedAt) {
+        if (claims == null || claims.getIssuedAt() == null || passwordChangedAt == null) {
+            return false;
+        }
+        Date changedAt = Date.from(passwordChangedAt.atZone(ZoneId.systemDefault()).toInstant());
+        return claims.getIssuedAt().before(changedAt);
     }
 }

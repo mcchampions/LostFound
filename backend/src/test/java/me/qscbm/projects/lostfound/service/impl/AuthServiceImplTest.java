@@ -9,6 +9,7 @@ import me.qscbm.projects.lostfound.entity.PasswordResetCode;
 import me.qscbm.projects.lostfound.mapper.PasswordResetCodeMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.security.JwtUtils;
+import me.qscbm.projects.lostfound.service.LoginAttemptService;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -28,6 +29,7 @@ class AuthServiceImplTest {
     private AuthServiceImpl service;
     private PasswordResetCodeMapper passwordResetCodeMapper;
     private JavaMailSender mailSender;
+    private LoginAttemptService loginAttemptService;
 
     @BeforeEach
     void setUp() {
@@ -37,8 +39,9 @@ class AuthServiceImplTest {
         passwordResetCodeMapper = mock(PasswordResetCodeMapper.class);
         mailSender = mock(JavaMailSender.class);
         OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
+        loginAttemptService = mock(LoginAttemptService.class);
         service = new AuthServiceImpl(userMapper, passwordEncoder, jwtUtils,
-                passwordResetCodeMapper, mailSender, operationLogRecorder);
+                passwordResetCodeMapper, mailSender, operationLogRecorder, loginAttemptService);
         when(passwordEncoder.encode(any())).thenReturn("encoded-password");
     }
 
@@ -97,6 +100,41 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void lockedUsernameIsRejectedBeforeLookup() {
+        when(loginAttemptService.isUsernameLocked("student")).thenReturn(true);
+        when(loginAttemptService.remainingLockSeconds("student")).thenReturn(900L);
+
+        assertThatThrownBy(() -> service.login(loginRequest("student", "password123")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("登录失败次数过多");
+        verify(userMapper, never()).selectOne(any());
+    }
+
+    @Test
+    void failedLoginRecordsAttempt() {
+        when(userMapper.selectOne(any())).thenReturn(null);
+
+        assertThatThrownBy(() -> service.login(loginRequest("student", "wrong")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("用户名或密码错误");
+        verify(loginAttemptService).recordFailure(any(), any());
+    }
+
+    @Test
+    void successfulLoginResetsFailures() {
+        User user = activeUser("student@example.com");
+        user.setUsername("student");
+        user.setPassword("encoded-password");
+        user.setRole("STUDENT");
+        when(userMapper.selectOne(any())).thenReturn(user);
+        when(passwordEncoder.matches("password123", "encoded-password")).thenReturn(true);
+
+        service.login(loginRequest("student", "password123"));
+
+        verify(loginAttemptService).reset("student");
+    }
+
+    @Test
     void sendsPasswordResetCodeToActiveUser() {
         when(userMapper.selectOne(any())).thenReturn(activeUser("user@example.com"));
         when(passwordResetCodeMapper.updateIfCooldown(any(), anyLong())).thenReturn(0);
@@ -134,7 +172,8 @@ class AuthServiceImplTest {
         service.resetPassword("user@example.com", "123456", "newpass123");
 
         verify(userMapper).updateById(argThat(user ->
-                "encoded-new".equals(user.getPassword())));
+                "encoded-new".equals(user.getPassword())
+                        && user.getPasswordChangedAt() != null));
         verify(passwordResetCodeMapper).deleteById(1L);
     }
 
@@ -178,6 +217,13 @@ class AuthServiceImplTest {
         request.setPassword("password123");
         request.setRealName("Student");
         request.setRole(role);
+        return request;
+    }
+
+    private LoginRequest loginRequest(String username, String password) {
+        LoginRequest request = new LoginRequest();
+        request.setUsername(username);
+        request.setPassword(password);
         return request;
     }
 }

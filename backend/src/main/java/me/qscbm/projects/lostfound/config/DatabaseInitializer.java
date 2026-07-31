@@ -46,7 +46,8 @@ public class DatabaseInitializer implements ApplicationRunner {
               "db/migration_message_conversation.sql",
               "db/migration_email_preference.sql",
               "db/migration_time_range.sql",
-              "db/migration_password_reset.sql"
+              "db/migration_password_reset.sql",
+              "db/migration_security_hardening.sql"
       };
 
     private final JdbcTemplate jdbcTemplate;

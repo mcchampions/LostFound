@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `user` (
     `id` BIGINT NOT NULL AUTO_INCREMENT,
     `username` VARCHAR(50) NOT NULL,
     `password` VARCHAR(255) NOT NULL,
+    `password_changed_at` DATETIME DEFAULT NULL,
     `real_name` VARCHAR(50) DEFAULT NULL,
     `role` VARCHAR(20) NOT NULL DEFAULT 'STUDENT',
     `email` VARCHAR(100) DEFAULT NULL,

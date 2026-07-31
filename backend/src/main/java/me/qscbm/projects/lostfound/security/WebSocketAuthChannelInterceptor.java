@@ -57,6 +57,10 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                 if (user == null || !"ACTIVE".equals(user.getStatus())) {
                     throw new AccessDeniedException("WebSocket 用户不可用");
                 }
+                // 改密后旧 token 立即失效
+                if (JwtUtils.issuedBeforePasswordChange(claims, user.getPasswordChangedAt())) {
+                    throw new AccessDeniedException("WebSocket Token 已失效，请重新登录");
+                }
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(

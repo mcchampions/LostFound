@@ -15,6 +15,10 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
@@ -90,6 +94,28 @@ class WebSocketAuthChannelInterceptorTest {
                 interceptor.preSend(message, mock(org.springframework.messaging.MessageChannel.class)))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("WebSocket 用户不可用");
+    }
+
+    @Test
+    void rejectsTokenIssuedBeforePasswordChange() {
+        Claims claims = mock(Claims.class);
+        when(jwtUtils.parse("valid-token")).thenReturn(claims);
+        when(jwtUtils.getUserId(claims)).thenReturn(7L);
+        when(claims.getIssuedAt()).thenReturn(Date.from(
+                LocalDateTime.now().minusMinutes(5).atZone(ZoneId.systemDefault()).toInstant()));
+        User user = new User();
+        user.setId(7L);
+        user.setStatus("ACTIVE");
+        user.setRole("TEACHER");
+        user.setPasswordChangedAt(LocalDateTime.now());
+        when(userMapper.selectById(7L)).thenReturn(user);
+
+        assertThatThrownBy(() ->
+                interceptor.preSend(connectMessage("Bearer valid-token"),
+                        mock(org.springframework.messaging.MessageChannel.class)))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("已失效");
+        verify(presenceService, never()).onConnect(7L);
     }
 
     @Test

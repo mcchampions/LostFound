@@ -49,6 +49,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     filterChain.doFilter(request, response);
                     return;
                 }
+                // 改密后旧 token 立即失效
+                if (JwtUtils.issuedBeforePasswordChange(claims, user.getPasswordChangedAt())) {
+                    log.debug("JWT 令牌在用户改密前签发,已拒绝 userId={}", userId);
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(

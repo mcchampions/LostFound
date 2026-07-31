@@ -13,15 +13,19 @@ import me.qscbm.projects.lostfound.mapper.PasswordResetCodeMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.security.JwtUtils;
 import me.qscbm.projects.lostfound.service.AuthService;
+import me.qscbm.projects.lostfound.service.LoginAttemptService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
+import java.time.LocalDateTime;
 import java.security.SecureRandom;
 import java.util.Objects;
 
@@ -40,6 +44,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordResetCodeMapper passwordResetCodeMapper;
     private final JavaMailSender mailSender;
     private final OperationLogRecorder operationLogRecorder;
+    private final LoginAttemptService loginAttemptService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${spring.mail.username:}")
@@ -93,10 +98,14 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest req) {
+        checkLoginThrottle(req.getUsername());
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>()
                         .eq(User::getUsername, req.getUsername()));
         if (user == null || !passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+            loginAttemptService.recordFailure(req.getUsername(), currentIp());
+            operationLogRecorder.log(user != null ? user.getId() : null, "LOGIN_FAILED", "USER",
+                    user != null ? user.getId() : null, "登录失败：" + req.getUsername());
             throw new BusinessException("用户名或密码错误");
         }
         if (UserStatus.PENDING.getValue().equals(user.getStatus())) {
@@ -106,6 +115,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("账号已被禁用");
         }
         String token = jwtUtils.generate(user.getId(), user.getUsername(), user.getRole());
+        loginAttemptService.reset(req.getUsername());
         log.info("用户登录: userId={} username={}", user.getId(), user.getUsername());
         operationLogRecorder.log(user.getId(), "LOGIN", "USER", user.getId(), "用户登录");
         return new LoginResponse(token, toVO(user));
@@ -113,10 +123,14 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse adminLogin(LoginRequest req) {
+        checkLoginThrottle(req.getUsername());
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>()
                         .eq(User::getUsername, req.getUsername()));
         if (user == null || !passwordEncoder.matches(req.getPassword(), user.getPassword())) {
+            loginAttemptService.recordFailure(req.getUsername(), currentIp());
+            operationLogRecorder.log(user != null ? user.getId() : null, "ADMIN_LOGIN_FAILED", "USER",
+                    user != null ? user.getId() : null, "管理员登录失败：" + req.getUsername());
             throw new BusinessException("用户名或密码错误");
         }
         if (!UserRole.ADMIN.getValue().equals(user.getRole())) {
@@ -126,6 +140,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("账号已被禁用");
         }
         String token = jwtUtils.generate(user.getId(), user.getUsername(), user.getRole());
+        loginAttemptService.reset(req.getUsername());
         log.info("管理员登录: userId={} username={}", user.getId(), user.getUsername());
         operationLogRecorder.log(user.getId(), "ADMIN_LOGIN", "USER", user.getId(), "管理员登录");
         return new LoginResponse(token, toVO(user));
@@ -238,6 +253,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChangedAt(LocalDateTime.now());
         userMapper.updateById(user);
         passwordResetCodeMapper.deleteById(user.getId());
         log.info("密码重置: userId={} 重置密码成功", user.getId());
@@ -251,6 +267,29 @@ public class AuthServiceImpl implements AuthService {
             return "***" + (at >= 0 ? email.substring(at) : "");
         }
         return email.substring(0, 2) + "***" + email.substring(at);
+    }
+
+    private void checkLoginThrottle(String username) {
+        if (loginAttemptService.isUsernameLocked(username)) {
+            long remainingMinutes = Math.max(1, loginAttemptService.remainingLockSeconds(username) / 60 + 1);
+            throw new BusinessException("登录失败次数过多，请 " + remainingMinutes + " 分钟后再试");
+        }
+        if (loginAttemptService.isIpBlocked(currentIp())) {
+            throw new BusinessException("请求过于频繁，请稍后再试");
+        }
+    }
+
+    private String currentIp() {
+        try {
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null && attrs.getRequest() != null) {
+                return attrs.getRequest().getRemoteAddr();
+            }
+        } catch (Exception ignored) {
+            // 非 Web 上下文（如测试）时忽略
+        }
+        return null;
     }
 
     private UserVO toVO(User user) {

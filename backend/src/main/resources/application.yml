@@ -38,6 +38,12 @@ app:
   mail:
     digest-interval-ms: ${MAIL_DIGEST_INTERVAL_MS:180000}
     state-clear-interval-ms: ${MAIL_STATE_CLEAR_INTERVAL_MS:86400000}
+  security:
+    login:
+      max-failures: ${LOGIN_MAX_FAILURES:5}
+      lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
+      ip-max-attempts: ${LOGIN_IP_MAX_ATTEMPTS:20}
+      ip-window-minutes: ${LOGIN_IP_WINDOW_MINUTES:10}
 
 mybatis-plus:
   configuration:

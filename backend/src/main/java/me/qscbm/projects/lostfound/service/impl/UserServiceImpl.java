@@ -31,6 +31,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.function.LongSupplier;
@@ -165,6 +166,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("原密码错误");
         }
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChangedAt(LocalDateTime.now());
         userMapper.updateById(user);
         log.info("用户操作: userId={} 修改密码", userId);
         operationLogRecorder.log(userId, "CHANGE_PASSWORD", "USER", userId, "修改登录密码");
