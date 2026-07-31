@@ -129,6 +129,14 @@ public class FoundItemServiceImpl implements FoundItemService {
         if (start != null && end != null && end.isBefore(start)) {
             throw new BusinessException("结束时间不能早于开始时间");
         }
+        // 不能选择未来的时间；容忍 2 分钟，避免客户端与服务端时钟轻微偏差误伤
+        LocalDateTime maxAllowed = LocalDateTime.now().plusMinutes(2);
+        if (start != null && start.isAfter(maxAllowed)) {
+            throw new BusinessException("时间不能晚于当前时间");
+        }
+        if (end != null && end.isAfter(maxAllowed)) {
+            throw new BusinessException("时间不能晚于当前时间");
+        }
     }
 
     @Override

@@ -17,6 +17,7 @@ import me.qscbm.projects.lostfound.mapper.MessageMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.MessageService;
+import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +39,8 @@ public class MessageServiceImpl implements MessageService {
     private final UserMapper userMapper;
     private final UserEmailPreferenceMapper emailPreferenceMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final WebSocketPresenceService presenceService;
+    private final OfflineMessageEmailTracker offlineEmailTracker;
 
     @Override
     public MessageVO send(Long senderId, MessageRequest req) {
@@ -63,6 +66,10 @@ public class MessageServiceImpl implements MessageService {
         MessageVO vo = toVO(msg);
         messagingTemplate.convertAndSendToUser(
                 req.getReceiverId().toString(), "/queue/messages", vo);
+        // 接收者离线时，把会话纳入离线未读邮件收集；在线则仅站内推送
+        if (!presenceService.isOnline(req.getReceiverId())) {
+            offlineEmailTracker.collectIfEligible(receiver, conversationId);
+        }
         return vo;
     }
 

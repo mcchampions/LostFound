@@ -12,6 +12,8 @@ services:
       MAIL_HOST: your_smtp_host
       MAIL_USERNAME: your_email
       MAIL_PASSWORD: your_mail_password
+      MAIL_DIGEST_INTERVAL_MS: "180000"
+      MAIL_STATE_CLEAR_INTERVAL_MS: "86400000"
       JWT_SECRET: your_jwt_secret
       APP_CORS_ALLOWED_ORIGINS: http://your_frontend_host:5173
       POSTGEN_ENABLED: "true"

@@ -8,6 +8,7 @@ import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
+import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -27,6 +28,8 @@ class MessageServiceImplTest {
     private UserMapper userMapper;
     private UserEmailPreferenceMapper emailPreferenceMapper;
     private SimpMessagingTemplate messagingTemplate;
+    private WebSocketPresenceService presenceService;
+    private OfflineMessageEmailTracker offlineEmailTracker;
     private MessageServiceImpl service;
 
     @BeforeEach
@@ -35,7 +38,11 @@ class MessageServiceImplTest {
         userMapper = mock(UserMapper.class);
         emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
         messagingTemplate = mock(SimpMessagingTemplate.class);
-        service = new MessageServiceImpl(messageMapper, userMapper, emailPreferenceMapper, messagingTemplate);
+        presenceService = mock(WebSocketPresenceService.class);
+        offlineEmailTracker = mock(OfflineMessageEmailTracker.class);
+        service = new MessageServiceImpl(
+                messageMapper, userMapper, emailPreferenceMapper, messagingTemplate,
+                presenceService, offlineEmailTracker);
     }
 
     @Test
@@ -57,6 +64,42 @@ class MessageServiceImplTest {
         assertThat(result.getConversationId()).isEqualTo("1_2");
         assertThat(result.getContent()).isEqualTo("hello");
         verify(messagingTemplate).convertAndSendToUser("2", "/queue/messages", result);
+    }
+
+    @Test
+    void collectsOfflineConversationForEmailDigest() {
+        User receiver = user(2L, "Receiver");
+        when(userMapper.selectById(2L)).thenReturn(receiver);
+        when(userMapper.selectById(1L)).thenReturn(user(1L, "Sender"));
+        when(presenceService.isOnline(2L)).thenReturn(false);
+        doAnswer(invocation -> {
+            Message message = invocation.getArgument(0);
+            message.setId(20L);
+            message.setCreatedAt(LocalDateTime.now());
+            return 1;
+        }).when(messageMapper).insert(any(Message.class));
+
+        service.send(1L, request("1_2", 2L, "hello"));
+
+        verify(offlineEmailTracker).collectIfEligible(receiver, "1_2");
+    }
+
+    @Test
+    void skipsEmailDigestCollectionWhenReceiverIsOnline() {
+        User receiver = user(2L, "Receiver");
+        when(userMapper.selectById(2L)).thenReturn(receiver);
+        when(userMapper.selectById(1L)).thenReturn(user(1L, "Sender"));
+        when(presenceService.isOnline(2L)).thenReturn(true);
+        doAnswer(invocation -> {
+            Message message = invocation.getArgument(0);
+            message.setId(21L);
+            message.setCreatedAt(LocalDateTime.now());
+            return 1;
+        }).when(messageMapper).insert(any(Message.class));
+
+        service.send(1L, request("1_2", 2L, "hello"));
+
+        verify(offlineEmailTracker, never()).collectIfEligible(any(), any());
     }
 
     @Test

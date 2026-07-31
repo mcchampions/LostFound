@@ -3,6 +3,7 @@ package me.qscbm.projects.lostfound.security;
 import io.jsonwebtoken.Claims;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
+import me.qscbm.projects.lostfound.service.impl.OfflineMessageEmailTracker;
 import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ class WebSocketAuthChannelInterceptorTest {
     private JwtUtils jwtUtils;
     private UserMapper userMapper;
     private WebSocketPresenceService presenceService;
+    private OfflineMessageEmailTracker offlineEmailTracker;
     private WebSocketAuthChannelInterceptor interceptor;
 
     @BeforeEach
@@ -30,7 +32,9 @@ class WebSocketAuthChannelInterceptorTest {
         jwtUtils = mock(JwtUtils.class);
         userMapper = mock(UserMapper.class);
         presenceService = mock(WebSocketPresenceService.class);
-        interceptor = new WebSocketAuthChannelInterceptor(jwtUtils, userMapper, presenceService);
+        offlineEmailTracker = mock(OfflineMessageEmailTracker.class);
+        interceptor = new WebSocketAuthChannelInterceptor(
+                jwtUtils, userMapper, presenceService, offlineEmailTracker);
     }
 
     @Test
@@ -57,6 +61,7 @@ class WebSocketAuthChannelInterceptorTest {
                 .extracting("authority")
                 .containsExactly("ROLE_TEACHER");
         verify(presenceService).onConnect(7L);
+        verify(offlineEmailTracker).resetStatus(7L);
     }
 
     @Test

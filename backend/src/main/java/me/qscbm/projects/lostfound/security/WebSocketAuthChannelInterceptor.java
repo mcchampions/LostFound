@@ -4,6 +4,7 @@ import io.jsonwebtoken.Claims;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
+import me.qscbm.projects.lostfound.service.impl.OfflineMessageEmailTracker;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -24,12 +25,15 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
     private final JwtUtils jwtUtils;
     private final UserMapper userMapper;
     private final WebSocketPresenceService presenceService;
+    private final OfflineMessageEmailTracker offlineEmailTracker;
 
     public WebSocketAuthChannelInterceptor(JwtUtils jwtUtils, UserMapper userMapper,
-                                           WebSocketPresenceService presenceService) {
+                                           WebSocketPresenceService presenceService,
+                                           OfflineMessageEmailTracker offlineEmailTracker) {
         this.jwtUtils = jwtUtils;
         this.userMapper = userMapper;
         this.presenceService = presenceService;
+        this.offlineEmailTracker = offlineEmailTracker;
     }
 
     @Override
@@ -62,6 +66,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                         );
                 accessor.setUser(authentication);
                 presenceService.onConnect(userId);
+                offlineEmailTracker.resetStatus(userId);
             } catch (AccessDeniedException e) {
                 throw e;
             } catch (Exception e) {

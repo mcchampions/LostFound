@@ -129,6 +129,13 @@ export default function TextCoverDialog({
       setError('请输入标题');
       return;
     }
+    // 封面生成前的最后一道校验：时间范围无效时不调用后端接口
+    const startDate = parseLocalDateTime(initialDate || '');
+    const endDate = parseLocalDateTime(initialDateEnd || '');
+    if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
+      setError('时间范围无效：结束时间不能早于开始时间');
+      return;
+    }
     setLoading(true);
     setError('');
     setPreviewUrl('');

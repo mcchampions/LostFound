@@ -5,9 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.entity.Message;
 import me.qscbm.projects.lostfound.entity.User;
-import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
-import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,20 +14,24 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Scheduled task that sends unread message digest emails to offline users.
- * Runs every 3 minutes. Users who are online or have been notified within
- * the last 3 minutes are skipped.
+ * 定时发送「离线未读消息摘要邮件」。
+ * 每 3 分钟扫描 {@link OfflineMessageEmailTracker} 中已收集的离线会话，
+ * 为每个用户汇总发送一封纯文本摘要。
+ *
+ * 同一轮离线只提醒一次：发送成功后 emailSentStatus=true 停止收集；
+ * 用户上线或超过 24 小时后状态重置，新一轮消息才可再次提醒。
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class MessageDigestMailTask {
 
-    private final UserEmailPreferenceMapper emailPreferenceMapper;
+    private final OfflineMessageEmailTracker offlineTracker;
     private final UserMapper userMapper;
     private final MessageMapper messageMapper;
     private final JavaMailSender mailSender;
@@ -38,67 +40,74 @@ public class MessageDigestMailTask {
     @Value("${spring.mail.username:}")
     private String mailFrom;
 
-    @Scheduled(fixedRate = 180_000)
+    @Scheduled(fixedRateString = "${app.mail.digest-interval-ms:180000}")
     public void sendUnreadMessageDigest() {
-        List<UserEmailPreference> prefs = emailPreferenceMapper.selectList(
-                new LambdaQueryWrapper<UserEmailPreference>()
-                        .eq(UserEmailPreference::getMessage, 1));
+        // 只对 key 集合做浅拷贝；value 集合用完即随 key 移除，无需拷贝
+        List<Long> userIds = offlineTracker.snapshotUserIds();
+        if (userIds.isEmpty()) {
+            return;
+        }
+        log.info("离线邮件:开始扫描 {} 个用户的离线未读会话", userIds.size());
+        for (Long userId : userIds) {
+            // 每个用户在独立虚拟线程中处理，互不阻塞
+            Thread.ofVirtual()
+                    .name("digest-" + userId)
+                    .start(() -> processUser(userId));
+        }
+    }
 
-        if (prefs.isEmpty()) return;
-
-        LocalDateTime cutoff = LocalDateTime.now().minusMinutes(3);
-        int batchSize = 0;
-        int maxBatch = 100;
-
-        for (UserEmailPreference pref : prefs) {
-            if (batchSize >= maxBatch) break;
-
-            // Skip if recently notified
-            if (pref.getLastMessageNotifiedAt() != null
-                    && pref.getLastMessageNotifiedAt().isAfter(cutoff)) {
-                continue;
+    private void processUser(Long userId) {
+        try {
+            Set<String> conversations = offlineTracker.conversationIdsOf(userId);
+            if (conversations == null || conversations.isEmpty()) {
+                return;
+            }
+            // 用户当前在线：不发邮件，保留状态等待下一轮
+            if (presenceService.isOnline(userId)) {
+                log.debug("离线邮件:userId={} 当前在线,跳过摘要发送", userId);
+                return;
+            }
+            // 抢占状态，防止并发重复发送；失败说明本轮已发送或正在发送
+            if (!offlineTracker.tryMarkSending(userId)) {
+                log.debug("离线邮件:userId={} 本轮已提醒/发送中,跳过", userId);
+                return;
             }
 
-            // Skip if user is currently online
-            if (presenceService.isOnline(pref.getUserId())) {
-                continue;
+            User user = userMapper.selectById(userId);
+            if (user == null) {
+                // 用户已删除：清理收集状态，避免每轮空转
+                offlineTracker.clearPending(userId);
+                return;
+            }
+            if (!offlineTracker.isEligible(user)) {
+                log.debug("离线邮件:userId={} 不满足邮件资格,等待下轮", userId);
+                offlineTracker.resetForRetry(userId);
+                return;
             }
 
-            User user = userMapper.selectById(pref.getUserId());
-            if (user == null
-                    || !"ACTIVE".equals(user.getStatus())
-                    || user.getEmailVerified() == null
-                    || user.getEmailVerified() != 1
-                    || user.getEmail() == null
-                    || user.getEmail().isBlank()) {
-                continue;
-            }
-
+            List<String> conversationList = new ArrayList<>(conversations);
             Long unreadCount = messageMapper.selectCount(
                     new LambdaQueryWrapper<Message>()
-                            .eq(Message::getReceiverId, pref.getUserId())
-                            .eq(Message::getIsRead, 0));
-
+                            .eq(Message::getReceiverId, userId)
+                            .eq(Message::getIsRead, 0)
+                            .in(Message::getConversationId, conversationList));
             if (unreadCount == null || unreadCount == 0) {
-                continue;
+                log.debug("离线邮件:userId={} 已无未读消息,清理收集状态", userId);
+                offlineTracker.clearPending(userId);
+                return;
             }
 
-            try {
-                String subject = "校园失物招领 - 您有 " + unreadCount + " 条未读消息";
-                String content = "您在校园失物招领系统中有 " + unreadCount
-                        + " 条未读消息，请登录查看。";
-                sendMail(user.getEmail(), subject, content);
+            String subject = "校园失物招领 - 您有 " + unreadCount + " 条未读消息";
+            String content = "您在校园失物招领系统中有 " + unreadCount + " 条未读消息（"
+                    + conversationList.size() + " 个会话），请登录查看。";
+            sendMail(user.getEmail(), subject, content);
 
-                pref.setLastMessageNotifiedAt(LocalDateTime.now());
-                emailPreferenceMapper.updateById(pref);
-                batchSize++;
-            } catch (Exception e) {
-                log.error("消息摘要邮件发送失败, userId={}", pref.getUserId(), e);
-            }
-        }
-
-        if (batchSize > 0) {
-            log.info("消息摘要邮件发送完成, 共发送 {} 封", batchSize);
+            offlineTracker.markSent(userId);
+            log.info("离线邮件:userId={} 摘要已发送,未读 {} 条,会话 {} 个",
+                    userId, unreadCount, conversationList.size());
+        } catch (Exception e) {
+            offlineTracker.resetForRetry(userId);
+            log.error("离线邮件:userId={} 摘要发送失败,保留待重试", userId, e);
         }
     }
 

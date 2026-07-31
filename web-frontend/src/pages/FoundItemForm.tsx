@@ -12,7 +12,7 @@ import { createFoundItem, updateFoundItem, getFoundItem } from '../api/foundItem
 import ItemImageUpload from '../components/ItemImageUpload';
 import ImageCropDialog from '../components/ImageCropDialog';
 import TextCoverDialog from '../components/TextCoverDialog';
-import DateTimeRangePicker from '../components/DateTimeRangePicker';
+import DateTimeRangePicker, { formatLocalDateTime } from '../components/DateTimeRangePicker';
 import { uploadImage } from '../api/upload';
 import { assetUrl } from '../config';
 
@@ -42,6 +42,14 @@ export default function FoundItemForm() {
   const [cropOpen, setCropOpen] = useState(false);
   const [textCoverOpen, setTextCoverOpen] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // 时间实时校验：结束早于开始、或任何时间晚于当前时间时，阻止封面生成等后端操作
+  const nowLocal = formatLocalDateTime(new Date());
+  const timeRangeInvalid = Boolean(foundTime && foundTimeEnd && foundTimeEnd < foundTime);
+  const timeInFuture = Boolean(
+    (foundTime && foundTime > nowLocal) || (foundTimeEnd && foundTimeEnd > nowLocal)
+  );
+  const timeInvalid = timeRangeInvalid || timeInFuture;
 
   useEffect(() => {
     getCategories().then(setCategories).catch(() => {});
@@ -96,6 +104,11 @@ export default function FoundItemForm() {
     if (foundTimeEnd && foundTimeEnd < foundTime) {
       setError('结束时间不能早于开始时间');
       setTimeError('结束时间不能早于开始时间');
+      return;
+    }
+    if (timeInFuture) {
+      setError('时间不能晚于当前时间');
+      setTimeError('时间不能晚于当前时间');
       return;
     }
 
@@ -235,7 +248,7 @@ export default function FoundItemForm() {
                 <Button variant="outlined" startIcon={<AddPhotoIcon />} onClick={() => coverInputRef.current?.click()}>
                   上传封面
                 </Button>
-                <Button variant="outlined" startIcon={<TextFieldsIcon />} onClick={() => setTextCoverOpen(true)} sx={{ ml: 1 }}>
+                <Button variant="outlined" startIcon={<TextFieldsIcon />} onClick={() => setTextCoverOpen(true)} disabled={timeInvalid} sx={{ ml: 1 }}>
                   生成文字封面
                 </Button>
               </Box>

@@ -54,7 +54,7 @@ public class AsyncMailSender {
      * Checks whether a user can receive a specific type of email notification.
      * Falls back to the legacy notify_email flag when no preference record exists.
      */
-    private boolean canReceiveEmail(User user, String preferenceKey) {
+    boolean canReceiveEmail(User user, String preferenceKey) {
         if (user == null
                 || !"ACTIVE".equals(user.getStatus())
                 || user.getEmailVerified() == null
