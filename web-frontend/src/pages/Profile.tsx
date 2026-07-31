@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, Paper, Avatar, Chip, TextField,
-  Alert, Divider, Grid, MenuItem, Select, FormControl, FormControlLabel, Checkbox
+  Alert, Divider, Grid, FormControlLabel, Checkbox
 } from '@mui/material';
 import { Edit as EditIcon, ListAlt as ListIcon } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
 import client from '../api/client';
 import { assetUrl } from '../config';
 import ImageCropDialog from '../components/ImageCropDialog';
+import PhoneInput from '../components/PhoneInput';
 
 export default function Profile() {
   const { user, login } = useAuth();
@@ -27,8 +28,6 @@ export default function Profile() {
   const [cropFile, setCropFile] = useState<File | null>(null);
   const cropImageUrl = useMemo(() => (cropFile ? URL.createObjectURL(cropFile) : ''), [cropFile]);
   useEffect(() => () => { if (cropImageUrl) URL.revokeObjectURL(cropImageUrl); }, [cropImageUrl]);
-  const [countryCode, setCountryCode] = useState('+86');
-  const [phoneNumber, setPhoneNumber] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [oldPassword, setOldPassword] = useState('');
@@ -100,6 +99,11 @@ export default function Profile() {
     setSuccess('');
     setLoading(true);
     try {
+      if (phone && !/^\+\d{1,4} \d{5,15}$/.test(phone)) {
+        setError('手机号需为 5-15 位纯数字');
+        setLoading(false);
+        return;
+      }
       const res = await client.put('/users/me', {
         realName,
         email: email || undefined,
@@ -271,29 +275,8 @@ export default function Profile() {
                 onChange={e => setEmail(e.target.value)}
                 margin="normal"
               />
-              <Box sx={{ display: 'flex', gap: 1, mt: 2, mb: 1 }}>
-                <FormControl size="small" sx={{ minWidth: 100 }}>
-                  <Select value={countryCode} onChange={e => setCountryCode(e.target.value)}>
-                    <MenuItem value="+86">+86</MenuItem>
-                    <MenuItem value="+852">+852</MenuItem>
-                    <MenuItem value="+853">+853</MenuItem>
-                    <MenuItem value="+886">+886</MenuItem>
-                    <MenuItem value="+1">+1</MenuItem>
-                    <MenuItem value="+81">+81</MenuItem>
-                    <MenuItem value="+82">+82</MenuItem>
-                    <MenuItem value="+44">+44</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  fullWidth
-                  label="手机号"
-                  value={phoneNumber}
-                  onChange={e => {
-                    const v = e.target.value.replace(/\D/g, '');
-                    setPhoneNumber(v);
-                    setPhone(countryCode + ' ' + v);
-                  }}
-                />
+              <Box sx={{ mt: 2, mb: 1 }}>
+                <PhoneInput value={phone} onChange={setPhone} size="small" />
               </Box>
               <Box sx={{ textAlign: 'center', mt: 1, mb: 2 }}>
                 <Button variant="outlined" component="label" disabled={loading}>

@@ -20,6 +20,8 @@ public class RegisterRequest {
     @Email
     @Size(max = 100)
     private String email;
+    @Pattern(regexp = "^(\\+\\d{1,4} \\d{5,15}|\\d{5,15})?$",
+            message = "手机号格式不正确，需为区号+纯数字号码")
     @Size(max = 20)
     private String phone;
 }

@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { register as registerApi } from '../api/auth';
+import PhoneInput from '../components/PhoneInput';
 
 export default function Register() {
   const { t } = useTranslation();
@@ -44,6 +45,10 @@ export default function Register() {
     }
     if (form.password.length < 6) {
       setError('密码长度不能少于6位');
+      return;
+    }
+    if (form.phone && !/^\+\d{1,4} \d{5,15}$/.test(form.phone)) {
+      setError('手机号需为 5-15 位纯数字');
       return;
     }
 
@@ -135,12 +140,13 @@ export default function Register() {
               onChange={handleChange('email')}
               type="email"
             />
-            <TextField
-              fullWidth margin="normal"
-              label={t('auth.phone')}
-              value={form.phone}
-              onChange={handleChange('phone')}
-            />
+            <Box sx={{ mt: 2 }}>
+              <PhoneInput
+                label={t('auth.phone')}
+                value={form.phone}
+                onChange={phone => setForm(prev => ({ ...prev, phone }))}
+              />
+            </Box>
             <Button
               type="submit"
               fullWidth variant="contained"
