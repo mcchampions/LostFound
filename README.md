@@ -88,7 +88,7 @@ Linux/macOS 部署脚本：`backend\deploy-app.sh`（构建 + 装配，与 .bat 
 cd backend && mvn clean package
 export DB_HOST=... DB_NAME=lost_found DB_USERNAME=... DB_PASSWORD=...
 export MAIL_HOST=... MAIL_USERNAME=... MAIL_PASSWORD=...
-export JWT_SECRET=... APP_CORS_ALLOWED_ORIGINS=https://your-domain
+export JWT_SECRET=... APP_CORS_ALLOWED_ORIGINS=https://your-domain SITE_BASE_URL=https://your-domain
 java -Dfile.encoding=UTF-8 -jar target/lost-found-1.0.0.jar
 ```
 `app.upload.path=./uploads` 相对 JAR 所在目录解析。

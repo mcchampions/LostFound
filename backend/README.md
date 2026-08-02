@@ -32,7 +32,8 @@ backend/
 ## 环境要求
 
 - JDK 21、Maven 3.9+;
-- MySQL 8(库 `lost_found` 由应用启动时自动建表/迁移,`db/` 内脚本也可手动执行);
+- MySQL 8(需预先创建 `lost_found` 数据库;表结构由应用启动时自动初始化/迁移,
+  `db/` 内脚本也可手动执行);
 - 可选:Node 18+(仅运行 postgen 服务时需要)。
 
 ## 构建与测试
@@ -60,8 +61,9 @@ deploy-app.bat    :: 构建并装配 backend\app\(jar + config + .env + 启动�
 app\start.bat     :: 一键启动(或 start-app.bat,等价)
 ```
 
-Linux/macOS 使用 `deploy-app.sh` / `start-app.sh`。JDK 优先复用 `../local/jdk`,
-否则使用 PATH 上的 `java`;`-Dapp.home` 指向 `backend/app`。
+Linux/macOS 使用 `deploy-app.sh` / `start-app.sh`。JDK 优先复用
+`../../local/jdk`(相对 `backend/app/` 的两级上级),否则使用 PATH 上的 `java`;
+`-Dapp.home` 指向 `backend/app`。
 
 ### Docker
 

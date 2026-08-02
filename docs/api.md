@@ -6,7 +6,8 @@
 - 认证：`Authorization: Bearer <token>`；
 - 统一响应：`{"code": 0, "message": "success", "data": ...}`，非 0 为错误；
 - 分页响应：`PageResult {records, total, current, size}`；
-- 公开接口：认证、分类/公告读取、失物/招领列表与详情、公开主页、上传文件。
+- 公开接口：认证、分类/公告读取、失物/招领列表与详情、公开主页、
+  上传文件读取（`GET /uploads/**` 公开，上传动作需登录）。
 
 ## 认证 `/auth`
 
