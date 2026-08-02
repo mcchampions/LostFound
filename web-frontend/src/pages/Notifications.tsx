@@ -12,6 +12,7 @@ import {
   TaskAlt as ClaimResultIcon
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
+import { useChatSocket } from '../store/ChatSocketContext';
 import { getNotifications, markRead, markAllRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
@@ -39,6 +40,7 @@ const typeColors: Record<string, 'warning' | 'info' | 'primary' | 'success'> = {
 
 export default function Notifications() {
   const { user } = useAuth();
+  const { refreshNotificationUnread } = useChatSocket();
 
   const [notifications, setNotifications] = useState<NotificationVO[]>([]);
   const [total, setTotal] = useState(0);
@@ -82,6 +84,7 @@ export default function Notifications() {
         setNotifications(prev =>
           prev.map(n => (n.id === item.id ? { ...n, isRead: 1 } : n))
         );
+        refreshNotificationUnread();
       } catch {
         // ignore
       }
@@ -92,6 +95,7 @@ export default function Notifications() {
     try {
       await markAllRead();
       setNotifications(prev => prev.map(n => ({ ...n, isRead: 1 })));
+      refreshNotificationUnread();
     } catch {
       // ignore
     }
@@ -112,6 +116,7 @@ export default function Notifications() {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: 1 } : n));
       handleCloseDialog();
       fetchNotifications();
+      refreshNotificationUnread();
     } catch {
       // ignore
     } finally {

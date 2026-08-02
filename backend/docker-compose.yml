@@ -25,4 +25,6 @@ services:
     depends_on:
       - postgen
     volumes:
-      - ../uploads:/app/uploads
+      - ./uploads:/app/uploads
+      - ./config:/app/config
+      - ./logs:/app/logs

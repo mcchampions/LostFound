@@ -2,6 +2,8 @@
 
 面向高中校园内部的失物招领系统，前后端分离架构。
 
+完整文档见 [docs/](docs/README.md)（架构、API、数据库、安全、前端、部署、运维）。
+
 ## 技术栈
 
 | 层 | 选型 |
@@ -27,6 +29,8 @@
 ```
 
 Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
+
+各子项目含独立 README：[backend/README.md](backend/README.md)、[web-frontend/README.md](web-frontend/README.md)、[backend/postgen-service/README.md](backend/postgen-service/README.md)。
 
 ## 数据模型与状态
 
@@ -55,7 +59,7 @@ Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
 cd backend
 docker compose up -d --build
 ```
-`../uploads` 会挂载到容器 `/app/uploads`（启动前在项目根创建 `uploads/` 目录）。
+`./uploads` 会挂载到容器 `/app/uploads`（位于 backend 目录内，与 config/logs 一致，启动前创建 `backend/uploads/` 目录即可）。
 
 ### 前端
 编辑 `web-frontend/docker-compose.yml` 的 `VITE_SERVER_BASE` 为浏览器能够访问的后端公开地址，例如 `https://api.example.com`，不能填写只在服务器内部可解析的容器名。
@@ -64,6 +68,20 @@ cd web-frontend
 docker compose up -d --build
 ```
 正式配置按前后端分开部署，前端 Nginx 只负责静态资源和 SPA 路由回退；API、WebSocket 和上传资源直接访问 `VITE_SERVER_BASE`。`local/docker/` 保持前后端统一编排，专用于本地调试。
+
+**外部配置与日志（后端）**：启动时优先读取 jar 同目录 `config/application.yml`（首次从 jar 运行会自动提取内置配置作为模板；版本升级后如缺少新增配置项，请对照内置模板补充）；日志写入 jar 同目录 `logs/`，文件名按「日期-第几次启动」生成。后端配置、日志、上传等运行时数据全部限定在 `backend/` 目录内；前端部署产物限定在 `web-frontend/` 内，前后端可分别部署在不同机器。数据库迁移记录在 `schema_migration` 表，如需重跑某个脚本，删除对应记录后重启即可。
+
+### 后端本机部署（不使用 Docker）
+
+所有产物限定在 `backend/` 内：
+
+1. 运行 `backend\deploy-app.bat`：构建 jar（`mvn package`）并装配 `backend\app\`（jar、从源码复制的 `config\application.yml`、日志/上传目录，并把启动脚本复制为 `app\start.bat`）；
+2. 首次启动前把 `backend/.env.example` 复制为 `backend\app\.env` 并填写真实值（模板只包含经常修改的项；其余配置项及默认值见 `backend/CONFIG.md`；`backend/app/` 已 gitignore，凭据不会入库）；
+3. 一键启动：Windows 双击 `backend\app\start.bat`（或 `backend\start-app.bat`）；Linux/macOS 运行 `backend\app\start.sh`（或 `backend\start-app.sh`）；主脚本会保证 app 内有启动脚本副本；JDK 优先复用 `local/jdk`，否则使用 PATH 上的 `java`。
+
+Linux/macOS 部署脚本：`backend\deploy-app.sh`（构建 + 装配，与 .bat 等价）。
+
+前端仍独立部署（`web-frontend/` 的 Docker 编排或开发服务器），前后端可不在同一台机器。
 
 ### 直接 JAR 部署（无 Docker）
 ```bash

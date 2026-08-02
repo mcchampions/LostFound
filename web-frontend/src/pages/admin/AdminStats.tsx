@@ -20,7 +20,7 @@ interface StatsData {
   claimedCount?: number;
   foundLostCount?: number;
   pendingUserCount?: number;
-  categoryStats?: Array<{ name: string; count: number }>;
+  categoryStats?: Array<{ name: string; lostCount: number; foundCount: number }>;
 }
 
 
@@ -128,29 +128,32 @@ export default function AdminStats() {
               {/* Horizontal bar chart */}
               <Box sx={{ mb: 3 }}>
                 {(() => {
-                  const maxCount = Math.max(...stats.categoryStats.map(c => c.count), 1);
+                  const maxCount = Math.max(
+                    ...stats.categoryStats.map(c => (c.lostCount || 0) + (c.foundCount || 0)),
+                    1
+                  );
                   return stats.categoryStats.map((cat, idx) => (
                     <Box key={cat.name} sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
                       <Typography variant="body2" sx={{ minWidth: 80, mr: 2 }}>
                         {cat.name}
                       </Typography>
                       <Box sx={{ flexGrow: 1, mr: 2 }}>
-                        <Box
-                          sx={{
-                            height: 24,
-                            borderRadius: 1,
-                            bgcolor: chartColors[idx % chartColors.length],
-                            width: `${Math.max((cat.count / maxCount) * 100, 2)}%`,
-                            minWidth: 4,
+                          <Box
+                            sx={{
+                              height: 24,
+                              borderRadius: 1,
+                              bgcolor: chartColors[idx % chartColors.length],
+                              width: `${Math.max(((cat.lostCount || 0) + (cat.foundCount || 0)) / maxCount * 100, 2)}%`,
+                              minWidth: 4,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'flex-end',
                             px: 1,
                           }}
                         >
-                          {cat.count > 0 && (
+                          {(cat.lostCount || 0) + (cat.foundCount || 0) > 0 && (
                             <Typography variant="caption" sx={{ color: '#fff', fontWeight: 'bold' }}>
-                              {cat.count}
+                              {(cat.lostCount || 0) + (cat.foundCount || 0)}
                             </Typography>
                           )}
                         </Box>
@@ -166,14 +169,18 @@ export default function AdminStats() {
                   <TableHead>
                     <TableRow>
                       <TableCell>分类名称</TableCell>
-                      <TableCell align="right">数量</TableCell>
+                      <TableCell align="right">失物</TableCell>
+                      <TableCell align="right">招领</TableCell>
+                      <TableCell align="right">合计</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {stats.categoryStats.map(cat => (
                       <TableRow key={cat.name}>
                         <TableCell>{cat.name}</TableCell>
-                        <TableCell align="right">{cat.count}</TableCell>
+                        <TableCell align="right">{cat.lostCount || 0}</TableCell>
+                        <TableCell align="right">{cat.foundCount || 0}</TableCell>
+                        <TableCell align="right">{(cat.lostCount || 0) + (cat.foundCount || 0)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

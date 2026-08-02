@@ -28,6 +28,8 @@ export default function AdminLogs() {
   const [error, setError] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [userIdFilter, setUserIdFilter] = useState('');
+  const [queryAction, setQueryAction] = useState('');
+  const [queryUserId, setQueryUserId] = useState<number | undefined>(undefined);
 
   const pageSize = 15;
 
@@ -38,8 +40,8 @@ export default function AdminLogs() {
       const data = await getLogs({
         page,
         size: pageSize,
-        action: actionFilter.trim() || undefined,
-        userId: userIdFilter.trim() ? Number(userIdFilter.trim()) : undefined,
+        action: queryAction || undefined,
+        userId: queryUserId,
       });
       setLogs(data.records || []);
       setTotal(data.total || 0);
@@ -49,11 +51,19 @@ export default function AdminLogs() {
     } finally {
       setLoading(false);
     }
-  }, [page, actionFilter, userIdFilter]);
+  }, [page, queryAction, queryUserId]);
 
   const resetFilters = () => {
     setActionFilter('');
     setUserIdFilter('');
+    setQueryAction('');
+    setQueryUserId(undefined);
+    setPage(1);
+  };
+
+  const applyFilters = () => {
+    setQueryAction(actionFilter.trim());
+    setQueryUserId(userIdFilter.trim() ? Number(userIdFilter.trim()) : undefined);
     setPage(1);
   };
 
@@ -90,7 +100,7 @@ export default function AdminLogs() {
           onChange={e => setUserIdFilter(e.target.value.replace(/\D/g, ''))}
           sx={{ width: 140 }}
         />
-        <Button variant="contained" size="small" onClick={() => setPage(1)}>查询</Button>
+        <Button variant="contained" size="small" onClick={applyFilters}>查询</Button>
         <Button variant="outlined" size="small" onClick={resetFilters}>重置</Button>
       </Paper>
 

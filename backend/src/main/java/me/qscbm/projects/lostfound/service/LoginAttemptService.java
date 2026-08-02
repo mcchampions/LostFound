@@ -117,7 +117,7 @@ public class LoginAttemptService {
     public void cleanupStaleEntries() {
         long cutoff = System.currentTimeMillis() - Math.max(lockoutMinutes, 60) * 60_000L;
         failuresByKey.entrySet().removeIf(entry ->
-                entry.getValue().lastUpdated < cutoff && entry.getValue().lockedUntil == 0);
+                entry.getValue().lastUpdated < cutoff);
         long ipCutoff = System.currentTimeMillis() - ipWindowMinutes * 60_000L;
         attemptsByIp.forEach((ip, timestamps) -> {
             while (!timestamps.isEmpty() && timestamps.peekFirst() < ipCutoff) {

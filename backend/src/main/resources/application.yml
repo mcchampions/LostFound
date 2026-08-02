@@ -56,6 +56,11 @@ app:
     retry-max-attempts: ${MAIL_RETRY_MAX_ATTEMPTS:5}
     retry-backoff-seconds: ${MAIL_RETRY_BACKOFF_SECONDS:60}
     retry-interval-ms: ${MAIL_RETRY_INTERVAL_MS:300000}
+    retry-queue-capacity: ${MAIL_RETRY_QUEUE_CAPACITY:10000}
+    retry-batch-size: ${MAIL_RETRY_BATCH_SIZE:100}
+  audit:
+    # 非常用变量：操作日志保留天数，过期自动清理
+    log-retention-days: ${LOG_RETENTION_DAYS:365}
   security:
     login:
       # 非常用变量：登录防爆破阈值，一般无需修改

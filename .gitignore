@@ -6,6 +6,7 @@ local/
 backend/target/
 backend/postgen-work/
 backend/uploads/
+backend/app/
 web-frontend/dist/
 
 node_modules/

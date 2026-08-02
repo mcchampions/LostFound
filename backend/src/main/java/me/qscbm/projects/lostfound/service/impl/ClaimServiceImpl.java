@@ -28,6 +28,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -130,8 +132,7 @@ public class ClaimServiceImpl implements ClaimService {
                     + (req.getMessage() != null ? "，留言：" + req.getMessage() : ""));
         }
         notificationMapper.insert(notification);
-        messagingTemplate.convertAndSendToUser(
-                publisherId.toString(), "/queue/notifications", notification);
+        pushNotificationAfterCommit(publisherId, notification);
         mailNotificationService.notifyUserAfterCommit(
                 publisherId,
                 "校园失物招领 - " + notification.getTitle(),
@@ -279,8 +280,7 @@ public class ClaimServiceImpl implements ClaimService {
         notification.setRelatedType(lostItemClaim ? "LOST_ITEM" : "FOUND_ITEM");
         notification.setIsRead(0);
         notificationMapper.insert(notification);
-        messagingTemplate.convertAndSendToUser(
-                claim.getApplicantId().toString(), "/queue/notifications", notification);
+        pushNotificationAfterCommit(claim.getApplicantId(), notification);
         mailNotificationService.notifyUserAfterCommit(
                 claim.getApplicantId(),
                 "校园失物招领 - " + notification.getTitle(),
@@ -410,5 +410,21 @@ public class ClaimServiceImpl implements ClaimService {
             urls.add(coverImage);
         }
         imageStorageService.compressItemTo540p(urls);
+    }
+
+    /** 事务提交后再推送 WS 通知，避免事务回滚后客户端收到不存在的通知。 */
+    private void pushNotificationAfterCommit(Long userId, Notification notification) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    messagingTemplate.convertAndSendToUser(
+                            userId.toString(), "/queue/notifications", notification);
+                }
+            });
+            return;
+        }
+        messagingTemplate.convertAndSendToUser(
+                userId.toString(), "/queue/notifications", notification);
     }
 }
