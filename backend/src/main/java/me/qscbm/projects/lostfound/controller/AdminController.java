@@ -14,6 +14,8 @@ import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.OperationLog;
 import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
+import me.qscbm.projects.lostfound.mapper.UserMapper;
+import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.service.OperationLogService;
 import me.qscbm.projects.lostfound.service.StatsService;
 import me.qscbm.projects.lostfound.service.UserService;
@@ -41,6 +43,7 @@ public class AdminController {
     private final LostItemMapper lostItemMapper;
     private final FoundItemMapper foundItemMapper;
     private final OperationLogRecorder operationLogRecorder;
+    private final UserMapper userMapper;
 
     @GetMapping("/users")
     public Result<PageResult<UserVO>> listUsers(
@@ -67,6 +70,45 @@ public class AdminController {
         return Result.success(statsService.getDashboard());
     }
 
+    @GetMapping("/stats/trend")
+    public Result<List<Map<String, Object>>> trend(
+            @RequestParam(defaultValue = "7") @Min(1) @Max(30) int days) {
+        return Result.success(statsService.getDailyTrend(days));
+    }
+
+    @GetMapping("/export/users")
+    public void exportUsers(@AuthenticationPrincipal Long userId,
+                            HttpServletResponse response) throws IOException {
+        operationLogRecorder.log(userId, "EXPORT", "USER", null, "导出用户数据");
+        List<User> users = userMapper.selectList(null);
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            XSSFSheet sheet = workbook.createSheet("用户信息");
+            XSSFRow header = sheet.createRow(0);
+            header.createCell(0).setCellValue("用户名");
+            header.createCell(1).setCellValue("真实姓名");
+            header.createCell(2).setCellValue("角色");
+            header.createCell(3).setCellValue("状态");
+            header.createCell(4).setCellValue("邮箱");
+            header.createCell(5).setCellValue("手机号");
+            header.createCell(6).setCellValue("注册时间");
+            for (int i = 0; i < users.size(); i++) {
+                User user = users.get(i);
+                XSSFRow row = sheet.createRow(i + 1);
+                row.createCell(0).setCellValue(safeCell(user.getUsername()));
+                row.createCell(1).setCellValue(safeCell(user.getRealName()));
+                row.createCell(2).setCellValue(safeCell(user.getRole()));
+                row.createCell(3).setCellValue(safeCell(user.getStatus()));
+                row.createCell(4).setCellValue(safeCell(user.getEmail()));
+                row.createCell(5).setCellValue(safeCell(user.getPhone()));
+                row.createCell(6).setCellValue(user.getCreatedAt() != null
+                        ? user.getCreatedAt().toString() : "");
+            }
+            workbook.write(response.getOutputStream());
+        }
+    }
+
     @GetMapping("/export/lost-items")
     public void exportLostItems(@AuthenticationPrincipal Long userId,
                                 HttpServletResponse response) throws IOException {
@@ -76,8 +118,8 @@ public class AdminController {
         response.setHeader("Content-Disposition", "attachment; filename=lost-items.xlsx");
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             XSSFSheet sheet = workbook.createSheet("失物信息");
-            XSSFRow header = sheet.createRow(0);
-            header.createCell(0).setCellValue("标题");
+                XSSFRow header = sheet.createRow(0);
+                header.createCell(0).setCellValue("标题");
             header.createCell(1).setCellValue("描述");
             header.createCell(2).setCellValue("分类ID");
             header.createCell(3).setCellValue("地点");
@@ -87,10 +129,10 @@ public class AdminController {
             for (int i = 0; i < items.size(); i++) {
                 LostItem item = items.get(i);
                 XSSFRow row = sheet.createRow(i + 1);
-                row.createCell(0).setCellValue(item.getTitle() != null ? item.getTitle() : "");
-                row.createCell(1).setCellValue(item.getDescription() != null ? item.getDescription() : "");
+                row.createCell(0).setCellValue(safeCell(item.getTitle()));
+                row.createCell(1).setCellValue(safeCell(item.getDescription()));
                 row.createCell(2).setCellValue(item.getCategoryId() != null ? item.getCategoryId().toString() : "");
-                row.createCell(3).setCellValue(item.getLocation() != null ? item.getLocation() : "");
+                row.createCell(3).setCellValue(safeCell(item.getLocation()));
                 row.createCell(4).setCellValue(item.getLostTime() != null ? item.getLostTime().toString() : "");
                 row.createCell(5).setCellValue(item.getStatus() != null ? item.getStatus() : "");
                 row.createCell(6).setCellValue(item.getCreatedAt() != null ? item.getCreatedAt().toString() : "");
@@ -119,10 +161,10 @@ public class AdminController {
             for (int i = 0; i < items.size(); i++) {
                 FoundItem item = items.get(i);
                 XSSFRow row = sheet.createRow(i + 1);
-                row.createCell(0).setCellValue(item.getTitle() != null ? item.getTitle() : "");
-                row.createCell(1).setCellValue(item.getDescription() != null ? item.getDescription() : "");
+                row.createCell(0).setCellValue(safeCell(item.getTitle()));
+                row.createCell(1).setCellValue(safeCell(item.getDescription()));
                 row.createCell(2).setCellValue(item.getCategoryId() != null ? item.getCategoryId().toString() : "");
-                row.createCell(3).setCellValue(item.getLocation() != null ? item.getLocation() : "");
+                row.createCell(3).setCellValue(safeCell(item.getLocation()));
                 row.createCell(4).setCellValue(item.getFoundTime() != null ? item.getFoundTime().toString() : "");
                 row.createCell(5).setCellValue(item.getStatus() != null ? item.getStatus() : "");
                 row.createCell(6).setCellValue(item.getCreatedAt() != null ? item.getCreatedAt().toString() : "");
@@ -134,7 +176,17 @@ public class AdminController {
     @GetMapping("/logs")
     public Result<PageResult<OperationLog>> logs(
             @RequestParam(defaultValue = "1") @Min(1) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return Result.success(PageResult.of(logService.page(page, size)));
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) Long userId) {
+        return Result.success(PageResult.of(logService.page(page, size, action, userId)));
+    }
+
+    /** Excel 公式注入防护：以 = + - @ \t \r 开头的内容前置单引号，强制按文本处理。 */
+    static String safeCell(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.matches("^[=+@\\-\\t\\r].*") ? "'" + value : value;
     }
 }

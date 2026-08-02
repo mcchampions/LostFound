@@ -58,16 +58,24 @@ public class DatabaseInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        ensureMigrationTable();
         boolean existed = tablesExist();
         log.info(existed ? "数据库表已存在，执行增量迁移..." : "首次启动，执行全部初始化...");
         int totalSuccess = 0;
         int totalFailed = 0;
 
         for (String scriptPath : SQL_SCRIPTS) {
+            if (isRecorded(scriptPath)) {
+                log.debug("数据库脚本已应用，跳过: {}", scriptPath);
+                continue;
+            }
             try {
                 int[] results = executeSqlScript(scriptPath);
                 totalSuccess += results[0];
                 totalFailed += results[1];
+                if (results[1] == 0) {
+                    recordApplied(scriptPath);
+                }
             } catch (Exception e) {
                 log.error("读取 SQL 脚本失败: {}", scriptPath, e);
                 totalFailed++;
@@ -75,6 +83,41 @@ public class DatabaseInitializer implements ApplicationRunner {
         }
 
         log.info("数据库表初始化完成 — 成功: {}, 失败: {}", totalSuccess, totalFailed);
+    }
+
+    /**
+     * 轻量迁移记录（类 Flyway）：已成功执行的脚本记入 schema_migration，
+     * 后续启动跳过，避免每次启动重复执行全部脚本。
+     */
+    private void ensureMigrationTable() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS schema_migration (
+                    script_name VARCHAR(200) NOT NULL PRIMARY KEY,
+                    applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """);
+    }
+
+    private boolean isRecorded(String scriptName) {
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM schema_migration WHERE script_name = ?",
+                    Integer.class, scriptName);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.warn("查询迁移记录失败: {}", scriptName, e);
+            return false;
+        }
+    }
+
+    private void recordApplied(String scriptName) {
+        try {
+            jdbcTemplate.update(
+                    "INSERT IGNORE INTO schema_migration (script_name) VALUES (?)", scriptName);
+            log.info("数据库脚本已应用并记录: {}", scriptName);
+        } catch (Exception e) {
+            log.warn("记录迁移脚本失败: {}", scriptName, e);
+        }
     }
 
     /**

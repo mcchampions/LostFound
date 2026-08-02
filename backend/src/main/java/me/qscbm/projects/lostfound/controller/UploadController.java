@@ -3,6 +3,7 @@ package me.qscbm.projects.lostfound.controller;
 import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.AppHome;
 import me.qscbm.projects.lostfound.common.Result;
+import me.qscbm.projects.lostfound.service.impl.ImageStorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -91,7 +92,7 @@ public class UploadController {
             return Result.error("上传路径无效");
         }
 
-        BufferedImage output = prepareForWrite(image, format);
+        BufferedImage output = ImageStorageService.resizeForUpload(prepareForWrite(image, format));
         if (!ImageIO.write(output, format.writerFormat(), target.toFile())) {
             return Result.error("图片处理失败");
         }

@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.BusinessException;
@@ -22,6 +24,7 @@ import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.ClaimService;
 import me.qscbm.projects.lostfound.service.MailNotificationService;
 import me.qscbm.projects.lostfound.service.MessageService;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DuplicateKeyException;
@@ -46,6 +49,9 @@ public class ClaimServiceImpl implements ClaimService {
     private final MessageService messageService;
     private final MailNotificationService mailNotificationService;
     private final OperationLogRecorder operationLogRecorder;
+    private final ObjectMapper objectMapper;
+    private final ImageStorageService imageStorageService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -124,6 +130,8 @@ public class ClaimServiceImpl implements ClaimService {
                     + (req.getMessage() != null ? "，留言：" + req.getMessage() : ""));
         }
         notificationMapper.insert(notification);
+        messagingTemplate.convertAndSendToUser(
+                publisherId.toString(), "/queue/notifications", notification);
         mailNotificationService.notifyUserAfterCommit(
                 publisherId,
                 "校园失物招领 - " + notification.getTitle(),
@@ -142,6 +150,7 @@ public class ClaimServiceImpl implements ClaimService {
         LambdaQueryWrapper<ClaimApplication> qw = new LambdaQueryWrapper<>();
         qw.eq(ClaimApplication::getPublisherId, userId);
         if (status != null && !status.isEmpty()) {
+            validateClaimStatus(status);
             qw.eq(ClaimApplication::getStatus, status);
         }
         qw.orderByDesc(ClaimApplication::getCreatedAt);
@@ -156,6 +165,7 @@ public class ClaimServiceImpl implements ClaimService {
         LambdaQueryWrapper<ClaimApplication> qw = new LambdaQueryWrapper<>();
         qw.eq(ClaimApplication::getApplicantId, userId);
         if (status != null && !status.isEmpty()) {
+            validateClaimStatus(status);
             qw.eq(ClaimApplication::getStatus, status);
         }
         qw.orderByDesc(ClaimApplication::getCreatedAt);
@@ -163,6 +173,12 @@ public class ClaimServiceImpl implements ClaimService {
         Page<ClaimVO> result = new Page<>(p.getCurrent(), p.getSize(), p.getTotal());
         result.setRecords(toVOs(p.getRecords()));
         return result;
+    }
+
+    private void validateClaimStatus(String status) {
+        if (!"PENDING".equals(status) && !"APPROVED".equals(status) && !"REJECTED".equals(status)) {
+            throw new BusinessException("无效的认领状态参数，仅支持 PENDING、APPROVED 或 REJECTED");
+        }
     }
 
     @Override
@@ -213,6 +229,7 @@ public class ClaimServiceImpl implements ClaimService {
                 if (itemUpdated != 1) {
                     throw new BusinessException("该失物已被其他申请处理，请刷新后重试");
                 }
+                compressResolvedItemImages(lostItem.getImageUrls(), lostItem.getCoverImage());
             } else if ("FOUND".equals(claim.getItemType())) {
                 FoundItem foundItem = foundItemMapper.selectById(claim.getItemId());
                 if (foundItem == null) {
@@ -229,6 +246,7 @@ public class ClaimServiceImpl implements ClaimService {
                 if (itemUpdated != 1) {
                     throw new BusinessException("该物品已被其他申请认领，请刷新后重试");
                 }
+                compressResolvedItemImages(foundItem.getImageUrls(), foundItem.getCoverImage());
             }
             // 级联拒绝同物品的其他待处理申请，保证数据一致
             claimApplicationMapper.update(null, new UpdateWrapper<ClaimApplication>()
@@ -261,6 +279,8 @@ public class ClaimServiceImpl implements ClaimService {
         notification.setRelatedType(lostItemClaim ? "LOST_ITEM" : "FOUND_ITEM");
         notification.setIsRead(0);
         notificationMapper.insert(notification);
+        messagingTemplate.convertAndSendToUser(
+                claim.getApplicantId().toString(), "/queue/notifications", notification);
         mailNotificationService.notifyUserAfterCommit(
                 claim.getApplicantId(),
                 "校园失物招领 - " + notification.getTitle(),
@@ -373,5 +393,22 @@ public class ClaimServiceImpl implements ClaimService {
             return item != null ? item.getTitle() : null;
         }
         return null;
+    }
+
+    private void compressResolvedItemImages(String imageUrlsJson, String coverImage) {
+        List<String> urls = new java.util.ArrayList<>();
+        if (imageUrlsJson != null && !imageUrlsJson.isBlank()) {
+            try {
+                urls.addAll(objectMapper.readValue(imageUrlsJson,
+                        new TypeReference<List<String>>() {
+                        }));
+            } catch (Exception ignored) {
+                // 图片列表解析失败不影响认领主流程
+            }
+        }
+        if (coverImage != null && !coverImage.isBlank()) {
+            urls.add(coverImage);
+        }
+        imageStorageService.compressItemTo540p(urls);
     }
 }

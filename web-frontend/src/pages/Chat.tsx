@@ -26,10 +26,42 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const selectedConvRef = useRef<string | null>(null);
+  const currentPageRef = useRef(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const loadConversations = useCallback(async () => {
     try { setConversations(await getConversations()); } catch { /* ignore */ }
   }, []);
+
+  // 默认只读最近 PAGE_SIZE 条，避免一次加载整段会话导致包过大
+  const PAGE_SIZE = 50;
+  const loadLatestMessages = async (conversationId: string) => {
+    const first = await getMessages(conversationId, 1, 1);
+    const total = first?.total ?? 0;
+    const lastPage = total === 0 ? 1 : Math.ceil(total / PAGE_SIZE);
+    const data = await getMessages(conversationId, lastPage, PAGE_SIZE);
+    currentPageRef.current = lastPage;
+    setHasMore(lastPage > 1);
+    return data?.records || [];
+  };
+
+  const handleLoadEarlier = async () => {
+    if (!selectedConv || loadingMore || currentPageRef.current <= 1) return;
+    setLoadingMore(true);
+    try {
+      const page = currentPageRef.current - 1;
+      const data = await getMessages(selectedConv, page, PAGE_SIZE);
+      const records = data?.records || [];
+      setMessages(prev => [...records, ...prev]);
+      currentPageRef.current = page;
+      setHasMore(page > 1);
+    } catch {
+      // 加载更早消息失败，保持现状
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Fetch messages with abort controller to prevent race conditions
   useEffect(() => {
@@ -37,10 +69,10 @@ export default function Chat() {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    getMessages(selectedConv)
+    loadLatestMessages(selectedConv)
       .then(data => {
         if (!controller.signal.aborted) {
-          setMessages(data?.records || []);
+          setMessages(data);
           setActiveConversation(selectedConv);
           markConversationRead(selectedConv)
             .then(() => {
@@ -187,6 +219,13 @@ export default function Chat() {
               display: 'flex', flexDirection: 'column', gap: 1,
               bgcolor: 'grey.50'
             }}>
+              {hasMore && (
+                <Box sx={{ textAlign: 'center', mb: 1 }}>
+                  <Button size="small" variant="text" onClick={handleLoadEarlier} disabled={loadingMore}>
+                    {loadingMore ? '加载中...' : '查看更早消息'}
+                  </Button>
+                </Box>
+              )}
               {messages.map(m => (
                 <Box key={m.id} sx={{
                   alignSelf: m.senderId === user?.id ? 'flex-end' : 'flex-start',

@@ -13,6 +13,8 @@ import me.qscbm.projects.lostfound.mapper.NotificationMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.MailNotificationService;
 import me.qscbm.projects.lostfound.service.MessageService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -30,6 +32,7 @@ class ClaimServiceImplTest {
     private NotificationMapper notificationMapper;
     private MessageService messageService;
     private MailNotificationService mailNotificationService;
+    private SimpMessagingTemplate messagingTemplate;
     private ClaimServiceImpl service;
 
     @BeforeEach
@@ -41,7 +44,10 @@ class ClaimServiceImplTest {
         notificationMapper = mock(NotificationMapper.class);
         messageService = mock(MessageService.class);
         mailNotificationService = mock(MailNotificationService.class);
+        messagingTemplate = mock(SimpMessagingTemplate.class);
         OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
+        ObjectMapper objectMapper = new ObjectMapper();
+        ImageStorageService imageStorageService = mock(ImageStorageService.class);
         service = new ClaimServiceImpl(
                 claimMapper,
                 lostItemMapper,
@@ -50,7 +56,10 @@ class ClaimServiceImplTest {
                 notificationMapper,
                 messageService,
                 mailNotificationService,
-                operationLogRecorder
+                operationLogRecorder,
+                objectMapper,
+                imageStorageService,
+                messagingTemplate
         );
     }
 
@@ -113,6 +122,37 @@ class ClaimServiceImplTest {
                 contains("已通过"),
                 contains("认领申请"),
                 eq("claim_result"));
+        verify(messagingTemplate).convertAndSendToUser(
+                eq("2"), eq("/queue/notifications"), any(Notification.class));
+    }
+
+    @Test
+    void applyingCreatesNotificationAndPushesViaWebSocket() {
+        when(claimMapper.selectCount(any())).thenReturn(0L);
+        FoundItem item = new FoundItem();
+        item.setId(5L);
+        item.setUserId(1L);
+        item.setTitle("Black Wallet");
+        item.setStatus("UNCLAIMED");
+        when(foundItemMapper.selectById(5L)).thenReturn(item);
+        User applicant = new User();
+        applicant.setId(2L);
+        applicant.setRealName("张三");
+        when(userMapper.selectById(2L)).thenReturn(applicant);
+        when(claimMapper.insert(any())).thenAnswer(invocation -> {
+            ClaimApplication claim = invocation.getArgument(0);
+            claim.setId(1L);
+            return 1;
+        });
+        when(notificationMapper.insert(any())).thenReturn(1);
+
+        service.apply(2L, claimRequest());
+
+        verify(notificationMapper).insert(argThat(notification ->
+                notification.getUserId().equals(1L)
+                        && notification.getTitle().contains("新的认领申请")));
+        verify(messagingTemplate).convertAndSendToUser(
+                eq("1"), eq("/queue/notifications"), any(Notification.class));
     }
 
     @Test

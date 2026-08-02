@@ -7,10 +7,8 @@ import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
-import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +23,7 @@ public class AsyncMailSender {
     private final UserEmailPreferenceMapper emailPreferenceMapper;
     private final JavaMailSender mailSender;
     private final EmailContentBuilder emailContentBuilder;
+    private final EmailRetryQueue emailRetryQueue;
 
     @Value("${spring.mail.username:}")
     private String mailFrom;
@@ -97,19 +96,12 @@ public class AsyncMailSender {
     private void send(String recipient, String subject, String content,
                       String actionText, String actionUrl) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            if (mailFrom != null && !mailFrom.isBlank()) {
-                helper.setFrom(mailFrom);
-            }
-            helper.setTo(recipient);
-            helper.setSubject(subject);
-            helper.setText(
+            EmailMessageComposer.send(mailSender, mailFrom, recipient, subject,
                     emailContentBuilder.plainBody(content, actionText, actionUrl),
                     emailContentBuilder.htmlBody(content, actionText, actionUrl));
-            mailSender.send(message);
         } catch (Exception e) {
             log.error("邮件发送失败，recipient={}, subject={}", recipient, subject, e);
+            emailRetryQueue.enqueue(recipient, subject, content, actionText, actionUrl);
         }
     }
 }

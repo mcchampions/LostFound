@@ -43,6 +43,7 @@ public class LostItemServiceImpl implements LostItemService {
     private final ClaimApplicationMapper claimApplicationMapper;
     private final ObjectMapper objectMapper;
     private final OperationLogRecorder operationLogRecorder;
+    private final ImageStorageService imageStorageService;
 
     @Override
     public IPage<LostItemVO> page(int page, int size, String keyword, Long categoryId, String status) {
@@ -54,6 +55,9 @@ public class LostItemServiceImpl implements LostItemService {
             qw.eq(LostItem::getCategoryId, categoryId);
         }
         if (status != null && !status.isEmpty()) {
+            if (!"LOST".equals(status) && !"FOUND".equals(status)) {
+                throw new BusinessException("无效的失物状态参数，仅支持 LOST 或 FOUND");
+            }
             qw.eq(LostItem::getStatus, status);
         }
         qw.orderByDesc(LostItem::getCreatedAt);
@@ -102,6 +106,8 @@ public class LostItemServiceImpl implements LostItemService {
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权修改他人的寻物启事");
         }
+        List<String> oldImageUrls = deserializeImageUrls(item.getImageUrls());
+        String oldCover = item.getCoverImage();
         if (req.getTitle() != null) {
             item.setTitle(req.getTitle());
         }
@@ -126,6 +132,16 @@ public class LostItemServiceImpl implements LostItemService {
         }
         validateTimeRange(item.getLostTime(), item.getLostTimeEnd());
         lostItemMapper.updateById(item);
+        // 删除被替换掉的旧图片文件
+        List<String> removed = new java.util.ArrayList<>(oldImageUrls);
+        if (oldCover != null) {
+            removed.add(oldCover);
+        }
+        removed.removeAll(deserializeImageUrls(item.getImageUrls()));
+        if (item.getCoverImage() != null) {
+            removed.remove(item.getCoverImage());
+        }
+        imageStorageService.deleteFiles(removed);
         operationLogRecorder.log(userId, "LOST_ITEM_UPDATE", "LOST_ITEM", id,
                 "更新失物：" + item.getTitle());
         return toVO(item);
@@ -162,6 +178,11 @@ public class LostItemServiceImpl implements LostItemService {
             throw new BusinessException("该失物已有申请记录，不能删除");
         }
         lostItemMapper.deleteById(id);
+        List<String> urls = new java.util.ArrayList<>(deserializeImageUrls(item.getImageUrls()));
+        if (item.getCoverImage() != null) {
+            urls.add(item.getCoverImage());
+        }
+        imageStorageService.deleteFiles(urls);
         log.info("失物删除: userId={} 删除失物 id={}", userId, id);
         operationLogRecorder.log(userId, "LOST_ITEM_DELETE", "LOST_ITEM", id,
                 "删除失物：" + item.getTitle());
@@ -207,6 +228,13 @@ public class LostItemServiceImpl implements LostItemService {
         validateResolution(normalized, item.getResolvedType(), item.getResolvedBy());
         item.setStatus(normalized);
         lostItemMapper.updateById(item);
+        if ("FOUND".equals(normalized)) {
+            List<String> urls = new java.util.ArrayList<>(deserializeImageUrls(item.getImageUrls()));
+            if (item.getCoverImage() != null) {
+                urls.add(item.getCoverImage());
+            }
+            imageStorageService.compressItemTo540p(urls);
+        }
     }
 
     private LostItemVO toVO(LostItem item) {

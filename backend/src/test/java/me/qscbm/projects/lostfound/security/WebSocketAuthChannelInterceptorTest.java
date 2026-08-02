@@ -134,6 +134,11 @@ class WebSocketAuthChannelInterceptorTest {
         assertThat(interceptor.preSend(
                 allowed, mock(org.springframework.messaging.MessageChannel.class))).isSameAs(allowed);
 
+        Message<byte[]> allowedNotification = frame(StompCommand.SUBSCRIBE, "/user/queue/notifications");
+        assertThat(interceptor.preSend(
+                allowedNotification, mock(org.springframework.messaging.MessageChannel.class)))
+                .isSameAs(allowedNotification);
+
         Message<byte[]> rejected = frame(StompCommand.SUBSCRIBE, "/topic/messages");
         assertThatThrownBy(() ->
                 interceptor.preSend(rejected, mock(org.springframework.messaging.MessageChannel.class)))

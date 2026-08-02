@@ -17,6 +17,7 @@ import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class AsyncMailSenderTest {
@@ -25,6 +26,7 @@ class AsyncMailSenderTest {
     private UserEmailPreferenceMapper emailPreferenceMapper;
     private JavaMailSender mailSender;
     private AsyncMailSender asyncMailSender;
+    private EmailRetryQueue emailRetryQueue;
 
     @BeforeEach
     void setUp() {
@@ -32,10 +34,11 @@ class AsyncMailSenderTest {
         emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
         mailSender = mock(JavaMailSender.class);
         EmailContentBuilder emailContentBuilder = new EmailContentBuilder("http://localhost:5173");
+        emailRetryQueue = mock(EmailRetryQueue.class);
         when(mailSender.createMimeMessage())
                 .thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
         asyncMailSender = new AsyncMailSender(
-                userMapper, emailPreferenceMapper, mailSender, emailContentBuilder);
+                userMapper, emailPreferenceMapper, mailSender, emailContentBuilder, emailRetryQueue);
     }
 
     @Test
@@ -105,6 +108,20 @@ class AsyncMailSenderTest {
         asyncMailSender.sendUserNotification(1L, "Subject", "Content", "system_message");
 
         verify(mailSender).send(any(MimeMessage.class));
+    }
+
+    @Test
+    void failedNotificationIsQueuedForRetry() throws Exception {
+        User user = eligibleUser();
+        when(userMapper.selectById(1L)).thenReturn(user);
+        when(emailPreferenceMapper.selectById(1L)).thenReturn(prefWithAllEnabled());
+        doThrow(new RuntimeException("smtp unavailable")).when(mailSender).send(any(MimeMessage.class));
+
+        asyncMailSender.sendUserNotification(1L, "Subject", "Content", "claim_request");
+
+        verify(mailSender).send(any(MimeMessage.class));
+        verify(emailRetryQueue).enqueue(eq("user@example.com"), eq("Subject"), eq("Content"),
+                eq("查看认领申请"), eq("/claims"));
     }
 
     private String readBody(Object content) throws Exception {

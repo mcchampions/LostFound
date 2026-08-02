@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, Pagination, CircularProgress, Alert
+  TableHead, TableRow, Paper, Pagination, CircularProgress, Alert, TextField, Button
 } from '@mui/material';
 import { useAuth } from '../../store/AuthContext';
 import { getLogs } from '../../api/admin';
@@ -26,6 +26,8 @@ export default function AdminLogs() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [actionFilter, setActionFilter] = useState('');
+  const [userIdFilter, setUserIdFilter] = useState('');
 
   const pageSize = 15;
 
@@ -33,7 +35,12 @@ export default function AdminLogs() {
     setLoading(true);
     setError('');
     try {
-      const data = await getLogs({ page, size: pageSize });
+      const data = await getLogs({
+        page,
+        size: pageSize,
+        action: actionFilter.trim() || undefined,
+        userId: userIdFilter.trim() ? Number(userIdFilter.trim()) : undefined,
+      });
       setLogs(data.records || []);
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
@@ -42,7 +49,13 @@ export default function AdminLogs() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, actionFilter, userIdFilter]);
+
+  const resetFilters = () => {
+    setActionFilter('');
+    setUserIdFilter('');
+    setPage(1);
+  };
 
   useEffect(() => {
     fetchLogs();
@@ -61,6 +74,25 @@ export default function AdminLogs() {
       <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>操作日志</Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextField
+          size="small"
+          label="操作类型"
+          placeholder="如 LOGIN、LOST_ITEM_CREATE"
+          value={actionFilter}
+          onChange={e => setActionFilter(e.target.value)}
+        />
+        <TextField
+          size="small"
+          label="用户ID"
+          value={userIdFilter}
+          onChange={e => setUserIdFilter(e.target.value.replace(/\D/g, ''))}
+          sx={{ width: 140 }}
+        />
+        <Button variant="contained" size="small" onClick={() => setPage(1)}>查询</Button>
+        <Button variant="outlined" size="small" onClick={resetFilters}>重置</Button>
+      </Paper>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

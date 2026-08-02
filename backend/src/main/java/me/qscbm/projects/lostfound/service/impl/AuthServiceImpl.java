@@ -3,6 +3,7 @@ package me.qscbm.projects.lostfound.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
 import me.qscbm.projects.lostfound.dto.*;
 import me.qscbm.projects.lostfound.entity.PasswordResetCode;
@@ -182,7 +183,7 @@ public class AuthServiceImpl implements AuthService {
         PasswordResetCode record = new PasswordResetCode();
         record.setUserId(user.getId());
         record.setEmail(normalized);
-        record.setCodeHash(passwordEncoder.encode(code));
+        record.setCodeHash(CodeHasher.hash(code));
         record.setSentAt(now);
         record.setExpiresAt(now + RESET_CODE_TTL_MS);
         record.setAttempts(0);
@@ -244,7 +245,7 @@ public class AuthServiceImpl implements AuthService {
             passwordResetCodeMapper.deleteById(user.getId());
             throw new BusinessException("验证码错误或已过期");
         }
-        if (!passwordEncoder.matches(code.trim(), record.getCodeHash())) {
+        if (!CodeHasher.matches(code.trim(), record.getCodeHash())) {
             passwordResetCodeMapper.incrementAttempts(user.getId(), RESET_CODE_MAX_ATTEMPTS);
             int remaining = RESET_CODE_MAX_ATTEMPTS - attempts - 1;
             if (remaining <= 0) {
@@ -272,11 +273,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void checkLoginThrottle(String username) {
-        if (loginAttemptService.isUsernameLocked(username)) {
-            long remainingMinutes = Math.max(1, loginAttemptService.remainingLockSeconds(username) / 60 + 1);
+        String ip = currentIp();
+        if (loginAttemptService.isLocked(username, ip)) {
+            long remainingMinutes = Math.max(1,
+                    loginAttemptService.remainingLockSeconds(username, ip) / 60 + 1);
             throw new BusinessException("登录失败次数过多，请 " + remainingMinutes + " 分钟后再试");
         }
-        if (loginAttemptService.isIpBlocked(currentIp())) {
+        if (loginAttemptService.isIpBlocked(ip)) {
             throw new BusinessException("请求过于频繁，请稍后再试");
         }
     }

@@ -11,8 +11,20 @@
         </encoder>
     </appender>
 
+    <!-- 本地文件日志：文件名由启动时系统属性 LOG_FILE_NAME 指定（日期-第几次启动） -->
+    <property name="LOG_FILE_NAME" value="${LOG_FILE_NAME:-logs/app.log}"/>
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>${LOG_FILE_NAME}</file>
+        <append>false</append>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
     <!-- 级别统一由 application.yml 的 logging.level.* 控制 -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
     </root>
 </configuration>

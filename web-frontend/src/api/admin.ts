@@ -18,5 +18,13 @@ export const deleteCategory = (id: number) =>
 export const getStats = () =>
   client.get('/admin/stats').then(r => r.data.data);
 
-export const getLogs = (params: { page: number; size: number }) =>
+export const getTrend = (days: number) =>
+  client.get('/admin/stats/trend', { params: { days } }).then(r => r.data.data);
+
+export const getLogs = (params: {
+  page: number;
+  size: number;
+  action?: string;
+  userId?: number;
+}) =>
   client.get('/admin/logs', { params }).then(r => r.data.data);

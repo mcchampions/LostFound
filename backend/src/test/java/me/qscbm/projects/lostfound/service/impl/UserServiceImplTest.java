@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.service.impl;
 
 import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.dto.UpdateProfileRequest;
 import me.qscbm.projects.lostfound.entity.EmailVerificationCode;
 import me.qscbm.projects.lostfound.entity.User;
@@ -186,7 +187,8 @@ class UserServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("验证码发送失败，请检查邮箱配置");
 
-        verify(verificationCodeMapper).deleteMatching(eq(1L), startsWith("hash:"));
+        verify(verificationCodeMapper).deleteMatching(eq(1L), argThat(hash ->
+                hash != null && hash.contains(":")));
     }
 
     @Test
@@ -208,7 +210,7 @@ class UserServiceImplTest {
         EmailVerificationCode stored = new EmailVerificationCode();
         stored.setUserId(1L);
         stored.setEmail("user@example.com");
-        stored.setCodeHash("hash:" + code);
+        stored.setCodeHash(CodeHasher.hash(code));
         stored.setSentAt(now.get());
         stored.setExpiresAt(now.get() + 5 * 60 * 1000L);
         stored.setAttempts(0);

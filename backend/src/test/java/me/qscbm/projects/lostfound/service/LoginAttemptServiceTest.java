@@ -24,8 +24,19 @@ class LoginAttemptServiceTest {
         for (int i = 0; i < 5; i++) {
             service.recordFailure("student", "1.2.3.4");
         }
-        assertThat(service.isUsernameLocked("student")).isTrue();
-        assertThat(service.remainingLockSeconds("student")).isGreaterThan(0);
+        assertThat(service.isLocked("student", "1.2.3.4")).isTrue();
+        assertThat(service.remainingLockSeconds("student", "1.2.3.4")).isGreaterThan(0);
+    }
+
+    @Test
+    void lockIsScopedToUsernameAndIpCombination() {
+        for (int i = 0; i < 5; i++) {
+            service.recordFailure("student", "1.2.3.4");
+        }
+        assertThat(service.isLocked("student", "1.2.3.4")).isTrue();
+        // 攻击者从固定 IP 失败不能锁死其他 IP 的正常登录
+        assertThat(service.isLocked("student", "5.6.7.8")).isFalse();
+        assertThat(service.isLocked("other", "1.2.3.4")).isFalse();
     }
 
     @Test
@@ -33,7 +44,7 @@ class LoginAttemptServiceTest {
         for (int i = 0; i < 4; i++) {
             service.recordFailure("student", "1.2.3.4");
         }
-        assertThat(service.isUsernameLocked("student")).isFalse();
+        assertThat(service.isLocked("student", "1.2.3.4")).isFalse();
     }
 
     @Test
@@ -45,7 +56,7 @@ class LoginAttemptServiceTest {
         for (int i = 0; i < 4; i++) {
             service.recordFailure("student", "1.2.3.4");
         }
-        assertThat(service.isUsernameLocked("student")).isFalse();
+        assertThat(service.isLocked("student", "1.2.3.4")).isFalse();
     }
 
     @Test

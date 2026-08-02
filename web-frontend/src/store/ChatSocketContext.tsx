@@ -6,13 +6,16 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from './AuthContext';
 import { getConversations } from '../api/chat';
+import { getUnreadCount } from '../api/notifications';
 import type { MessageVO } from '../api/chat';
 import { WS_ENDPOINT } from '../config';
 
 interface ChatSocketContextValue {
   connected: boolean;
   unreadTotal: number;
+  notificationUnread: number;
   refreshUnread: () => void;
+  refreshNotificationUnread: () => void;
   setActiveConversation: (conversationId: string | null) => void;
   subscribe: (listener: (message: MessageVO) => void) => () => void;
 }
@@ -27,6 +30,7 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [connected, setConnected] = useState(false);
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const [notificationUnread, setNotificationUnread] = useState(0);
   const clientRef = useRef<Client | null>(null);
   const activeConversationRef = useRef<string | null>(null);
   const listenersRef = useRef(new Set<(message: MessageVO) => void>());
@@ -38,6 +42,10 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
         setUnreadTotal(total);
       })
       .catch(() => { /* 忽略加载失败 */ });
+  }, []);
+
+  const refreshNotificationUnread = useCallback(() => {
+    getUnreadCount().then(setNotificationUnread).catch(() => {});
   }, []);
 
   const setActiveConversation = useCallback((conversationId: string | null) => {
@@ -73,7 +81,12 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
             // 忽略异常帧
           }
         });
+        // 通知实时推送：收到即红点 +1
+        client.subscribe('/user/queue/notifications', () => {
+          setNotificationUnread(prev => prev + 1);
+        });
         refreshUnread();
+        refreshNotificationUnread();
       },
       onStompError: () => setConnected(false),
       onWebSocketClose: () => setConnected(false),
@@ -84,14 +97,17 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
       client.deactivate();
       clientRef.current = null;
       setConnected(false);
+      setUnreadTotal(0);
+      setNotificationUnread(0);
     };
     // 依赖 user?.id：资料更新（user 引用变化）时不重建连接
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, refreshUnread]);
+  }, [user?.id, refreshUnread, refreshNotificationUnread]);
 
   return (
     <ChatSocketContext.Provider value={{
-      connected, unreadTotal, refreshUnread, setActiveConversation, subscribe,
+      connected, unreadTotal, notificationUnread,
+      refreshUnread, refreshNotificationUnread, setActiveConversation, subscribe,
     }}>
       {children}
     </ChatSocketContext.Provider>

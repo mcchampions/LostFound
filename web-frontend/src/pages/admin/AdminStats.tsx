@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
 import {
   Box, Typography, Paper, Grid, CircularProgress, Alert,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, Tooltip
 } from '@mui/material';
 import {
   Search as LostIcon,
@@ -12,7 +12,7 @@ import {
   Pending as PendingIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../store/AuthContext';
-import { getStats } from '../../api/admin';
+import { getStats, getTrend } from '../../api/admin';
 
 interface StatsData {
   lostCount?: number;
@@ -46,6 +46,8 @@ export default function AdminStats() {
   ];
 
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [trendDays, setTrendDays] = useState(7);
+  const [trend, setTrend] = useState<Array<{ date: string; lostCount: number; foundCount: number }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -64,6 +66,12 @@ export default function AdminStats() {
     };
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    getTrend(trendDays)
+      .then(setTrend)
+      .catch(() => setTrend([]));
+  }, [trendDays]);
 
   if (!isAdmin) {
     return (
@@ -173,6 +181,47 @@ export default function AdminStats() {
               </TableContainer>
             </Paper>
           )}
+
+          {/* 近 7/30 天发布趋势 */}
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">发布趋势</Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button size="small" variant={trendDays === 7 ? 'contained' : 'outlined'}
+                  onClick={() => setTrendDays(7)}>近7天</Button>
+                <Button size="small" variant={trendDays === 30 ? 'contained' : 'outlined'}
+                  onClick={() => setTrendDays(30)}>近30天</Button>
+              </Box>
+            </Box>
+            {trend.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">暂无趋势数据</Typography>
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 160, overflowX: 'auto' }}>
+                {trend.map(item => {
+                  const max = Math.max(...trend.map(t => Math.max(t.lostCount, t.foundCount)), 1);
+                  const lostH = Math.max((item.lostCount / max) * 130, item.lostCount > 0 ? 4 : 1);
+                  const foundH = Math.max((item.foundCount / max) * 130, item.foundCount > 0 ? 4 : 1);
+                  return (
+                    <Box key={item.date} sx={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 24, flex: 1,
+                    }}>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 130 }}>
+                        <Tooltip title={`失物 ${item.lostCount}`}>
+                          <Box sx={{ width: 8, bgcolor: 'primary.main', borderRadius: '2px 2px 0 0', height: lostH }} />
+                        </Tooltip>
+                        <Tooltip title={`招领 ${item.foundCount}`}>
+                          <Box sx={{ width: 8, bgcolor: 'success.main', borderRadius: '2px 2px 0 0', height: foundH }} />
+                        </Tooltip>
+                      </Box>
+                      <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary', fontSize: 10 }}>
+                        {item.date.slice(5)}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+          </Paper>
         </>
       )}
     </Box>

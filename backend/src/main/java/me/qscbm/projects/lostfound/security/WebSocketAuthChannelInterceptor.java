@@ -95,7 +95,8 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             String destination = accessor.getDestination();
-            if (!"/user/queue/messages".equals(destination)) {
+            if (!"/user/queue/messages".equals(destination)
+                    && !"/user/queue/notifications".equals(destination)) {
                 throw new AccessDeniedException("WebSocket 无权订阅该目标");
             }
         }

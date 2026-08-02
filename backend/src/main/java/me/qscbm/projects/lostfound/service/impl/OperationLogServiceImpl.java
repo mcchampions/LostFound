@@ -16,8 +16,14 @@ public class OperationLogServiceImpl implements OperationLogService {
     private final OperationLogMapper operationLogMapper;
 
     @Override
-    public IPage<OperationLog> page(int page, int size) {
+    public IPage<OperationLog> page(int page, int size, String action, Long userId) {
         LambdaQueryWrapper<OperationLog> qw = new LambdaQueryWrapper<>();
+        if (action != null && !action.isBlank()) {
+            qw.like(OperationLog::getAction, action.trim());
+        }
+        if (userId != null) {
+            qw.eq(OperationLog::getUserId, userId);
+        }
         qw.orderByDesc(OperationLog::getCreatedAt);
         return operationLogMapper.selectPage(new Page<>(page, size), qw);
     }

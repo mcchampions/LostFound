@@ -6,6 +6,7 @@ import me.qscbm.projects.lostfound.common.AppHome;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.dto.CoverGenRequest;
 import me.qscbm.projects.lostfound.service.CoverGenService;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -147,6 +148,13 @@ public class CoverGenServiceImpl implements CoverGenService {
             return v;
         });
         return window[1] <= rateLimitPerMinute;
+    }
+
+    /** 每小时清理过期窗口，避免用户条目长期残留。 */
+    @Scheduled(fixedRate = 3_600_000)
+    public void cleanupExpiredWindows() {
+        rateMap.entrySet().removeIf(entry ->
+                System.currentTimeMillis() - entry.getValue()[0] > 60_000L);
     }
 
     private String truncateContent(String value) {

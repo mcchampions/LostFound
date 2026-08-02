@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.service.impl;
 
 import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.dto.LoginRequest;
 import me.qscbm.projects.lostfound.dto.RegisterRequest;
 import me.qscbm.projects.lostfound.dto.UserVO;
@@ -20,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class AuthServiceImplTest {
@@ -103,8 +105,8 @@ class AuthServiceImplTest {
 
     @Test
     void lockedUsernameIsRejectedBeforeLookup() {
-        when(loginAttemptService.isUsernameLocked("student")).thenReturn(true);
-        when(loginAttemptService.remainingLockSeconds("student")).thenReturn(900L);
+        when(loginAttemptService.isLocked(eq("student"), any())).thenReturn(true);
+        when(loginAttemptService.remainingLockSeconds(eq("student"), any())).thenReturn(900L);
 
         assertThatThrownBy(() -> service.login(loginRequest("student", "password123")))
                 .isInstanceOf(BusinessException.class)
@@ -168,7 +170,6 @@ class AuthServiceImplTest {
         when(userMapper.selectOne(any())).thenReturn(activeUser("user@example.com"));
         PasswordResetCode record = resetRecord(0, System.currentTimeMillis() + 300_000);
         when(passwordResetCodeMapper.selectById(1L)).thenReturn(record);
-        when(passwordEncoder.matches("123456", "hash-of-123456")).thenReturn(true);
         when(passwordEncoder.encode("newpass123")).thenReturn("encoded-new");
 
         service.resetPassword("user@example.com", "123456", "newpass123");
@@ -184,8 +185,6 @@ class AuthServiceImplTest {
         when(userMapper.selectOne(any())).thenReturn(activeUser("user@example.com"));
         when(passwordResetCodeMapper.selectById(1L)).thenReturn(
                 resetRecord(0, System.currentTimeMillis() + 300_000));
-        when(passwordEncoder.matches("000000", "hash-of-123456")).thenReturn(false);
-
         assertThatThrownBy(() -> service.resetPassword("user@example.com", "000000", "newpass123"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("还可尝试");
@@ -206,7 +205,7 @@ class AuthServiceImplTest {
         PasswordResetCode record = new PasswordResetCode();
         record.setUserId(1L);
         record.setEmail("user@example.com");
-        record.setCodeHash("hash-of-123456");
+        record.setCodeHash(CodeHasher.hash("123456"));
         record.setSentAt(System.currentTimeMillis());
         record.setExpiresAt(expiresAt);
         record.setAttempts(attempts);

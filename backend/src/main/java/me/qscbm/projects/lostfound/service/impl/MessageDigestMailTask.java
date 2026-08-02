@@ -82,8 +82,8 @@ public class MessageDigestMailTask {
                 return;
             }
             if (!offlineTracker.isEligible(user)) {
-                log.debug("离线邮件:userId={} 不满足邮件资格,等待下轮", userId);
-                offlineTracker.resetForRetry(userId);
+                log.debug("离线邮件:userId={} 不满足邮件资格,清理收集状态", userId);
+                offlineTracker.clearPending(userId);
                 return;
             }
 

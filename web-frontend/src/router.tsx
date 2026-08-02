@@ -1,55 +1,70 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
 import Layout from './components/Layout';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import LostItemList from './pages/LostItemList';
-import LostItemDetail from './pages/LostItemDetail';
-import LostItemForm from './pages/LostItemForm';
-import FoundItemList from './pages/FoundItemList';
-import FoundItemDetail from './pages/FoundItemDetail';
-import FoundItemForm from './pages/FoundItemForm';
-import Notifications from './pages/Notifications';
-import Profile from './pages/Profile';
-import UserProfile from './pages/UserProfile';
-import Claims from './pages/Claims';
-import Chat from './pages/Chat';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminCategories from './pages/admin/AdminCategories';
-import AdminStats from './pages/admin/AdminStats';
-import AdminLogs from './pages/admin/AdminLogs';
-import AdminLogin from './pages/AdminLogin';
 import ProtectedRoute from './components/ProtectedRoute';
-import NotFound from './pages/NotFound';
+
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const LostItemList = lazy(() => import('./pages/LostItemList'));
+const LostItemDetail = lazy(() => import('./pages/LostItemDetail'));
+const LostItemForm = lazy(() => import('./pages/LostItemForm'));
+const FoundItemList = lazy(() => import('./pages/FoundItemList'));
+const FoundItemDetail = lazy(() => import('./pages/FoundItemDetail'));
+const FoundItemForm = lazy(() => import('./pages/FoundItemForm'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Profile = lazy(() => import('./pages/Profile'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const Claims = lazy(() => import('./pages/Claims'));
+const Chat = lazy(() => import('./pages/Chat'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
+const AdminStats = lazy(() => import('./pages/admin/AdminStats'));
+const AdminLogs = lazy(() => import('./pages/admin/AdminLogs'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+
+const page = (node: React.ReactNode) => (
+  <Suspense
+    fallback={(
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+        <CircularProgress />
+      </Box>
+    )}
+  >
+    {node}
+  </Suspense>
+);
 
 const router = createBrowserRouter([
   {
     path: '/', element: <Layout />,
     children: [
-      { index: true, element: <Home /> },
-      { path: 'login', element: <Login /> },
-      { path: 'register', element: <Register /> },
-      { path: 'forgot-password', element: <ForgotPassword /> },
-      { path: 'lost-items', element: <LostItemList /> },
-      { path: 'lost-items/:id', element: <LostItemDetail /> },
-      { path: 'lost-items/create', element: <ProtectedRoute><LostItemForm /></ProtectedRoute> },
-      { path: 'lost-items/:id/edit', element: <ProtectedRoute><LostItemForm /></ProtectedRoute> },
-      { path: 'found-items', element: <FoundItemList /> },
-      { path: 'found-items/:id', element: <FoundItemDetail /> },
-      { path: 'found-items/create', element: <ProtectedRoute><FoundItemForm /></ProtectedRoute> },
-      { path: 'found-items/:id/edit', element: <ProtectedRoute><FoundItemForm /></ProtectedRoute> },
-      { path: 'notifications', element: <Notifications /> },
-      { path: 'profile', element: <Profile /> },
-      { path: 'claims', element: <Claims /> },
-      { path: 'chat', element: <Chat /> },
-      { path: 'users/:id', element: <UserProfile /> },
-      { path: 'admin/users', element: <ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute> },
-      { path: 'admin/categories', element: <ProtectedRoute adminOnly><AdminCategories /></ProtectedRoute> },
-      { path: 'admin/stats', element: <ProtectedRoute adminOnly><AdminStats /></ProtectedRoute> },
-      { path: 'login/admin', element: <AdminLogin /> },
-      { path: 'admin/logs', element: <ProtectedRoute adminOnly><AdminLogs /></ProtectedRoute> },
-      { path: '*', element: <NotFound /> },
+      { index: true, element: page(<Home />) },
+      { path: 'login', element: page(<Login />) },
+      { path: 'register', element: page(<Register />) },
+      { path: 'forgot-password', element: page(<ForgotPassword />) },
+      { path: 'lost-items', element: page(<LostItemList />) },
+      { path: 'lost-items/:id', element: page(<LostItemDetail />) },
+      { path: 'lost-items/create', element: page(<ProtectedRoute><LostItemForm /></ProtectedRoute>) },
+      { path: 'lost-items/:id/edit', element: page(<ProtectedRoute><LostItemForm /></ProtectedRoute>) },
+      { path: 'found-items', element: page(<FoundItemList />) },
+      { path: 'found-items/:id', element: page(<FoundItemDetail />) },
+      { path: 'found-items/create', element: page(<ProtectedRoute><FoundItemForm /></ProtectedRoute>) },
+      { path: 'found-items/:id/edit', element: page(<ProtectedRoute><FoundItemForm /></ProtectedRoute>) },
+      { path: 'notifications', element: page(<Notifications />) },
+      { path: 'profile', element: page(<Profile />) },
+      { path: 'claims', element: page(<Claims />) },
+      { path: 'chat', element: page(<Chat />) },
+      { path: 'users/:id', element: page(<UserProfile />) },
+      { path: 'admin/users', element: page(<ProtectedRoute adminOnly><AdminUsers /></ProtectedRoute>) },
+      { path: 'admin/categories', element: page(<ProtectedRoute adminOnly><AdminCategories /></ProtectedRoute>) },
+      { path: 'admin/stats', element: page(<ProtectedRoute adminOnly><AdminStats /></ProtectedRoute>) },
+      { path: 'login/admin', element: page(<AdminLogin />) },
+      { path: 'admin/logs', element: page(<ProtectedRoute adminOnly><AdminLogs /></ProtectedRoute>) },
+      { path: '*', element: page(<NotFound />) },
     ],
   },
 ]);

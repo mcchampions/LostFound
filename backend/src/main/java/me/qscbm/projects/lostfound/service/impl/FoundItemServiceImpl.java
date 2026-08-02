@@ -43,6 +43,7 @@ public class FoundItemServiceImpl implements FoundItemService {
     private final ClaimApplicationMapper claimApplicationMapper;
     private final ObjectMapper objectMapper;
     private final OperationLogRecorder operationLogRecorder;
+    private final ImageStorageService imageStorageService;
 
     @Override
     public IPage<FoundItemVO> page(int page, int size, String keyword, Long categoryId, String status) {
@@ -54,6 +55,9 @@ public class FoundItemServiceImpl implements FoundItemService {
             qw.eq(FoundItem::getCategoryId, categoryId);
         }
         if (status != null && !status.isEmpty()) {
+            if (!"UNCLAIMED".equals(status) && !"CLAIMED".equals(status)) {
+                throw new BusinessException("无效的招领状态参数，仅支持 UNCLAIMED 或 CLAIMED");
+            }
             qw.eq(FoundItem::getStatus, status);
         }
         qw.orderByDesc(FoundItem::getCreatedAt);
@@ -102,6 +106,8 @@ public class FoundItemServiceImpl implements FoundItemService {
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权修改他人的失物招领");
         }
+        List<String> oldImageUrls = deserializeImageUrls(item.getImageUrls());
+        String oldCover = item.getCoverImage();
         if (req.getTitle() != null) {
             item.setTitle(req.getTitle());
         }
@@ -126,6 +132,16 @@ public class FoundItemServiceImpl implements FoundItemService {
         }
         validateTimeRange(item.getFoundTime(), item.getFoundTimeEnd());
         foundItemMapper.updateById(item);
+        // 删除被替换掉的旧图片文件
+        List<String> removed = new java.util.ArrayList<>(oldImageUrls);
+        if (oldCover != null) {
+            removed.add(oldCover);
+        }
+        removed.removeAll(deserializeImageUrls(item.getImageUrls()));
+        if (item.getCoverImage() != null) {
+            removed.remove(item.getCoverImage());
+        }
+        imageStorageService.deleteFiles(removed);
         operationLogRecorder.log(userId, "FOUND_ITEM_UPDATE", "FOUND_ITEM", id,
                 "更新招领：" + item.getTitle());
         return toVO(item);
@@ -162,6 +178,11 @@ public class FoundItemServiceImpl implements FoundItemService {
             throw new BusinessException("该招领信息已有申请记录，不能删除");
         }
         foundItemMapper.deleteById(id);
+        List<String> urls = new java.util.ArrayList<>(deserializeImageUrls(item.getImageUrls()));
+        if (item.getCoverImage() != null) {
+            urls.add(item.getCoverImage());
+        }
+        imageStorageService.deleteFiles(urls);
         log.info("招领删除: userId={} 删除招领 id={}", userId, id);
         operationLogRecorder.log(userId, "FOUND_ITEM_DELETE", "FOUND_ITEM", id,
                 "删除招领：" + item.getTitle());
@@ -207,6 +228,13 @@ public class FoundItemServiceImpl implements FoundItemService {
         validateResolution(normalized, item.getResolvedType(), item.getResolvedBy());
         item.setStatus(normalized);
         foundItemMapper.updateById(item);
+        if ("CLAIMED".equals(normalized)) {
+            List<String> urls = new java.util.ArrayList<>(deserializeImageUrls(item.getImageUrls()));
+            if (item.getCoverImage() != null) {
+                urls.add(item.getCoverImage());
+            }
+            imageStorageService.compressItemTo540p(urls);
+        }
     }
 
     private FoundItemVO toVO(FoundItem item) {

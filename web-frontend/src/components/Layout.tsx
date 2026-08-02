@@ -16,7 +16,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
 import { useChatSocket } from '../store/ChatSocketContext';
-import { getUnreadCount, getNotifications, markRead } from '../api/notifications';
+import { getNotifications, markRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
 import { assetUrl } from '../config';
@@ -79,9 +79,9 @@ function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const { notificationUnread, refreshNotificationUnread } = useChatSocket();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -90,11 +90,6 @@ export default function Layout() {
   const [recentNotifs, setRecentNotifs] = useState<NotificationVO[]>([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [processingId, setProcessingId] = useState<number | null>(null);
-
-  const refreshUnread = () => {
-    if (!user) return;
-    getUnreadCount().then(setUnreadCount).catch(() => {});
-  };
 
   const loadRecentNotifs = () => {
     if (!user) return;
@@ -106,17 +101,15 @@ export default function Layout() {
   };
 
   useEffect(() => {
-    refreshUnread();
-    const timer = setInterval(refreshUnread, 10000);
-    const onVis = () => { if (!document.hidden) refreshUnread(); };
+    // 通知未读数由全局 WebSocket 实时推送，这里只在回到前台时兜底刷新
+    const onVis = () => { if (!document.hidden) refreshNotificationUnread(); };
     document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('focus', refreshUnread);
+    window.addEventListener('focus', refreshNotificationUnread);
     return () => {
-      clearInterval(timer);
       document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('focus', refreshUnread);
+      window.removeEventListener('focus', refreshNotificationUnread);
     };
-  }, [user]);
+  }, [refreshNotificationUnread]);
 
   const handleNav = (path: string) => {
     navigate(path);
@@ -134,7 +127,7 @@ export default function Layout() {
     if (item.isRead === 0) {
       markRead(item.id).then(() => {
         setRecentNotifs(prev => prev.map(n => n.id === item.id ? { ...n, isRead: 1 } : n));
-        refreshUnread();
+        refreshNotificationUnread();
       }).catch(() => {});
     }
     closeNotif();
@@ -149,7 +142,7 @@ export default function Layout() {
       await processClaim(item.relatedId, 'APPROVED');
       await markRead(item.id);
       setRecentNotifs(prev => prev.map(n => n.id === item.id ? { ...n, isRead: 1 } : n));
-      refreshUnread();
+      refreshNotificationUnread();
       closeNotif();
     } catch {
       // ignore
@@ -171,7 +164,7 @@ export default function Layout() {
           )}
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>校园失物招领系统</Typography>
           <IconButton color="inherit" onClick={openNotif}>
-            <Badge badgeContent={unreadCount} color="error"><NotificationsIcon /></Badge>
+            <Badge badgeContent={notificationUnread} color="error"><NotificationsIcon /></Badge>
           </IconButton>
           <Popover
             open={notifOpen}

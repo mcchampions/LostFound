@@ -30,6 +30,7 @@ public class EmailContentBuilder {
         if (hasAction(actionText, actionUrl)) {
             sb.append("\n\n").append(actionText).append("：").append(url(actionUrl));
         }
+        sb.append("\n\n管理邮件提醒偏好：" + url("/profile"));
         sb.append("\n\n—— 校园失物招领系统");
         return sb.toString();
     }
@@ -52,6 +53,8 @@ public class EmailContentBuilder {
                 + escapeHtml(summary) + "</p>"
                 + actionLink
                 + "<hr style=\"border:none;border-top:1px solid #eeeeee;margin:20px 0;\"/>"
+                + "<p style=\"font-size:12px;\"><a href=\"" + escapeHtml(url("/profile"))
+                + "\" style=\"color:#888888;\">管理邮件提醒偏好</a></p>"
                 + "<p style=\"color:#999999;font-size:12px;\">本邮件由校园失物招领系统自动发送，请勿直接回复。</p>"
                 + "</div>";
     }

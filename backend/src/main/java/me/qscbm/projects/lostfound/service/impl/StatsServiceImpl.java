@@ -15,6 +15,7 @@ import me.qscbm.projects.lostfound.service.StatsService;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +60,56 @@ public class StatsServiceImpl implements StatsService {
         result.put("categoryStats", categoryStats);
 
         return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> getDailyTrend(int days) {
+        LocalDate today = LocalDate.now();
+        LocalDate start = today.minusDays(days - 1L);
+        Map<LocalDate, long[]> counts = new LinkedHashMap<>();
+        for (int i = 0; i < days; i++) {
+            counts.put(start.plusDays(i), new long[2]);
+        }
+        fillTrend(lostItemMapper.selectMaps(new QueryWrapper<LostItem>()
+                        .select("DATE(created_at) AS day", "COUNT(*) AS cnt")
+                        .ge("created_at", start.atStartOfDay())
+                        .groupBy("DATE(created_at)")),
+                counts, 0);
+        fillTrend(foundItemMapper.selectMaps(new QueryWrapper<FoundItem>()
+                        .select("DATE(created_at) AS day", "COUNT(*) AS cnt")
+                        .ge("created_at", start.atStartOfDay())
+                        .groupBy("DATE(created_at)")),
+                counts, 1);
+
+        List<Map<String, Object>> result = new ArrayList<>(days);
+        counts.forEach((date, values) -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", date.toString());
+            row.put("lostCount", values[0]);
+            row.put("foundCount", values[1]);
+            result.add(row);
+        });
+        return result;
+    }
+
+    private void fillTrend(List<Map<String, Object>> rows,
+                           Map<LocalDate, long[]> counts, int index) {
+        for (Map<String, Object> row : rows) {
+            Object day = row.get("day");
+            Number count = number(row, "cnt");
+            if (day == null || count == null) {
+                continue;
+            }
+            try {
+                LocalDate date = LocalDate.parse(day.toString());
+                long[] values = counts.get(date);
+                if (values != null) {
+                    values[index] = count.longValue();
+                }
+            } catch (Exception ignored) {
+                // 非法日期行忽略
+            }
+        }
     }
 
     private Map<Long, Long> categoryCounts(List<Map<String, Object>> rows) {

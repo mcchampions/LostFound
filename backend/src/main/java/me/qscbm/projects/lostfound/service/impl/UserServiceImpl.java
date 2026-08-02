@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
 import me.qscbm.projects.lostfound.dto.PublicProfileVO;
 import me.qscbm.projects.lostfound.dto.UpdateProfileRequest;
@@ -189,7 +190,7 @@ public class UserServiceImpl implements UserService {
         EmailVerificationCode verificationCode = new EmailVerificationCode();
         verificationCode.setUserId(userId);
         verificationCode.setEmail(user.getEmail());
-        verificationCode.setCodeHash(passwordEncoder.encode(code));
+        verificationCode.setCodeHash(CodeHasher.hash(code));
         verificationCode.setSentAt(now);
         verificationCode.setExpiresAt(now + VERIFY_CODE_TTL_MS);
         verificationCode.setAttempts(0);
@@ -250,7 +251,7 @@ public class UserServiceImpl implements UserService {
             verificationCodeMapper.deleteById(userId);
             throw new BusinessException("该邮箱已被其他账号验证");
         }
-        if (!passwordEncoder.matches(code.trim(), expected.getCodeHash())) {
+        if (!CodeHasher.matches(code.trim(), expected.getCodeHash())) {
             verificationCodeMapper.incrementAttempts(userId, VERIFY_CODE_MAX_ATTEMPTS);
             int remaining = VERIFY_CODE_MAX_ATTEMPTS - attempts - 1;
             if (remaining <= 0) {
