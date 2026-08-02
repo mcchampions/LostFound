@@ -27,6 +27,15 @@ const OUTPUT_HEIGHT = 720;
 const VISUAL_WIDTH = 760;
 const MAX_CONTENT_LENGTH = 144;
 const MAX_REQUEST_SIZE = 64 * 1024;
+const TITLE_MAX_LINES = 4;
+// 每个模板标题单行可容纳的宽度单位（CJK=1，ASCII≈0.55），按标题区宽度与
+// 初始字号保守计算；手动换行不会被标题引擎自动缩放，超宽会横向溢出
+const TITLE_LINE_UNITS = {
+  'xhs-note': 8,
+  'xhs-note-green': 10,
+  'xhs-quote-blue': 7,
+  'xhs-date-note': 9,
+};
 const fontDataPromise = Promise.all([
   readFile(FONT_REG),
   readFile(FONT_BOLD),
@@ -41,6 +50,56 @@ function truncateContent(value) {
   return characters.length > MAX_CONTENT_LENGTH
     ? `${characters.slice(0, MAX_CONTENT_LENGTH - 1).join('')}\u2026`
     : normalized;
+}
+
+function charWidthUnits(ch) {
+  return /^[\u0000-\u00ff]$/.test(ch) ? 0.55 : 1;
+}
+
+/**
+ * 渲染前重排标题：保留手动换行，但把过长的行按模板宽度单位重新折行，
+ * 最多 TITLE_MAX_LINES 行，超出的部分截断并以省略号结尾，
+ * 避免标题超宽溢出封面左半部分。
+ */
+function wrapTitle(value, template) {
+  const maxUnits = TITLE_LINE_UNITS[template] ?? 8;
+  const normalized = String(value ?? '').trim().replace(/\r\n?/g, '\n');
+  if (!normalized) {
+    return '';
+  }
+  const lines = [];
+  let truncated = false;
+  for (const rawLine of normalized.split('\n')) {
+    if (lines.length >= TITLE_MAX_LINES) {
+      truncated = true;
+      break;
+    }
+    let current = '';
+    let units = 0;
+    for (const ch of Array.from(rawLine)) {
+      const unit = charWidthUnits(ch);
+      if (current && units + unit > maxUnits) {
+        lines.push(current);
+        current = ch;
+        units = unit;
+        if (lines.length >= TITLE_MAX_LINES) {
+          truncated = true;
+          current = '';
+          break;
+        }
+      } else {
+        current += ch;
+        units += unit;
+      }
+    }
+    if (current && lines.length < TITLE_MAX_LINES) {
+      lines.push(current);
+    }
+  }
+  if (truncated && lines.length > 0) {
+    lines[lines.length - 1] = lines[lines.length - 1].replace(/.$/u, '…');
+  }
+  return lines.join('\n');
 }
 
 function wrapContent(value, maxWidth = 11) {
@@ -311,7 +370,12 @@ const server = http.createServer(async (req, res) => {
   const jsonPath = join(WORK_DIR, `${id}.json`);
   const pngPath = join(WORK_DIR, `${id}.png`);
 
-  const data = { title };
+  const data = { title: wrapTitle(title, template) };
+  if (!data.title) {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'title required' }));
+    return;
+  }
   const renderedContent = truncateContent(content);
   if (renderedContent) data.subtitle = renderedContent;
   if (theme) data.theme = theme;

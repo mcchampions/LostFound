@@ -84,11 +84,6 @@ public class OfflineMessageEmailTracker {
         emailSentStatus.put(userId, true);
     }
 
-    /** 发送失败后调用：恢复可收集状态，保留未发送的会话供下轮重试。 */
-    public void resetForRetry(Long userId) {
-        emailSentStatus.remove(userId);
-    }
-
     /** 用户上线时调用：移除已提醒状态，允许下一轮收集。 */
     public void resetStatus(Long userId) {
         if (userId == null) {

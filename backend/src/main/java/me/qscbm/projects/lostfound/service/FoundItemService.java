@@ -10,6 +10,5 @@ public interface FoundItemService {
     FoundItemVO create(Long userId, FoundItemRequest req);
     FoundItemVO update(Long id, Long userId, FoundItemRequest req);
     void delete(Long id, Long userId);
-    void updateStatus(Long id, Long userId, String status);
     void updateStatus(Long id, Long userId, String status, String resolvedType, Long resolvedBy, String resolvedNote);
 }

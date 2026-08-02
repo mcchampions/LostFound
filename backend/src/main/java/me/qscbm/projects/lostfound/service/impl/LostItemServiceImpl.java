@@ -15,7 +15,6 @@ import me.qscbm.projects.lostfound.entity.Category;
 import me.qscbm.projects.lostfound.entity.ClaimApplication;
 import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.User;
-import me.qscbm.projects.lostfound.entity.enums.ItemStatus;
 import me.qscbm.projects.lostfound.mapper.CategoryMapper;
 import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
@@ -186,26 +185,6 @@ public class LostItemServiceImpl implements LostItemService {
         log.info("失物删除: userId={} 删除失物 id={}", userId, id);
         operationLogRecorder.log(userId, "LOST_ITEM_DELETE", "LOST_ITEM", id,
                 "删除失物：" + item.getTitle());
-    }
-
-    @Override
-    public void updateStatus(Long id, Long userId, String status) {
-        LostItem item = lostItemMapper.selectById(id);
-        if (item == null) {
-            throw new BusinessException("寻物启事不存在");
-        }
-        if (!item.getUserId().equals(userId)) {
-            throw new BusinessException("无权修改他人的寻物启事状态");
-        }
-        String normalized = status.toUpperCase();
-        if (!"LOST".equals(normalized) && !"FOUND".equals(normalized)) {
-            throw new BusinessException("寻物启事状态仅支持 LOST 或 FOUND");
-        }
-        item.setStatus(normalized);
-        lostItemMapper.updateById(item);
-        log.info("失物状态变更: userId={} 失物 id={} 状态={}", userId, id, normalized);
-        operationLogRecorder.log(userId, "LOST_ITEM_STATUS", "LOST_ITEM", id,
-                "状态改为 " + normalized);
     }
 
     @Override

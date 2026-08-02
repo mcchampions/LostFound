@@ -15,7 +15,6 @@ import me.qscbm.projects.lostfound.entity.Category;
 import me.qscbm.projects.lostfound.entity.ClaimApplication;
 import me.qscbm.projects.lostfound.entity.FoundItem;
 import me.qscbm.projects.lostfound.entity.User;
-import me.qscbm.projects.lostfound.entity.enums.ItemStatus;
 import me.qscbm.projects.lostfound.mapper.CategoryMapper;
 import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
 import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
@@ -186,26 +185,6 @@ public class FoundItemServiceImpl implements FoundItemService {
         log.info("招领删除: userId={} 删除招领 id={}", userId, id);
         operationLogRecorder.log(userId, "FOUND_ITEM_DELETE", "FOUND_ITEM", id,
                 "删除招领：" + item.getTitle());
-    }
-
-    @Override
-    public void updateStatus(Long id, Long userId, String status) {
-        FoundItem item = foundItemMapper.selectById(id);
-        if (item == null) {
-            throw new BusinessException("失物招领不存在");
-        }
-        if (!item.getUserId().equals(userId)) {
-            throw new BusinessException("无权修改他人的失物招领状态");
-        }
-        String normalized = status.toUpperCase();
-        if (!"UNCLAIMED".equals(normalized) && !"CLAIMED".equals(normalized)) {
-            throw new BusinessException("招领信息状态仅支持 UNCLAIMED 或 CLAIMED");
-        }
-        item.setStatus(normalized);
-        foundItemMapper.updateById(item);
-        log.info("招领状态变更: userId={} 招领 id={} 状态={}", userId, id, normalized);
-        operationLogRecorder.log(userId, "FOUND_ITEM_STATUS", "FOUND_ITEM", id,
-                "状态改为 " + normalized);
     }
 
     @Override

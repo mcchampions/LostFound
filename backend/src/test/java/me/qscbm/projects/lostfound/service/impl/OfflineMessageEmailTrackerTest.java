@@ -83,15 +83,4 @@ class OfflineMessageEmailTrackerTest {
         assertThat(tracker.conversationIdsOf(1L)).containsExactly("3_4");
     }
 
-    @Test
-    void resetForRetryKeepsConversationsForNextRound() {
-        when(asyncMailSender.canReceiveEmail(any(), eq("message"))).thenReturn(true);
-        tracker.collectIfEligible(user(1L), "1_2");
-
-        assertThat(tracker.tryMarkSending(1L)).isTrue();
-        tracker.resetForRetry(1L);
-
-        assertThat(tracker.conversationIdsOf(1L)).containsExactly("1_2");
-        assertThat(tracker.tryMarkSending(1L)).isTrue();
-    }
 }

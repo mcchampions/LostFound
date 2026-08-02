@@ -96,16 +96,15 @@ export default function Chat() {
   // 全局 WebSocket 消息：当前会话直接追加，其他会话由侧边栏红点提示
   useEffect(() => {
     const unsubscribe = subscribe((m: MessageVO) => {
+      // 无论是否当前会话，先刷新会话列表（未读数/最后一条消息实时更新）
+      loadConversations();
       if (m.conversationId !== selectedConvRef.current) return;
       setMessages(prev => {
         if (prev.some(x => x.id === m.id)) return prev;
         return [...prev, m];
       });
       markConversationRead(m.conversationId)
-        .then(() => {
-          loadConversations();
-          refreshUnread();
-        })
+        .then(() => refreshUnread())
         .catch(() => {});
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     });
