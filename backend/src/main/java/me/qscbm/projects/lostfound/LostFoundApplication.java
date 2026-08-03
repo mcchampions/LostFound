@@ -32,7 +32,8 @@ public class LostFoundApplication {
             application.setDefaultProperties(Map.of("spring.config.additional-location", location));
             System.out.println("[config] 使用外部配置目录: " + configDir.getAbsolutePath());
         } else {
-            System.out.println("[config] 未找到外部配置目录，使用 jar 内置配置: " + configDir.getAbsolutePath());
+            System.out.println("[config] 外部配置目录不存在（检查路径: "
+                    + configDir.getAbsolutePath() + "），本次使用 jar 内置配置");
         }
         application.run(args);
     }
@@ -59,7 +60,8 @@ public class LostFoundApplication {
                 }
             }
         } catch (IOException e) {
-            System.err.println("[config] 提取默认配置失败: " + e.getMessage());
+            System.err.println("[config] 创建外部配置目录失败: " + configDir.getAbsolutePath()
+                    + " (" + e.getMessage() + ")");
         }
     }
 
@@ -88,9 +90,18 @@ public class LostFoundApplication {
 
     private static boolean isRunningFromJar() {
         try {
+            String classPath = System.getProperty("java.class.path", "");
+            if (classPath.toLowerCase().endsWith(".jar")) {
+                return true;
+            }
             String location = LostFoundApplication.class
                     .getProtectionDomain().getCodeSource().getLocation().toString();
-            return location.toLowerCase().endsWith(".jar");
+            String lower = location.toLowerCase();
+            return lower.endsWith(".jar")
+                    || lower.startsWith("jar:")
+                    || lower.startsWith("nested:")
+                    || lower.contains(".jar!/")
+                    || lower.contains(".jar/!");
         } catch (Exception e) {
             return false;
         }

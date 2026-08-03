@@ -1,0 +1,47 @@
+[
+  {
+    "name": "mixed-cn-en-emoji",
+    "template": "xhs-note",
+    "title": "当我给openclaw 🦞接入了特斯拉数据后",
+    "expect": {
+      "maxLines": 5,
+      "maxFontSize": 84,
+      "minFontSize": 72,
+      "minLastLineTokenCount": 2
+    }
+  },
+  {
+    "name": "manual-lines-should-stay",
+    "template": "xhs-note-green",
+    "title": "停止追求\n信息密度\n开始追求\n记忆点",
+    "expect": {
+      "exactLines": ["停止追求", "信息密度", "开始追求", "记忆点"]
+    }
+  },
+  {
+    "name": "avoid-short-first-line",
+    "template": "xhs-quote-blue",
+    "title": "高质量内容不是堆信息，而是提前设计记忆钩子",
+    "expect": {
+      "maxLines": 4,
+      "minFirstLineRatio": 0.5
+    }
+  },
+  {
+    "name": "avoid-lonely-tail",
+    "template": "xhs-note",
+    "title": "把复杂的系统讲清楚，比把它做出来还更难一点",
+    "expect": {
+      "maxLines": 5,
+      "minLastLineTokenCount": 2
+    }
+  },
+  {
+    "name": "keep-ascii-word-intact",
+    "template": "xhs-note-green",
+    "title": "这是一个 openclaw-dashboard 发布说明",
+    "expect": {
+      "containsWholeWord": "openclaw-dashboard"
+    }
+  }
+]

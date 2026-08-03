@@ -16,7 +16,8 @@
 ## 部署原则
 
 - **前后端分离、独立部署**：`backend/` 与 `web-frontend/` 是两个独立部署单元，
-  可分别部署在不同机器；
+  可分别部署在不同机器；实体部署（不使用 Docker），后端为 jar 进程，前端静态
+  资源由任意静态 Web 服务器托管（部署方式见 `docs/deployment.md`）；
 - 后端的一切运行产物（jar、配置、日志、上传）限定在 `backend/` 目录内；
 - 前端构建产物限定在 `web-frontend/dist/`。
 
@@ -36,15 +37,13 @@
 │   │   ├── application.yml      # 配置（全量环境变量化）
 │   │   ├── logback-spring.xml   # 控制台 + 文件日志
 │   │   └── db/                  # SQL 初始化与迁移脚本
-│   ├── postgen-service/         # 文字封面生成服务（Node）
-│   ├── Dockerfile / docker-compose.yml
+│   ├── postgen-service/         # postgen2 修改版源码 + 封面生成服务（Node）
 │   ├── deploy-app.bat / .sh     # 本机 jar 部署脚本
 │   ├── start-app.bat / .sh      # 本机一键启动脚本
 │   ├── .env.example             # 部署环境变量模板
 │   └── CONFIG.md                # 完整配置项说明
 └── web-frontend/                # React 前端
     ├── src/                     # 源码（api/components/pages/store/i18n）
-    ├── Dockerfile / nginx.conf / docker-compose.yml
     └── vite.config.ts           # 构建配置
 ```
 

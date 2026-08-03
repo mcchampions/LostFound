@@ -17,14 +17,13 @@
 
 ```
 ├── backend/          # Spring Boot 后端源码
-│   ├── Dockerfile    # 正式部署镜像
+│   ├── deploy-app.bat / .sh   # 构建并装配 backend/app/
+│   ├── postgen-service/       # postgen2 修改版源码 + 封面生成 HTTP 服务
 │   └── src/main/java/me/qscbm/projects/lostfound/
 │       ├── controller/  service/  mapper/  entity/  dto/
 │       ├── security/    config/   common/
 │       └── resources/   application.yml · db/
 └── web-frontend/     # React + TypeScript 前端源码
-    ├── Dockerfile    # 正式部署镜像
-    ├── nginx.conf    # 静态资源与 SPA 路由回退
     └── src/          pages/ components/ api/ i18n/
 ```
 
@@ -51,30 +50,27 @@ Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
 
 ## 部署
 
-完整的部署步骤参见 [docs/deployment.md](docs/deployment.md)。系统提供两种部署
-方式：
+完整的部署步骤参见 [docs/deployment.md](docs/deployment.md)。系统采用实体部署
+（不使用 Docker），默认前后端分机部署，也支持同机部署。
 
-### 路线 A：Docker 部署（默认前后端分机，适合服务器）
-
-- **后端机**：改 `backend/docker-compose.yml` 里的数据库/邮箱/JWT 占位值，
-  `FORWARDED_TRUSTED_PROXIES` 填前端机 IP，然后
-  `cd backend && docker compose up -d --build`；
-- **前端机**：改 `web-frontend/docker-compose.yml` 里的 `BACKEND_UPSTREAM` 为后端机
-  地址（如 `http://192.168.1.10:8080`），然后
-  `cd web-frontend && docker compose up -d --build`；
-- 浏览器访问 `http://<前端机IP>:5173`。亦支持前后端同机部署，参见部署文档
-  「2.3 同机部署」。
-
-### 路线 B：本机 jar 部署（不用 Docker）
+### 后端机
 
 1. 构建装配：Windows 运行 `backend\deploy-app.bat`，Linux/macOS 运行
    `backend/deploy-app.sh`（产物都在 `backend\app\`）；
-2. 填配置：编辑 `backend\app\.env`，改数据库、邮箱、`JWT_SECRET` 三项；
+2. 填配置：编辑 `backend\app\.env`（数据库、邮箱、`JWT_SECRET`、前端地址、
+   `FORWARDED_TRUSTED_PROXIES`）；
 3. 启动后端：`backend\app\start.bat`（默认自动带 postgen 封面服务；如需禁用封面
    生成功能，使用 `start-without-postgen.bat`），Linux 使用对应的 `.sh`；后端地址
    `http://localhost:8080`；
-4. 启动前端：开发模式 `cd web-frontend && yarn && yarn dev`，访问
-   `http://localhost:5173`；正式模式用前端的 Docker 镜像（同路线 A2）。
+
+### 前端机
+
+1. 构建：`cd web-frontend && yarn && yarn build`，产物在 `dist/`（默认同源模式）；
+2. 将 `dist/` 复制到任意静态 Web 服务器（Nginx、Apache、Caddy、Node 静态服务等）
+   的站点目录；
+3. 默认由托管服务器将 `/api`、`/uploads`、`/ws` 反代到后端机地址；也可在构建时
+   设置 `VITE_SERVER_BASE` 直连后端，无需反代（详见部署文档）；
+4. 启动 Web 服务器，浏览器访问 `http://<前端机IP>`。
 
 > 后端配置/日志/上传全部限定在 `backend/` 内；数据库迁移记录在 `schema_migration`
 > 表，如需重跑某个迁移脚本，删除对应记录后重启即可。客户端 IP、配置体系和上线

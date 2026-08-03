@@ -1,0 +1,11 @@
+{
+  "title": "Your project\ncan look like\na real product",
+  "subtitle": "Turn structured text into shareable Xiaohongshu-style cards with stable visual templates.",
+  "bullets": [
+    "Large title, strong whitespace, reusable composition",
+    "Better for content screenshots than generic dashboards"
+  ],
+  "icon": "💻",
+  "label": "Text Note",
+  "theme": "blue"
+}

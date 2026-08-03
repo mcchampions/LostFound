@@ -1,6 +1,7 @@
-// 后端 API 地址 — 本地开发用 localhost:8080
-// Docker 构建: docker build --build-arg VITE_SERVER_BASE=http://你的后端:8080
-export const SERVER_BASE = import.meta.env.VITE_SERVER_BASE ?? 'http://localhost:8080';
+// 后端 API 地址。
+// 开发模式（yarn dev）默认直连本地后端；生产构建默认同源（由托管服务器反代），
+// 需要独立后端地址时用 VITE_SERVER_BASE 覆盖。
+export const SERVER_BASE = import.meta.env.VITE_SERVER_BASE ?? (import.meta.env.DEV ? 'http://localhost:8080' : '');
 
 const API_PREFIX = '/api/v1';
 

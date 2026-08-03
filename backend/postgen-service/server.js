@@ -2,19 +2,18 @@ import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFile, readFile, mkdir, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import React from 'react';
 import satori from 'satori';
 import sharp from 'sharp';
 import { Resvg } from '@resvg/resvg-js';
 import opentype from '@shuding/opentype.js';
 
-const require = createRequire(import.meta.url);
-const postgenPkg = require.resolve('postgen2/package.json');
-const postgenDir = postgenPkg.replace(/\/package\.json$/, '').replace(/\\package\.json$/, '');
+// 本目录即 postgen2 修改版源码：模板在 src/templates/，构建产物在 dist/。
+// 修改模板后执行 npm run build 重新生成 dist/。
+const postgenDir = dirname(fileURLToPath(import.meta.url));
 
 const execFileAsync = promisify(execFile);
 const PORT = process.env.PORT || 3000;

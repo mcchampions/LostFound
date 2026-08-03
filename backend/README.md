@@ -21,7 +21,6 @@ backend/
 │   ├── logback-spring.xml    # 控制台 + 文件日志
 │   └── db/                   # SQL 初始化与迁移脚本
 ├── postgen-service/          # 文字封面生成服务(Node)
-├── Dockerfile / docker-compose.yml
 ├── deploy-app.bat / .sh      # 本机 jar 部署(装配 backend/app/)
 ├── start-app.bat / .sh       # 本机一键启动
 ├── .env.example              # 部署环境变量模板(常用项)
@@ -54,7 +53,7 @@ mvn test                  # 单元测试
 
 ## 运行
 
-### 本机 jar(非 Docker)
+### 本机 jar 部署
 
 ```bat
 deploy-app.bat    :: 构建并装配 backend\app\(jar + config + .env + 启动脚本)
@@ -70,19 +69,9 @@ Linux/macOS 使用 `deploy-app.sh` / `start-app.sh`。JDK 优先复用
 退出时自动停止;`-without-postgen` 只启动后端并强制关闭封面生成。postgen 需本机
 安装 Node,缺失时脚本提示并跳过。
 
-### Docker
-
-```bash
-docker compose up -d --build   # postgen + backend
-```
-
-数据库默认连接宿主机 `host.docker.internal`;config/logs/uploads 挂载均在
-backend 目录内。前后端分机部署:8080 发布给前端机 Nginx 反代,建议防火墙只
-放行前端机 IP;`FORWARDED_TRUSTED_PROXIES` 填前端机 IP 以还原真实客户端 IP。
-
 客户端 IP:jar 直连部署无需任何改动(默认不解析 `X-Forwarded-For`,不会被伪造);
-仅当分拆部署(前端机 Nginx 反代)时在 `.env` 设置 `FORWARDED_TRUSTED_PROXIES=前端机IP`(见
-`CONFIG.md`)。
+仅当分拆部署(前端机反向代理)时在 `.env` 设置
+`FORWARDED_TRUSTED_PROXIES=前端机IP`(见 `CONFIG.md`)。
 
 ## 相关文档
 

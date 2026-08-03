@@ -13,7 +13,7 @@
 | [database.md](database.md) | 数据模型、状态枚举、迁移机制 |
 | [security.md](security.md) | 认证、授权、防爆破、上传与审计安全设计 |
 | [frontend.md](frontend.md) | 前端目录、路由、全局状态、关键组件 |
-| [deployment.md](deployment.md) | 部署指南：Docker 部署与本机 jar 部署、配置体系 |
+| [deployment.md](deployment.md) | 部署指南：实体部署（后端 jar + 前端静态托管）、配置体系 |
 | [operations.md](operations.md) | 日志、定时任务、图片生命周期、运维检查点 |
 
 ## 快速阅读顺序

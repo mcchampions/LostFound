@@ -69,7 +69,11 @@ if errorlevel 1 (
 if not exist "%POSTGEN_WORK_DIR%" mkdir "%POSTGEN_WORK_DIR%"
 echo [postgen] starting http://localhost:%POSTGEN_PORT% ...
 set "POSTGEN_PID_FILE=%TEMP%\lostfound-postgen.pid"
-powershell -NoProfile -Command "$env:PORT='%POSTGEN_PORT%'; $env:WORK_DIR=$env:POSTGEN_WORK_DIR; $p = Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory $env:POSTGEN_DIR -WindowStyle Hidden -PassThru -RedirectStandardOutput ($env:POSTGEN_WORK_DIR+'\postgen.log') -RedirectStandardError ($env:POSTGEN_WORK_DIR+'\postgen.err.log'); $p.Id | Out-File -Encoding ascii ($env:TEMP+'\lostfound-postgen.pid')"
+powershell -NoProfile -Command "$env:PORT='%POSTGEN_PORT%'; $env:WORK_DIR='%POSTGEN_WORK_DIR%'; $p = Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory '%POSTGEN_DIR%' -WindowStyle Hidden -PassThru -RedirectStandardOutput ('%POSTGEN_WORK_DIR%\postgen.log') -RedirectStandardError ('%POSTGEN_WORK_DIR%\postgen.err.log'); $p.Id | Out-File -Encoding ascii ($env:TEMP+'\lostfound-postgen.pid')"
+if errorlevel 1 (
+    echo [postgen] start command failed, continuing with backend
+    goto skip_postgen
+)
 rem Wait until ready: any HTTP response on GET / means the port is listening
 set /a TRIES=0
 :postgen_wait
@@ -78,6 +82,10 @@ curl -s -o nul --max-time 1 http://localhost:%POSTGEN_PORT%
 if not errorlevel 1 goto postgen_ready
 if %TRIES% geq 30 (
     echo [postgen] start timeout, continuing with backend
+    if exist "%POSTGEN_WORK_DIR%\postgen.err.log" (
+        echo [postgen] last lines of %POSTGEN_WORK_DIR%\postgen.err.log:
+        powershell -NoProfile -Command "Get-Content -Tail 15 -Encoding UTF8 '%POSTGEN_WORK_DIR%\postgen.err.log'"
+    )
     goto postgen_ready
 )
 timeout /t 1 /nobreak >nul

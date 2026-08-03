@@ -1,14 +1,16 @@
 # postgen-service - 文字封面生成服务
 
 后端边车服务:把纯文字渲染成封面图(1080x1440 模板 → 1280x720 横版合成),
-供失物/招领封面使用。基于 `postgen2`(satori + resvg-js)+ sharp 实现。
+供失物/招领封面使用。本目录就是 `postgen2` 0.0.4 的修改版源码
+(satori + resvg-js)+ sharp 实现。
 
 ## 运行
 
 ### 独立运行(Node)
 
 ```bash
-npm install
+npm install           # 安装依赖并自动构建 dist/（prepare 钩子）
+npm run build         # 若跳过 prepare，可手动构建
 node server.js        # 默认监听 :3000
 ```
 
@@ -19,10 +21,26 @@ node server.js        # 默认监听 :3000
 | `PORT` | `3000` | HTTP 端口 |
 | `WORK_DIR` | `/tmp/postgen-work` | 临时渲染目录 |
 
-### Docker
+### 随后端启动（jar 部署）
 
-随 `backend/docker-compose.yml` 的 `postgen` 服务启动,仅容器内部访问,
-后端通过 `POSTGEN_BASE_URL`(如 `http://postgen:3000`)调用。
+`backend/start-app*.bat|sh`（及 `backend/app/start*.bat|sh`）会先启动本服务
+再启动后端，后端退出时自动停止；后端通过 `POSTGEN_BASE_URL`
+（默认 `http://localhost:3000`）调用。
+
+## 模板源码（本目录即 postgen2 修改版）
+
+本目录就是 postgen2 0.0.4 的修改版源码：`src/`（含 `src/templates/`）、`dist/`、
+`fonts/`、`examples/` 等直接放在这里，不存在独立的 postgen2 包。四个模板
+`xhs-note`、`xhs-note-green`、`xhs-quote-blue`、`xhs-date-note` 的源码在
+`src/templates/` 下，负责标题之外的正文（subtitle）渲染；registry、schema 与
+example JSON 一并维护在本目录中。
+
+- 修改模板：直接改 `src/templates/` 下对应文件；
+- 重新构建：本目录执行 `npm install`（prepare 自动构建）或 `npm run build`，
+  产物输出到 `dist/`；
+- `server.js` 直接引用本目录的 `dist/`，不再覆盖任何 node_modules 文件；
+- 新增模板按 postgen2 规范补全：新建模板文件、注册到
+  `src/templates/registry.tsx`、提供 example JSON、确认 schema 能校验输入。
 
 ## HTTP API
 

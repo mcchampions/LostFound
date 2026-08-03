@@ -1,0 +1,52 @@
+[
+  {
+    "name": "a01-daily-note",
+    "title": "今天灵感很多，先记下来",
+    "icon": "📝"
+  },
+  {
+    "name": "a02-short-idea",
+    "title": "先把想法写出来",
+    "icon": "💡"
+  },
+  {
+    "name": "a03-product-feel",
+    "title": "内容一旦有了节奏，普通截图也会开始像作品",
+    "icon": "✨"
+  },
+  {
+    "name": "a04-creator-flow",
+    "title": "别一上来就堆细节，先写结论，再补解释",
+    "icon": "🦊"
+  },
+  {
+    "name": "a05-reading-entry",
+    "title": "真正好读的排版，往往先解决读者愿不愿意看下去",
+    "icon": "👀"
+  },
+  {
+    "name": "a06-layout-engine",
+    "title": "当标题会根据长度自动收敛字号和断句时，模板才开始像产品能力",
+    "icon": "⚙️"
+  },
+  {
+    "name": "a07-long-meaningful",
+    "title": "如果一张图每次都要靠人工挪字改行才能勉强好看，那说明系统里还没有真正稳定的排版逻辑",
+    "icon": "🧪"
+  },
+  {
+    "name": "a08-cn-en-emoji",
+    "title": "我用 OpenClaw🦞 + Claude Code 把 demo 文案从脏数据救回来了",
+    "icon": "🛠️"
+  },
+  {
+    "name": "a09-tesla-case",
+    "title": "接入 Tesla 数据之后，我才发现内容生成也可以有自己的工作流",
+    "icon": "🚗"
+  },
+  {
+    "name": "a10-manual-lines",
+    "title": "今天不追求\n信息堆满\n只追求\n好读一点",
+    "icon": "😌"
+  }
+]

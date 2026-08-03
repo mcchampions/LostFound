@@ -27,6 +27,8 @@ public class OperationLogRecorder {
                 ip = attrs.getRequest().getRemoteAddr();
             }
             operationLogService.log(userId, action, targetType, targetId, description, ip);
+            log.info("操作日志 | user={} | action={} | target={}:{} | detail={} | ip={}",
+                    userId, action, targetType, targetId, description, ip);
         } catch (Exception e) {
             log.warn("操作日志写入失败: action={}, targetType={}, targetId={}",
                     action, targetType, targetId, e);

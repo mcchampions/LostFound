@@ -1,0 +1,15 @@
+node_modules/
+dist/
+out/
+release-showcase/
+.venv/
+fonts/*
+!fonts/custom/
+fonts/custom/*
+!fonts/custom/PatrickHand-Regular.ttf
+!fonts/custom/PatrickHand-OFL.txt
+!fonts/custom/LXGWWenKaiLite-Regular.ttf
+!fonts/custom/LXGWMarkerGothic-Regular.ttf
+preview.png
+*.log
+.DS_Store

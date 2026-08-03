@@ -1,4 +1,4 @@
-5# 校园失物招领 - 前端
+# 校园失物招领 - 前端
 
 基于 React 的校园失物招领前端,与 `backend/` 后端独立部署,可不在同一台机器。
 
@@ -39,18 +39,16 @@ yarn dev          # http://localhost:5173
 yarn build        # 产物在 dist/,路由按页面分包
 ```
 
-Docker 部署默认**同源反代**(前后端分机部署,前端机 Nginx 反代到后端机):
+构建默认使用同源模式:浏览器访问前端主机,托管服务器将 `/api`、`/uploads`、`/ws`
+反代至后端机(实体部署,不使用 Docker)。
 
-- `VITE_SERVER_BASE` 留空 → 浏览器经本 Nginx 访问 `/api`、`/uploads`、`/ws`;
-- `BACKEND_UPSTREAM`(必改) 指定 Nginx 反代的后端机地址,如
-  `http://192.168.1.10:8080`,不能填只在后端机内部可解析的容器名。
-
-```bash
-docker compose up -d --build
-```
-
-Nginx 配置见 `nginx.conf`(SPA 路由回退 + `/api`、`/uploads`、`/ws` 反代,透传
-`X-Forwarded-For` 供后端还原真实客户端 IP)。
+1. 将 `dist/` 内容复制到任意静态 Web 服务器站点目录;
+2. 默认同源模式:托管服务器将 `/api`、`/uploads`、`/ws` 反代至后端机
+   (Nginx、Apache、Caddy、Node 静态服务器等均可,具体要求见
+   `docs/deployment.md`);
+3. 分机部署时反代目标为后端机地址,如 `http://192.168.1.10:8080`;
+   同机部署为 `http://127.0.0.1:8080`;
+4. 后端 `.env` 设置 `FORWARDED_TRUSTED_PROXIES=前端机IP`(同机为 `127.0.0.1`)。
 
 ## 关键能力
 

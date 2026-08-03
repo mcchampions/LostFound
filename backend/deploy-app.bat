@@ -4,10 +4,10 @@ setlocal
 cd /d "%~dp0"
 
 echo ============================================
-echo  Build backend and assemble backend\app
+echo  Build backend + postgen and assemble backend\app
 echo ============================================
 
-echo [1/2] Building backend jar...
+echo [1/3] Building backend jar...
 call mvn package -DskipTests -q
 if errorlevel 1 (
     echo Backend build failed
@@ -15,7 +15,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [2/2] Assembling app directory...
+echo [2/3] Building postgen2 source...
+pushd postgen-service
+call npm install
+if errorlevel 1 (
+    echo Postgen build failed
+    popd
+    pause
+    exit /b 1
+)
+popd
+
+echo [3/3] Assembling app directory...
 if not exist "app" mkdir "app"
 if not exist "app\config" mkdir "app\config"
 if not exist "app\logs" mkdir "app\logs"
@@ -37,6 +48,7 @@ copy /y "start-app-without-postgen.sh" "app\start-without-postgen.sh" >nul
 
 echo.
 echo Done!
+echo Postgen:      backend\postgen-service\dist (built by npm install)
 echo Start with:  backend\app\start.bat               [default: with postgen]
 echo Or:          backend\start-app.bat               [default: with postgen]
 echo No postgen:  backend\app\start-without-postgen.bat

@@ -1,0 +1,52 @@
+[
+  {
+    "name": "q01-short-question",
+    "title": "怎么让人记住你？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q02-reader-focus",
+    "title": "为什么有些标题一眼就能抓住注意力？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q03-product-sense",
+    "title": "怎样把一个普通项目讲得像有产品感和作品感？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q04-distribution",
+    "title": "如果读者只有三秒注意力你该先优化信息密度还是先优化进入感？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q05-system-thinking",
+    "title": "为什么同样的观点有人写出来像结论卡有人写出来却像一段没有重点的产品说明？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q06-long-meaningful",
+    "title": "当一套模板面对超短标题和超长标题都能自动落到稳定观感时你才真正拥有了一套可复用的内容生成系统吗？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q07-chunking-core",
+    "title": "好的标题排版是不是应该先有语义断句再有字号收敛否则再聪明的版式也只是机械切块？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q08-cn-en-emoji",
+    "title": "如何把 OpenClaw🦊 接入 Tesla API 后让内容生产效率真正翻倍？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q09-tooling-stack",
+    "title": "如果一套系统同时有 Prompt、Workflow、UI 和 Debug Tool，它会更像产品还是更像脚手架？",
+    "label": "@weixiao"
+  },
+  {
+    "name": "q10-manual-lines",
+    "title": "如何把项目\n做得像作品集一样\n让人一眼记住？",
+    "label": "@weixiao"
+  }
+]

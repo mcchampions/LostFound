@@ -1,0 +1,94 @@
+name: release-from-tag
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag format and normalize version
+        id: version
+        shell: bash
+        run: |
+          if ! [[ "${GITHUB_REF_NAME}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Skipping non-semver tag: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "normalized version: ${VERSION}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Render release showcase
+        env:
+          RELEASE_SHOWCASE_OUT_DIR: release-showcase
+        run: node scripts/render-release-showcase.mjs
+
+      - name: Prepare release body
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TAG_NAME: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cat <<EOF > release-body.md
+          Automated release for \\`${VERSION}\\`.
+
+          Source tag: \\`${TAG_NAME}\\`.
+
+          ## Showcase
+
+          ### xhs-note
+          <img src="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/xhs-note.png" alt="xhs-note" width="400" />
+
+          ### xhs-note-green
+          <img src="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/xhs-note-green.png" alt="xhs-note-green" width="400" />
+
+          ### xhs-quote-blue
+          <img src="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/xhs-quote-blue.png" alt="xhs-quote-blue" width="400" />
+
+          ### apple-notes-handwrite
+          <img src="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/apple-notes-handwrite.png" alt="apple-notes-handwrite" width="400" />
+
+          ### xhs-date-note
+          <img src="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG_NAME}/xhs-date-note.png" alt="xhs-date-note" width="400" />
+          EOF
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.version.outputs.version }}
+          body_path: release-body.md
+          files: |
+            release-showcase/xhs-note.png
+            release-showcase/xhs-note-green.png
+            release-showcase/xhs-quote-blue.png
+            release-showcase/apple-notes-handwrite.png
+            release-showcase/xhs-date-note.png
+            release-showcase/manifest.json
+          fail_on_unmatched_files: true
+          append_body: false
+          make_latest: true

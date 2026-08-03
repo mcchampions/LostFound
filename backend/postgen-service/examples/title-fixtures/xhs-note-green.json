@@ -1,0 +1,68 @@
+[
+  {
+    "name": "g01-short-punch",
+    "title": "少即是多",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g02-clear-claim",
+    "title": "先给结论再补证据",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g03-reader-entry",
+    "title": "让读者一眼进入你的表达节奏",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g04-content-design",
+    "title": "真正高质量的内容往往先解决进入感再解决信息量",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g05-creator-workflow",
+    "title": "当一个标题能自动根据长度调整字号和断句时模板才开始像产品而不是一次性海报",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g06-g08-core-case",
+    "title": "如果一张卡片的标题在不同长度下总是需要手动微调那说明模板没有建立真正稳定的标题求解逻辑而只是暂时凑巧能看",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g07-long-meaningful",
+    "title": "好的排版引擎不只是把文字塞进框里而是让信息层次节奏停顿和视觉重心一起协作把一句话变成可阅读的标题",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g08-cn-en-emoji",
+    "title": "我用 OpenClaw🦊 + Claude Code 做了一套可复用的标题排版实验",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g09-tooling-release",
+    "title": "这次更新支持 Title Debug、Fixture Render 和更稳定的模板回归流程",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g10-product-story",
+    "title": "把 Prompt、Workflow、UI 串起来之后，内容生产会从随机发挥变成稳定产线",
+    "label": "Text Note",
+    "day": "Wednesday"
+  },
+  {
+    "name": "g11-manual-lines",
+    "title": "使用 VO\n帮女友开发了\n一个\n沉浸无广的\n2048 小游戏",
+    "label": "Text Note",
+    "day": "Wednesday"
+  }
+]
