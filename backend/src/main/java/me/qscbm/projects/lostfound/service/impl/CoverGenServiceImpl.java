@@ -46,7 +46,6 @@ public class CoverGenServiceImpl implements CoverGenService {
 
     private static final Set<String> ALLOWED_TEMPLATES = Set.of(
             "xhs-note", "xhs-note-green", "xhs-quote-blue", "xhs-date-note");
-    private static final Set<String> ALLOWED_THEMES = Set.of("cream", "blue", "green");
     private static final int MAX_CONTENT_CODE_POINTS = 144;
 
     public CoverGenServiceImpl(
@@ -74,10 +73,6 @@ public class CoverGenServiceImpl implements CoverGenService {
         if (!ALLOWED_TEMPLATES.contains(req.getTemplate())) {
             throw new BusinessException("不支持的模板: " + req.getTemplate());
         }
-        if (req.getTheme() != null && !req.getTheme().isBlank()
-                && !ALLOWED_THEMES.contains(req.getTheme())) {
-            throw new BusinessException("不支持的主题配色: " + req.getTheme());
-        }
         if (!tryAcquire(userId)) {
             throw new BusinessException(429,
                     "已达到封面生成速率限制，请稍后再试（每分钟最多" + rateLimitPerMinute + "次）");
@@ -94,9 +89,6 @@ public class CoverGenServiceImpl implements CoverGenService {
             putIfNotBlank(payload, "location", req.getLocation());
             putIfNotBlank(payload, "date", req.getDate());
             payload.put("template", req.getTemplate());
-            if (req.getTheme() != null && !req.getTheme().isBlank()) {
-                payload.put("theme", req.getTheme());
-            }
 
             String json = mapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()

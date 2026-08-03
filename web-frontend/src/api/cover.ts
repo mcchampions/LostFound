@@ -7,7 +7,6 @@ export interface CoverGenParams {
   location?: string;
   date?: string;
   template?: string;
-  theme?: string;
 }
 
 export const generateCover = (params: CoverGenParams) =>

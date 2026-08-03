@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class CoverGenRequest {
     @NotBlank(message = "标题不能为空")
-    @Size(max = 100, message = "标题过长")
+    @Size(max = 200, message = "标题过长")
     private String title;
 
     @Size(max = 2000, message = "正文过长")
@@ -23,5 +23,4 @@ public class CoverGenRequest {
     private String date;
 
     private String template = "xhs-note";
-    private String theme = "cream";
 }

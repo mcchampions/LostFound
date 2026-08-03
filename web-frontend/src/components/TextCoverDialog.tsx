@@ -26,12 +26,6 @@ const TEMPLATES = [
   { value: 'xhs-date-note', label: '日期手写' },
 ];
 
-const THEMES = [
-  { value: 'cream', label: '奶油色' },
-  { value: 'blue', label: '蓝色' },
-  { value: 'green', label: '绿色' },
-];
-
 const MAX_CONTENT_LENGTH = 144;
 
 const truncateContent = (value: string) => {
@@ -110,7 +104,6 @@ export default function TextCoverDialog({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [template, setTemplate] = useState('xhs-note');
-  const [theme, setTheme] = useState('cream');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
@@ -149,7 +142,6 @@ export default function TextCoverDialog({
         location: initialLocation?.trim() || undefined,
         date: formatCoverDate(initialDate, initialDateEnd),
         template,
-        theme,
       });
       setPreviewUrl(res.url);
     } catch (err: unknown) {
@@ -177,7 +169,7 @@ export default function TextCoverDialog({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="输入封面标题"
-          helperText="可用回车手动换行；超长标题会自动折行并截断（最多 4 行），不会溢出封面"
+          helperText="可用回车手动换行；超长标题会自动截断（最多 3 行，末尾加省略号），不会溢出封面"
           multiline maxRows={3}
         />
         <TextField
@@ -186,7 +178,7 @@ export default function TextCoverDialog({
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="输入需要显示在封面上的正文"
-          helperText={`生成时最多保留 ${MAX_CONTENT_LENGTH} 个字符，超出部分自动以省略号结尾`}
+          helperText="正文会按封面空间自动折行，超出部分自动以省略号结尾"
           multiline
           minRows={3}
           maxRows={5}
@@ -204,12 +196,6 @@ export default function TextCoverDialog({
             <InputLabel>模板</InputLabel>
             <Select value={template} label="模板" onChange={e => setTemplate(e.target.value)}>
               {TEMPLATES.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>配色</InputLabel>
-            <Select value={theme} label="配色" onChange={e => setTheme(e.target.value)}>
-              {THEMES.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
             </Select>
           </FormControl>
         </Box>
