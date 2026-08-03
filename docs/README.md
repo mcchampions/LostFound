@@ -1,9 +1,7 @@
 # 项目文档
 
-本文档覆盖版本库内的开放目录（`backend/`、`web-frontend/`、根目录脚本等）。
-本地调试目录 `local/`、跨工具交接目录 `ai-docs/`、构建产物
-（`backend/target/`、`web-frontend/dist/`、`backend/app/`）等运行时/本地目录
-不在本文档范围内，相关生成物的用途在 [deployment.md](deployment.md) 中说明。
+本文档仅覆盖版本库内的开放目录（`backend/`、`web-frontend/`、根目录脚本等）；
+构建产物等运行时/本地目录不在本文档范围内。
 
 ## 文档结构
 

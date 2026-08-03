@@ -63,7 +63,7 @@ app\start-without-postgen.bat  :: 不带 postgen(封面生成功能关闭)
 ```
 
 Linux/macOS 使用 `deploy-app.sh` / `start-app.sh`。JDK 优先复用
-`../../local/jdk`(相对 `backend/app/` 的两级上级),否则使用 PATH 上的 `java`;
+项目内置 JDK(如存在),否则使用 PATH 上的 `java`;
 `-Dapp.home` 指向 `backend/app`。
 
 `start-app*.bat/sh` 三套脚本:默认与 `-with-postgen` 会先启动 postgen 再启动后端,

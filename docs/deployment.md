@@ -91,8 +91,6 @@ Docker 部署默认架构：后端主机运行 Spring Boot 服务与 postgen 服
 2. 后端 `FORWARDED_TRUSTED_PROXIES`：Nginx 运行于宿主机时填写 `127.0.0.1`；
    Nginx 运行于 Docker 容器时填写 Docker 网关网段（如 `172.17.0.0/16`）。
 
-`local/docker/` 目录提供了同机部署的编排示例。
-
 ### 2.4 常见问题及处理
 
 | 现象 | 原因 | 处理方式 |
@@ -107,7 +105,7 @@ Docker 部署默认架构：后端主机运行 Spring Boot 服务与 postgen 服
 
 ### 3.1 前置条件
 
-- JDK 21（脚本优先使用项目自带的 `local/jdk`）；
+- JDK 21（启动脚本会自动查找可用的 JDK，优先使用项目内置 JDK）；
 - Node.js 18+（可选，仅用于 postgen 文字封面服务；未安装时不影响后端启动）；
 - MySQL 8，并创建数据库：
 
