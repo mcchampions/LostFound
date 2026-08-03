@@ -29,6 +29,9 @@
 | `APP_UPLOAD_PATH` | `./uploads` | 上传目录（相对 app 目录） | .env |
 | `POSTGEN_ENABLED` | `true` | 文字封面生成开关（jar 模式需自行启动 postgen-service，否则请改 false） | .env |
 | `POSTGEN_BASE_URL` | `http://localhost:3000` | postgen 服务地址（postgen 在其他机器/端口时必改；Docker 模式由 compose 提供） | .env |
+| `POSTGEN_PORT` | `3000` | postgen 监听端口（`start-app*.bat/sh` 自动启动 postgen 时使用，须与 `POSTGEN_BASE_URL` 端口一致） | .env |
+| `FORWARD_HEADERS_STRATEGY` | `native` | 代理头解析策略。jar 直连保持默认即可；默认 native + 空信任列表 = 不解析 XFF，行为等同于不信任任何代理 | .env |
+| `FORWARDED_TRUSTED_PROXIES` | 空 | 可信代理 IP/网段（逗号分隔）。jar 直连留空；分拆部署（前端机 Nginx 反代）时填前端机 IP；Docker 分拆部署由后端机 compose 提供 | .env |
 | `JWT_EXPIRATION_MS` | `86400000` | token 有效期（毫秒） | 默认即可 |
 | `MAX_FILE_SIZE` | `5MB` | 单文件上传上限 | 默认即可 |
 | `MAX_REQUEST_SIZE` | `25MB` | 请求体上限 | 默认即可 |
@@ -49,6 +52,28 @@
 | `MYBATIS_LOG_IMPL` | slf4j | SQL 日志实现 | 默认即可 |
 | `LOG_LEVEL_APP` | `info` | 业务包日志级别 | 默认即可 |
 | `LOG_LEVEL_SQL` | `off` | SQL 日志级别（本地调试可 `debug`） | 默认即可 |
+
+## 本机 jar 启动脚本（backend/ 或 backend/app/）
+
+| 脚本 | 行为 |
+|---|---|
+| `start-app.bat` / `start-app.sh`（默认） | 自动启动 postgen 后再启动后端 jar；后端退出时自动停止 postgen |
+| `start-app-with-postgen.bat` / `.sh` | 显式带 postgen，行为与默认相同 |
+| `start-app-without-postgen.bat` / `.sh` | 只启动后端 jar，并强制 `POSTGEN_ENABLED=false`（封面生成功能不可用） |
+
+`deploy-app.bat|sh` 会把以上脚本复制到 `backend/app/`（`start-app-*.bat` 对应
+`start-*.bat`）。postgen 需要本机安装 Node（`node` 在 PATH 中）；未安装或找不到
+`postgen-service/server.js` 时会提示并跳过，不影响后端启动。postgen 日志写在
+`backend/postgen-work/postgen.log`（Windows 为 `.err.log` 记录错误输出）。
+
+## 客户端真实 IP 还原
+
+登录防爆破与操作日志记录使用 `getRemoteAddr()`。默认配置（`native` + 空信任
+列表）**不解析任何 `X-Forwarded-For` 头**，jar 直连部署时拿到的是真实客户端
+IP，且无法被伪造。分拆部署（前端机 Nginx 反代）时才需要设置
+`FORWARDED_TRUSTED_PROXIES=前端机IP`（Docker 分拆部署在 backend 的 compose 中
+配置；后端 Docker 受 userland-proxy 影响时，容器看到的是网关 IP，可改为留空或
+在宿主机关闭 userland-proxy）。
 
 ## 运行时目录（全部限定在 backend 内）
 

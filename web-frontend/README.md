@@ -39,14 +39,18 @@ yarn dev          # http://localhost:5173
 yarn build        # 产物在 dist/,路由按页面分包
 ```
 
-Docker 部署(构建时指定后端公开地址):
+Docker 部署默认**同源反代**(前后端分机部署,前端机 Nginx 反代到后端机):
+
+- `VITE_SERVER_BASE` 留空 → 浏览器经本 Nginx 访问 `/api`、`/uploads`、`/ws`;
+- `BACKEND_UPSTREAM`(必改) 指定 Nginx 反代的后端机地址,如
+  `http://192.168.1.10:8080`,不能填只在后端机内部可解析的容器名。
 
 ```bash
-docker compose up -d --build   # 通过 ARG VITE_SERVER_BASE 指定后端地址
+docker compose up -d --build
 ```
 
-Nginx 配置见 `nginx.conf`(SPA 路由回退);API、WebSocket、上传资源直接访问
-后端地址,前端仅托管静态资源。
+Nginx 配置见 `nginx.conf`(SPA 路由回退 + `/api`、`/uploads`、`/ws` 反代,透传
+`X-Forwarded-For` 供后端还原真实客户端 IP)。
 
 ## 关键能力
 

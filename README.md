@@ -51,47 +51,34 @@ Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
 
 ## 部署
 
-各子目录已提供 `docker-compose.yml`，把其中的占位值改成真实凭据后，直接启动。
+完整的部署步骤参见 [docs/deployment.md](docs/deployment.md)。系统提供两种部署
+方式：
 
-### 后端
-编辑 `backend/docker-compose.yml`，填写 `DB_PASSWORD`、`MAIL_HOST` / `MAIL_USERNAME` / `MAIL_PASSWORD`、`JWT_SECRET` 等真实值，并把 `APP_CORS_ALLOWED_ORIGINS`、`SITE_BASE_URL`（邮件跳转链接使用的前端地址）改为前端对外访问地址。邮件相关可选项：`MAIL_DIGEST_INTERVAL_MS`（离线未读摘要邮件发送间隔，默认 180000ms）、`MAIL_STATE_CLEAR_INTERVAL_MS`（已提醒状态清空间隔，默认 86400000ms）。
-```bash
-cd backend
-docker compose up -d --build
-```
-`./uploads` 会挂载到容器 `/app/uploads`（位于 backend 目录内，与 config/logs 一致，启动前创建 `backend/uploads/` 目录即可）。
+### 路线 A：Docker 部署（默认前后端分机，适合服务器）
 
-### 前端
-编辑 `web-frontend/docker-compose.yml` 的 `VITE_SERVER_BASE` 为浏览器能够访问的后端公开地址，例如 `https://api.example.com`，不能填写只在服务器内部可解析的容器名。
-```bash
-cd web-frontend
-docker compose up -d --build
-```
-正式配置按前后端分开部署，前端 Nginx 只负责静态资源和 SPA 路由回退；API、WebSocket 和上传资源直接访问 `VITE_SERVER_BASE`。`local/docker/` 保持前后端统一编排，专用于本地调试。
+- **后端机**：改 `backend/docker-compose.yml` 里的数据库/邮箱/JWT 占位值，
+  `FORWARDED_TRUSTED_PROXIES` 填前端机 IP，然后
+  `cd backend && docker compose up -d --build`；
+- **前端机**：改 `web-frontend/docker-compose.yml` 里的 `BACKEND_UPSTREAM` 为后端机
+  地址（如 `http://192.168.1.10:8080`），然后
+  `cd web-frontend && docker compose up -d --build`；
+- 浏览器访问 `http://<前端机IP>:5173`。亦支持前后端同机部署，参见部署文档
+  「2.3 同机部署」。
 
-**外部配置与日志（后端）**：启动时优先读取 jar 同目录 `config/application.yml`（首次从 jar 运行会自动提取内置配置作为模板；版本升级后如缺少新增配置项，请对照内置模板补充）；日志写入 jar 同目录 `logs/`，文件名按「日期-第几次启动」生成。后端配置、日志、上传等运行时数据全部限定在 `backend/` 目录内；前端部署产物限定在 `web-frontend/` 内，前后端可分别部署在不同机器。数据库迁移记录在 `schema_migration` 表，如需重跑某个脚本，删除对应记录后重启即可。
+### 路线 B：本机 jar 部署（不用 Docker）
 
-### 后端本机部署（不使用 Docker）
+1. 构建装配：Windows 运行 `backend\deploy-app.bat`，Linux/macOS 运行
+   `backend/deploy-app.sh`（产物都在 `backend\app\`）；
+2. 填配置：编辑 `backend\app\.env`，改数据库、邮箱、`JWT_SECRET` 三项；
+3. 启动后端：`backend\app\start.bat`（默认自动带 postgen 封面服务；如需禁用封面
+   生成功能，使用 `start-without-postgen.bat`），Linux 使用对应的 `.sh`；后端地址
+   `http://localhost:8080`；
+4. 启动前端：开发模式 `cd web-frontend && yarn && yarn dev`，访问
+   `http://localhost:5173`；正式模式用前端的 Docker 镜像（同路线 A2）。
 
-所有产物限定在 `backend/` 内：
-
-1. 运行 `backend\deploy-app.bat`：构建 jar（`mvn package`）并装配 `backend\app\`（jar、从源码复制的 `config\application.yml`、日志/上传目录，并把启动脚本复制为 `app\start.bat`）；
-2. 首次启动前把 `backend/.env.example` 复制为 `backend\app\.env` 并填写真实值（模板只包含经常修改的项；其余配置项及默认值见 `backend/CONFIG.md`；`backend/app/` 已 gitignore，凭据不会入库）；
-3. 一键启动：Windows 双击 `backend\app\start.bat`（或 `backend\start-app.bat`）；Linux/macOS 运行 `backend\app\start.sh`（或 `backend\start-app.sh`）；主脚本会保证 app 内有启动脚本副本；JDK 优先复用 `local/jdk`，否则使用 PATH 上的 `java`。
-
-Linux/macOS 部署脚本：`backend\deploy-app.sh`（构建 + 装配，与 .bat 等价）。
-
-前端仍独立部署（`web-frontend/` 的 Docker 编排或开发服务器），前后端可不在同一台机器。
-
-### 直接 JAR 部署（无 Docker）
-```bash
-cd backend && mvn clean package
-export DB_HOST=... DB_NAME=lost_found DB_USERNAME=... DB_PASSWORD=...
-export MAIL_HOST=... MAIL_USERNAME=... MAIL_PASSWORD=...
-export JWT_SECRET=... APP_CORS_ALLOWED_ORIGINS=https://your-domain SITE_BASE_URL=https://your-domain
-java -Dfile.encoding=UTF-8 -jar target/lost-found-1.0.0.jar
-```
-`app.upload.path=./uploads` 相对 JAR 所在目录解析。
+> 后端配置/日志/上传全部限定在 `backend/` 内；数据库迁移记录在 `schema_migration`
+> 表，如需重跑某个迁移脚本，删除对应记录后重启即可。客户端 IP、配置体系和上线
+> 检查清单见 `docs/deployment.md`。
 
 ## 开发进度
 

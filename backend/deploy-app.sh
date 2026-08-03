@@ -20,9 +20,14 @@ if [ ! -f app/.env ]; then
 fi
 cp -f start-app.sh app/start.sh
 cp -f start-app.bat app/start.bat
+cp -f start-app-with-postgen.sh app/start-with-postgen.sh
+cp -f start-app-with-postgen.bat app/start-with-postgen.bat
+cp -f start-app-without-postgen.sh app/start-without-postgen.sh
+cp -f start-app-without-postgen.bat app/start-without-postgen.bat
 
 echo ""
 echo "Done!"
-echo "Start with: backend/app/start.sh (Linux/macOS) or backend/app/start.bat (Windows)"
+echo "Start with: backend/app/start.sh (Linux/macOS) or backend/app/start.bat (Windows) [default with postgen]"
+echo "No postgen: backend/app/start-without-postgen.sh|.bat"
 echo "Config:     backend/app/config/application.yml"
 echo "Env:        backend/app/.env"

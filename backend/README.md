@@ -58,12 +58,17 @@ mvn test                  # 单元测试
 
 ```bat
 deploy-app.bat    :: 构建并装配 backend\app\(jar + config + .env + 启动脚本)
-app\start.bat     :: 一键启动(或 start-app.bat,等价)
+app\start.bat     :: 一键启动,默认自动带 postgen(或 backend\start-app.bat,等价)
+app\start-without-postgen.bat  :: 不带 postgen(封面生成功能关闭)
 ```
 
 Linux/macOS 使用 `deploy-app.sh` / `start-app.sh`。JDK 优先复用
 `../../local/jdk`(相对 `backend/app/` 的两级上级),否则使用 PATH 上的 `java`;
 `-Dapp.home` 指向 `backend/app`。
+
+`start-app*.bat/sh` 三套脚本:默认与 `-with-postgen` 会先启动 postgen 再启动后端,
+退出时自动停止;`-without-postgen` 只启动后端并强制关闭封面生成。postgen 需本机
+安装 Node,缺失时脚本提示并跳过。
 
 ### Docker
 
@@ -72,7 +77,12 @@ docker compose up -d --build   # postgen + backend
 ```
 
 数据库默认连接宿主机 `host.docker.internal`;config/logs/uploads 挂载均在
-backend 目录内。
+backend 目录内。前后端分机部署:8080 发布给前端机 Nginx 反代,建议防火墙只
+放行前端机 IP;`FORWARDED_TRUSTED_PROXIES` 填前端机 IP 以还原真实客户端 IP。
+
+客户端 IP:jar 直连部署无需任何改动(默认不解析 `X-Forwarded-For`,不会被伪造);
+仅当分拆部署(前端机 Nginx 反代)时在 `.env` 设置 `FORWARDED_TRUSTED_PROXIES=前端机IP`(见
+`CONFIG.md`)。
 
 ## 相关文档
 

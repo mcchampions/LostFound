@@ -30,10 +30,15 @@ if not exist "app\.env" (
 )
 copy /y "start-app.bat" "app\start.bat" >nul
 copy /y "start-app.sh" "app\start.sh" >nul
+copy /y "start-app-with-postgen.bat" "app\start-with-postgen.bat" >nul
+copy /y "start-app-with-postgen.sh" "app\start-with-postgen.sh" >nul
+copy /y "start-app-without-postgen.bat" "app\start-without-postgen.bat" >nul
+copy /y "start-app-without-postgen.sh" "app\start-without-postgen.sh" >nul
 
 echo.
 echo Done!
-echo Start with:  backend\app\start.bat
-echo Or:          backend\start-app.bat
+echo Start with:  backend\app\start.bat               [default: with postgen]
+echo Or:          backend\start-app.bat               [default: with postgen]
+echo No postgen:  backend\app\start-without-postgen.bat
 echo Config:      backend\app\config\application.yml
 pause

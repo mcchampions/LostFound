@@ -4,6 +4,8 @@ services:
 
   backend:
     build: .
+    # 前后端分机部署：必须发布 8080 供前端机 Nginx 反代。
+    # 建议宿主机防火墙只放行前端机器的 IP。
     ports:
       - "8080:8080"
     environment:
@@ -22,6 +24,11 @@ services:
       POSTGEN_ENABLED: "true"
       POSTGEN_BASE_URL: http://postgen:3000
       POSTGEN_RATE_LIMIT: "10"
+      # 还原真实客户端 IP：填前端 Nginx 所在机器的 IP（必改）。
+      # 注意：若本机 Docker 端口映射走 userland-proxy，容器看到的是网关 IP 而非
+      # 前端机 IP，此时可改为留空（不信任任何代理）或在宿主机关闭 userland-proxy。
+      FORWARD_HEADERS_STRATEGY: native
+      FORWARDED_TRUSTED_PROXIES: your_frontend_ip
     depends_on:
       - postgen
     volumes:

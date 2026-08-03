@@ -27,6 +27,18 @@ spring:
 server:
   # 非常用变量：默认 8080
   port: ${SERVER_PORT:8080}
+  # 真实客户端 IP 还原：
+  # - 默认 native + 空信任列表 = 不解析 X-Forwarded-For，直接使用连接方 IP（jar 直连安全）；
+  # - 分拆部署（前端机 Nginx 反代）时，设置 FORWARDED_TRUSTED_PROXIES 为前端机 IP
+  #   即可还原真实客户端 IP（Docker 分拆部署由 backend/docker-compose.yml 提供）。
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:native}
+  tomcat:
+    remoteip:
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+      # 置空 Tomcat 默认私网段信任，避免校园网内直连客户端伪造 XFF
+      internal-proxies: ""
+      trusted-proxies: ${FORWARDED_TRUSTED_PROXIES:}
 
 app:
   site:
