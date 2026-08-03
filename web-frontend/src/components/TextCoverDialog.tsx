@@ -26,15 +26,6 @@ const TEMPLATES = [
   { value: 'xhs-date-note', label: '日期手写' },
 ];
 
-const MAX_CONTENT_LENGTH = 144;
-
-const truncateContent = (value: string) => {
-  const normalized = value.replace(/\r\n?/g, '\n').trim();
-  return Array.from(normalized).length > MAX_CONTENT_LENGTH
-    ? `${Array.from(normalized).slice(0, MAX_CONTENT_LENGTH - 1).join('')}…`
-    : normalized;
-};
-
 const coverErrorMessage = (error: unknown) => {
   const response = (error as {
     response?: { status?: number; data?: { code?: number; message?: string } }
@@ -133,7 +124,7 @@ export default function TextCoverDialog({
     setError('');
     setPreviewUrl('');
     try {
-      const renderedContent = truncateContent(content);
+      const renderedContent = content.trim();
       setContent(renderedContent);
       const res = await generateCover({
         title: title.trim(),
@@ -178,7 +169,7 @@ export default function TextCoverDialog({
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="输入需要显示在封面上的正文"
-          helperText="正文会按封面空间自动折行，超出部分自动以省略号结尾"
+          helperText="正文会按封面空间自动折行，超长内容由后端截断"
           multiline
           minRows={3}
           maxRows={5}
@@ -186,7 +177,7 @@ export default function TextCoverDialog({
         <Button
           size="small"
           startIcon={<ContentPasteIcon />}
-          onClick={() => setContent(truncateContent(initialContent || ''))}
+          onClick={() => setContent(initialContent || '')}
           disabled={!initialContent?.trim()}
         >
           填入原文

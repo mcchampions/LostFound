@@ -49,7 +49,7 @@ example JSON 一并维护在本目录中。
 ```json
 {
   "title": "标题(必填)",
-  "content": "正文(可选,最多 144 字)",
+  "content": "正文(可选,按字宽折行,超长由后端截断)",
   "category": "分类",
   "location": "地点",
   "date": "日期(由前端格式化)",

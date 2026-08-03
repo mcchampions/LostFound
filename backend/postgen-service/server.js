@@ -26,7 +26,6 @@ const TEMPLATE_HEIGHT = 1440;
 const OUTPUT_WIDTH = 1280;
 const OUTPUT_HEIGHT = 720;
 const VISUAL_WIDTH = 760;
-const MAX_CONTENT_LENGTH = 144;
 const MAX_REQUEST_SIZE = 64 * 1024;
 const fontDataPromise = Promise.all([
   readFile(FONT_REG),
@@ -113,13 +112,18 @@ async function getFonts() {
   return parsedFonts;
 }
 
-/** 使用真实字体字形宽度测量文本（含字间距），与 satori 渲染一致。 */
+/** 使用真实字体字形宽度测量文本（含字间距）。
+ *  与 satori 一致：按单个字符累加 advance，不做字符间 kerning 修正。 */
 function measureWidth(font, text, fontSize, letterSpacing) {
   const chars = Array.from(String(text));
   if (!chars.length) {
     return 0;
   }
-  return font.getAdvanceWidth(chars.join(''), fontSize) + letterSpacing * chars.length;
+  let width = 0;
+  for (const ch of chars) {
+    width += font.getAdvanceWidth(ch, fontSize);
+  }
+  return width + letterSpacing * chars.length;
 }
 
 /** 按真实字宽把单行折成不超过 maxWidth 的若干行。 */
@@ -221,16 +225,12 @@ async function fitContent(value, lineBudget) {
   if (!normalized) {
     return '';
   }
-  const chars = Array.from(normalized);
-  const capped = chars.length > MAX_CONTENT_LENGTH
-    ? chars.slice(0, MAX_CONTENT_LENGTH).join('')
-    : normalized;
   const fonts = await getFonts();
   const font = fonts.regular;
-  const width = SUBTITLE_WIDTH - 8; // 少量安全边距，避免测量误差导致贴边
+  const width = SUBTITLE_WIDTH; // 与模板 subtitle 容器宽度一致
   const lines = [];
-  let truncated = chars.length > MAX_CONTENT_LENGTH;
-  for (const rawLine of capped.split('\n')) {
+  let truncated = false;
+  for (const rawLine of normalized.split('\n')) {
     if (lines.length >= lineBudget) {
       truncated = true;
       break;

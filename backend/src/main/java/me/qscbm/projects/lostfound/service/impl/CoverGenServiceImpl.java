@@ -46,8 +46,6 @@ public class CoverGenServiceImpl implements CoverGenService {
 
     private static final Set<String> ALLOWED_TEMPLATES = Set.of(
             "xhs-note", "xhs-note-green", "xhs-quote-blue", "xhs-date-note");
-    private static final int MAX_CONTENT_CODE_POINTS = 144;
-
     public CoverGenServiceImpl(
             @Value("${app.postgen.enabled:true}") boolean enabled,
             @Value("${app.postgen.base-url:http://localhost:3000}") String baseUrl,
@@ -81,7 +79,7 @@ public class CoverGenServiceImpl implements CoverGenService {
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
             payload.put("title", req.getTitle());
-            String content = truncateContent(req.getContent());
+            String content = normalizeContent(req.getContent());
             if (!content.isBlank()) {
                 payload.put("content", content);
             }
@@ -149,17 +147,11 @@ public class CoverGenServiceImpl implements CoverGenService {
                 System.currentTimeMillis() - entry.getValue()[0] > 60_000L);
     }
 
-    private String truncateContent(String value) {
+    private String normalizeContent(String value) {
         if (value == null) {
             return "";
         }
-        String normalized = value.replace("\r\n", "\n").replace('\r', '\n').trim();
-        int count = normalized.codePointCount(0, normalized.length());
-        if (count <= MAX_CONTENT_CODE_POINTS) {
-            return normalized;
-        }
-        int endIndex = normalized.offsetByCodePoints(0, MAX_CONTENT_CODE_POINTS - 1);
-        return normalized.substring(0, endIndex) + "…";
+        return value.replace("\r\n", "\n").replace('\r', '\n').trim();
     }
 
     private void putIfNotBlank(Map<String, Object> payload, String key, String value) {

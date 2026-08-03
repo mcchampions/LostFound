@@ -63,12 +63,18 @@ start_postgen() {
   POSTGEN_WORK_DIR="${POSTGEN_WORK_DIR:-$APP_DIR/../postgen-work}"
   POSTGEN_PORT="${POSTGEN_PORT:-3000}"
   if [ ! -f "$POSTGEN_DIR/server.js" ]; then
-    echo "[postgen] not found: $POSTGEN_DIR/server.js, skip"
-    return 0
+    echo "[postgen] not found: $POSTGEN_DIR/server.js"
+    exit 1
   fi
   if ! command -v node >/dev/null 2>&1; then
-    echo "[postgen] node not found, skip"
-    return 0
+    echo "[postgen] node not found"
+    exit 1
+  fi
+  # Kill any stale postgen process still holding the port (old code instance)
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -ti tcp:"$POSTGEN_PORT" | xargs -r kill -9 2>/dev/null || true
+  elif command -v fuser >/dev/null 2>&1; then
+    fuser -k "$POSTGEN_PORT"/tcp 2>/dev/null || true
   fi
   mkdir -p "$POSTGEN_WORK_DIR"
   echo "[postgen] starting http://localhost:$POSTGEN_PORT ..."
@@ -88,7 +94,8 @@ start_postgen() {
     sleep 1
     i=$((i+1))
   done
-  echo "[postgen] start timeout, continue with backend"
+  echo "[postgen] start timeout"
+  exit 1
 }
 
 stop_postgen() {

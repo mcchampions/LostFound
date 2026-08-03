@@ -203,6 +203,8 @@ export const xhsDateNoteTemplate = {
             position: 'absolute',
             left: titleLeft,
             top: subtitleTop,
+            display: 'flex',
+            flexDirection: 'column',
             width: 760,
             maxHeight: 430,
             overflow: 'hidden',
@@ -210,10 +212,13 @@ export const xhsDateNoteTemplate = {
             lineHeight: 1.42,
             fontWeight: 400,
             color: SUBTITLE_COLOR,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
           },
-          children: subtitle,
+          children: subtitle.split('\n').map((line, i) =>
+            _jsx('div', {
+              style: { whiteSpace: 'nowrap' },
+              children: line,
+            }, i)
+          ),
         }) : null,
         _jsx('div', {
           style: {

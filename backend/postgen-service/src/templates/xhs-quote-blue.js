@@ -104,6 +104,7 @@ export const xhsQuoteBlueTemplate = {
             subtitle ? _jsx('div', {
               style: {
                 display: 'flex',
+                flexDirection: 'column',
                 width: 760,
                 maxHeight: 430,
                 overflow: 'hidden',
@@ -112,10 +113,13 @@ export const xhsQuoteBlueTemplate = {
                 lineHeight: 1.42,
                 fontWeight: 400,
                 color: theme.subtitleColor,
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
               },
-              children: subtitle,
+              children: subtitle.split('\n').map((line, i) =>
+                _jsx('div', {
+                  style: { whiteSpace: 'nowrap' },
+                  children: line,
+                }, i)
+              ),
             }) : null,
           ],
         }),
