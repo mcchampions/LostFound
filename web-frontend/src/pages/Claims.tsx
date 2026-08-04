@@ -10,6 +10,7 @@ import {
 import { useAuth } from '../store/AuthContext';
 import { getReceivedClaims, getSentClaims, processClaim } from '../api/claims';
 import type { ClaimVO } from '../api/claims';
+import type { ApiError } from '../types';
 
 const statusLabels: Record<string, string> = {
   PENDING: '待处理',
@@ -90,14 +91,15 @@ export default function Claims() {
       setReceived(prev =>
         prev.map(c => (c.id === id ? { ...c, status } : c))
       );
-    } catch (err: any) {
-      setError(err.response?.data?.message || '操作失败');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.message || '操作失败');
     } finally {
       setActionLoading(null);
     }
   };
 
-  const handleTabChange = (_: any, value: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, value: number) => {
     setTab(value);
   };
 

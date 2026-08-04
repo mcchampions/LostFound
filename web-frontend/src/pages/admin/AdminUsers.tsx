@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../store/AuthContext';
 import { getUsers, updateUserStatus } from '../../api/admin';
+import type { AdminUserPageParams } from '../../types';
 
 interface UserVO {
   id: number;
@@ -63,7 +64,7 @@ export default function AdminUsers() {
     setLoading(true);
     setError('');
     try {
-      const params: any = { page, size: pageSize };
+      const params: AdminUserPageParams = { page, size: pageSize };
       if (searchTerm.trim()) params.keyword = searchTerm.trim();
       const data = await getUsers(params);
       setUsers(data.records || []);

@@ -99,16 +99,7 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public List<ConversationVO> getConversations(Long userId) {
-        QueryWrapper<Message> summaryQuery = new QueryWrapper<>();
-        summaryQuery.select(
-                        "conversation_id AS conversationId",
-                        "MAX(id) AS latestId",
-                        "SUM(CASE WHEN receiver_id = " + userId
-                                + " AND is_read = 0 THEN 1 ELSE 0 END) AS unreadCount")
-                .and(w -> w.eq("sender_id", userId).or().eq("receiver_id", userId))
-                .groupBy("conversation_id")
-                .orderByDesc("latestId");
-        List<Map<String, Object>> summaries = messageMapper.selectMaps(summaryQuery);
+        List<Map<String, Object>> summaries = messageMapper.selectConversationSummaries(userId);
         if (summaries.isEmpty()) {
             return Collections.emptyList();
         }

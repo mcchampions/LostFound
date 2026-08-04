@@ -12,6 +12,7 @@ import { useAuth } from '../../store/AuthContext';
 import { getCategories } from '../../api/categories';
 import type { Category } from '../../api/categories';
 import { createCategory, updateCategory, deleteCategory } from '../../api/admin';
+import type { ApiError } from '../../types';
 
 export default function AdminCategories() {
   const { isAdmin } = useAuth();
@@ -81,8 +82,9 @@ export default function AdminCategories() {
       }
       setDialogOpen(false);
       fetchData();
-    } catch (err: any) {
-      setDialogError(err.response?.data?.message || '操作失败');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setDialogError(apiErr.response?.data?.message || '操作失败');
     } finally {
       setDialogLoading(false);
     }
@@ -96,8 +98,9 @@ export default function AdminCategories() {
       setCategories(prev => prev.filter(c => c.id !== deleteTarget.id));
       setDeleteOpen(false);
       setDeleteTarget(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '删除失败');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.message || '删除失败');
     } finally {
       setActionLoading(null);
     }

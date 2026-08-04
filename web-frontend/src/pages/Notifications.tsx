@@ -124,7 +124,7 @@ export default function Notifications() {
     }
   };
 
-  const handlePageChange = (_: any, value: number) => {
+  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
   };
 

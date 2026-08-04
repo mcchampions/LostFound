@@ -1,4 +1,5 @@
 import client from './client';
+import type { CreateLostItemDTO, UpdateLostItemDTO, LostItemPageParams, PageResult } from '../types';
 
 export interface LostItemVO {
   id: number;
@@ -21,22 +22,17 @@ export interface LostItemVO {
   createdAt: string;
 }
 
-export const getLostItems = (params: {
-  page: number;
-  size: number;
-  keyword?: string;
-  categoryId?: number;
-  status?: string;
-}) => client.get('/lost-items', { params }).then(r => r.data.data);
+export const getLostItems = (params: LostItemPageParams) =>
+  client.get<PageResult<LostItemVO>>('/lost-items', { params }).then(r => r.data.data);
 
 export const getLostItem = (id: number) =>
-  client.get(`/lost-items/${id}`).then(r => r.data.data as LostItemVO);
+  client.get<LostItemVO>(`/lost-items/${id}`).then(r => r.data.data);
 
-export const createLostItem = (data: any) =>
-  client.post('/lost-items', data).then(r => r.data.data);
+export const createLostItem = (data: CreateLostItemDTO) =>
+  client.post<LostItemVO>('/lost-items', data).then(r => r.data.data);
 
-export const updateLostItem = (id: number, data: any) =>
-  client.put(`/lost-items/${id}`, data).then(r => r.data.data);
+export const updateLostItem = (id: number, data: UpdateLostItemDTO) =>
+  client.put<LostItemVO>(`/lost-items/${id}`, data).then(r => r.data.data);
 
 export const deleteLostItem = (id: number) =>
   client.delete(`/lost-items/${id}`).then(r => r.data.data);

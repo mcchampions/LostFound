@@ -29,11 +29,11 @@ export default function AdminStats() {
   const theme = useTheme();
 
   const statCards = [
-    { key: 'lostCount', label: '失物总数', icon: <LostIcon fontSize="large" />, color: theme.palette.primary.main },
-    { key: 'foundCount', label: '招领总数', icon: <FoundIcon fontSize="large" />, color: theme.palette.success.main },
-    { key: 'claimedCount', label: '已认领数', icon: <ClaimedIcon fontSize="large" />, color: theme.palette.warning.main },
-    { key: 'foundLostCount', label: '已找回失物', icon: <FoundLostIcon fontSize="large" />, color: theme.palette.secondary.main },
-    { key: 'pendingUserCount', label: '待审核用户', icon: <PendingIcon fontSize="large" />, color: theme.palette.primary.dark },
+    { key: 'lostCount' as const, label: '失物总数', icon: <LostIcon fontSize="large" />, color: theme.palette.primary.main },
+    { key: 'foundCount' as const, label: '招领总数', icon: <FoundIcon fontSize="large" />, color: theme.palette.success.main },
+    { key: 'claimedCount' as const, label: '已认领数', icon: <ClaimedIcon fontSize="large" />, color: theme.palette.warning.main },
+    { key: 'foundLostCount' as const, label: '已找回失物', icon: <FoundLostIcon fontSize="large" />, color: theme.palette.secondary.main },
+    { key: 'pendingUserCount' as const, label: '待审核用户', icon: <PendingIcon fontSize="large" />, color: theme.palette.primary.dark },
   ];
 
   const chartColors = [
@@ -112,7 +112,7 @@ export default function AdminStats() {
                 >
                   <Box sx={{ color: card.color, mb: 1 }}>{card.icon}</Box>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {(stats as any)[card.key] ?? 0}
+                    {stats[card.key] ?? 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">{card.label}</Typography>
                 </Paper>

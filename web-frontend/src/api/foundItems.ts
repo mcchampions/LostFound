@@ -1,4 +1,5 @@
 import client from './client';
+import type { CreateFoundItemDTO, UpdateFoundItemDTO, FoundItemPageParams, PageResult } from '../types';
 
 export interface FoundItemVO {
   id: number;
@@ -21,22 +22,17 @@ export interface FoundItemVO {
   createdAt: string;
 }
 
-export const getFoundItems = (params: {
-  page: number;
-  size: number;
-  keyword?: string;
-  categoryId?: number;
-  status?: string;
-}) => client.get('/found-items', { params }).then(r => r.data.data);
+export const getFoundItems = (params: FoundItemPageParams) =>
+  client.get<PageResult<FoundItemVO>>('/found-items', { params }).then(r => r.data.data);
 
 export const getFoundItem = (id: number) =>
-  client.get(`/found-items/${id}`).then(r => r.data.data as FoundItemVO);
+  client.get<FoundItemVO>(`/found-items/${id}`).then(r => r.data.data);
 
-export const createFoundItem = (data: any) =>
-  client.post('/found-items', data).then(r => r.data.data);
+export const createFoundItem = (data: CreateFoundItemDTO) =>
+  client.post<FoundItemVO>('/found-items', data).then(r => r.data.data);
 
-export const updateFoundItem = (id: number, data: any) =>
-  client.put(`/found-items/${id}`, data).then(r => r.data.data);
+export const updateFoundItem = (id: number, data: UpdateFoundItemDTO) =>
+  client.put<FoundItemVO>(`/found-items/${id}`, data).then(r => r.data.data);
 
 export const deleteFoundItem = (id: number) =>
   client.delete(`/found-items/${id}`).then(r => r.data.data);

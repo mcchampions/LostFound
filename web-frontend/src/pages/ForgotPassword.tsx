@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { LockReset as LockResetIcon } from '@mui/icons-material';
 import { forgotPassword, resetPassword } from '../api/auth';
+import type { ApiError } from '../types';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -30,8 +31,9 @@ export default function ForgotPassword() {
       await forgotPassword(email.trim());
       setNotice('如果该邮箱已注册，验证码已发送，请查收邮件（5分钟内有效）');
       setStep(2);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '发送失败，请稍后重试');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.message || '发送失败，请稍后重试');
     } finally {
       setLoading(false);
     }
@@ -57,8 +59,9 @@ export default function ForgotPassword() {
       await resetPassword({ email: email.trim(), code: code.trim(), newPassword });
       setNotice('密码重置成功，请使用新密码登录');
       setTimeout(() => navigate('/login'), 1200);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '重置失败，请重试');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.message || '重置失败，请重试');
     } finally {
       setLoading(false);
     }

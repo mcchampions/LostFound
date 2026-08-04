@@ -8,6 +8,7 @@ backend/postgen-work/
 backend/uploads/
 backend/app/
 web-frontend/dist/
+web-frontend/vite.config.ts.timestamp-*.mjs
 
 node_modules/
 web-frontend/node_modules/

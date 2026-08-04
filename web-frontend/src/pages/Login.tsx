@@ -8,6 +8,11 @@ import { Person as PersonIcon, Lock as LockIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../store/AuthContext';
 import { login as loginApi } from '../api/auth';
+import type { ApiError } from '../types';
+
+interface RouteState {
+  from?: { pathname: string };
+}
 
 export default function Login() {
   const { t } = useTranslation();
@@ -20,7 +25,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as RouteState)?.from?.pathname || '/';
 
   if (user) return <Navigate to="/" replace />;
 
@@ -36,8 +41,9 @@ export default function Login() {
       const data = await loginApi(username, password);
       login(data.token, data.user);
       navigate(from, { replace: true });
-    } catch (err: any) {
-      setError(err.response?.data?.message || '登录失败，请检查用户名和密码');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.message || '登录失败，请检查用户名和密码');
     } finally {
       setLoading(false);
     }

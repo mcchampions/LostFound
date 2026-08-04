@@ -5,6 +5,7 @@ import {
   CardActionArea, Chip, CircularProgress, Alert, List, ListItem,
   ListItemText, Divider
 } from '@mui/material';
+import type { Theme } from '@mui/material/styles';
 import {
   Search as SearchIcon, Add as AddIcon,
   Campaign as AnnounceIcon, FindInPage as LostIcon,
@@ -179,10 +180,10 @@ export default function Home() {
                     p: 3,
                     textAlign: 'center',
                     borderTop: 4,
-                    borderColor: (t: any) => idx === 0 ? t.palette.primary.main : t.palette.success.main,
+                    borderColor: (t: Theme) => idx === 0 ? t.palette.primary.main : t.palette.success.main,
                   }}
                 >
-                  <Box sx={{ color: (t: any) => idx === 0 ? t.palette.primary.main : t.palette.success.main, mb: 1 }}>{item.icon}</Box>
+                  <Box sx={{ color: (t: Theme) => idx === 0 ? t.palette.primary.main : t.palette.success.main, mb: 1 }}>{item.icon}</Box>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{item.value}</Typography>
                   <Typography variant="body2" color="text.secondary">{item.label}</Typography>
                 </Paper>

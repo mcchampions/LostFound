@@ -10,6 +10,7 @@ import client from '../api/client';
 import { assetUrl } from '../config';
 import ImageCropDialog from '../components/ImageCropDialog';
 import PhoneInput from '../components/PhoneInput';
+import type { ApiError } from '../types';
 
 export default function Profile() {
   const { user, login } = useAuth();
@@ -115,8 +116,9 @@ export default function Profile() {
       login(token, updatedUser);
       setSuccess('保存成功');
       setEditing(false);
-    } catch (err: any) {
-      setError(err.response?.data?.message || '保存失败');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.message || '保存失败');
     } finally {
       setLoading(false);
     }
@@ -145,8 +147,9 @@ export default function Profile() {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
-      setPwError(err.response?.data?.message || '修改失败');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setPwError(apiErr.response?.data?.message || '修改失败');
     } finally {
       setPwLoading(false);
     }
@@ -167,7 +170,7 @@ export default function Profile() {
     setError('');
     setSendingCode(true);
     try { await client.post('/users/me/send-verify-code'); setSuccess('验证码已发送到您的邮箱'); }
-    catch (err: any) { setError(err.response?.data?.message || '发送失败'); }
+    catch (err: unknown) { const apiErr = err as ApiError; setError(apiErr.response?.data?.message || '发送失败'); }
     finally { setSendingCode(false); }
   };
 
@@ -175,7 +178,7 @@ export default function Profile() {
     if (!verifyCode) { setError('请输入验证码'); return; }
     setVerifying(true);
     try { await client.post('/users/me/verify-email', { code: verifyCode }); setEmailVerified(true); setVerifyCode(''); setSuccess('邮箱验证成功'); }
-    catch (err: any) { setError(err.response?.data?.message || '验证失败'); }
+    catch (err: unknown) { const apiErr = err as ApiError; setError(apiErr.response?.data?.message || '验证失败'); }
     finally { setVerifying(false); }
   };
 
@@ -183,9 +186,10 @@ export default function Profile() {
     setEmailPrefs(prev => ({ ...prev, [key]: val }));
     try {
       await client.put('/users/me/email-preferences', { [key]: val });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
       setEmailPrefs(prev => ({ ...prev, [key]: !val }));
-      setError(err.response?.data?.message || '更新失败');
+      setError(apiErr.response?.data?.message || '更新失败');
     }
   };
 
