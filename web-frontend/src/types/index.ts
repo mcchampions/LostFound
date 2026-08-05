@@ -15,6 +15,12 @@ export interface PageResult<T> {
   size: number;
 }
 
+export interface ApiResponse<T> {
+  code: number;
+  message?: string;
+  data: T;
+}
+
 export interface LostItemPageParams extends PageParams {
   keyword?: string;
   categoryId?: number;
@@ -71,7 +77,6 @@ export interface UserInfo {
 }
 
 export interface LoginResponse {
-  token: string;
   user: UserInfo;
 }
 

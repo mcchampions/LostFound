@@ -10,7 +10,7 @@ import {
 import { useAuth } from '../store/AuthContext';
 import { getReceivedClaims, getSentClaims, processClaim } from '../api/claims';
 import type { ClaimVO } from '../api/claims';
-import type { ApiError } from '../types';
+import { getApiErrorMessage } from '../api/errors';
 
 const statusLabels: Record<string, string> = {
   PENDING: '待处理',
@@ -53,8 +53,8 @@ export default function Claims() {
       setReceived(data.records || []);
       setReceivedTotal(data.total || 0);
       setReceivedPages(Math.ceil((data.total || 0) / pageSize) || 1);
-    } catch {
-      setError('加载收到的申请失败');
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '加载收到的申请失败'));
     } finally {
       setLoading(false);
     }
@@ -69,8 +69,8 @@ export default function Claims() {
       setSent(data.records || []);
       setSentTotal(data.total || 0);
       setSentPages(Math.ceil((data.total || 0) / pageSize) || 1);
-    } catch {
-      setError('加载发出的申请失败');
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '加载发出的申请失败'));
     } finally {
       setLoading(false);
     }
@@ -92,8 +92,7 @@ export default function Claims() {
         prev.map(c => (c.id === id ? { ...c, status } : c))
       );
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || '操作失败');
+      setError(getApiErrorMessage(err, '操作失败'));
     } finally {
       setActionLoading(null);
     }

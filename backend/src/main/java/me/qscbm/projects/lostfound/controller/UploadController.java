@@ -5,6 +5,7 @@ import me.qscbm.projects.lostfound.common.AppHome;
 import me.qscbm.projects.lostfound.common.Result;
 import me.qscbm.projects.lostfound.service.impl.ImageStorageService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -45,7 +46,15 @@ public class UploadController {
     }
 
     @PostMapping("/upload/image")
-    public Result<Map<String, String>> upload(@RequestParam("file") MultipartFile file) throws IOException {
+    public Result<Map<String, String>> upload(@AuthenticationPrincipal Long userId,
+                                              @RequestParam("file") MultipartFile file) throws IOException {
+        if (userId == null) {
+            return Result.error("请先登录后再上传图片");
+        }
+        return store(file);
+    }
+
+    private Result<Map<String, String>> store(MultipartFile file) throws IOException {
         if (file.isEmpty()) {
             return Result.error("请选择要上传的图片");
         }

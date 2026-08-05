@@ -11,7 +11,7 @@ import { startConversation } from '../api/chat';
 import client from '../api/client';
 import { assetUrl } from '../config';
 import ItemImageUpload from './ItemImageUpload';
-import type { ApiError } from '../types';
+import { getApiErrorMessage } from '../api/errors';
 
 interface UserSearchResult {
   id: number;
@@ -107,8 +107,8 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
     setError('');
     try {
       setItem(await config.fetchItem(Number(id)));
-    } catch {
-      setError(`加载${config.infoName}失败`);
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, `加载${config.infoName}失败`));
     } finally {
       setLoading(false);
     }
@@ -124,8 +124,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       await config.deleteItem(Number(id));
       navigate(config.listPath);
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || '删除失败');
+      setError(getApiErrorMessage(err, '删除失败'));
       setDeleteOpen(false);
     } finally {
       setDeleting(false);
@@ -137,8 +136,8 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       const data = await startConversation(targetUserId);
       const name = encodeURIComponent(item?.userName || '');
       navigate(`/chat?conv=${data.conversationId}&to=${targetUserId}&name=${name}`);
-    } catch {
-      // Chat entry remains non-blocking when conversation creation fails.
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '发起对话失败'));
     }
   };
 
@@ -177,8 +176,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       setResolveOpen(false);
       await fetchItem();
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || '操作失败');
+      setError(getApiErrorMessage(err, '操作失败'));
     } finally {
       setResolving(false);
     }
@@ -203,8 +201,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       setClaimImages([]);
       setClaimSuccess(true);
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setClaimError(apiErr.response?.data?.message || '提交失败');
+      setClaimError(getApiErrorMessage(err, '提交失败'));
     } finally {
       setClaimSubmitting(false);
     }

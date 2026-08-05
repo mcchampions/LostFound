@@ -13,7 +13,7 @@ public class Message {
     private Long senderId;
     private Long receiverId;
     private String content;
-    private Integer isRead;
+    private Boolean isRead;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

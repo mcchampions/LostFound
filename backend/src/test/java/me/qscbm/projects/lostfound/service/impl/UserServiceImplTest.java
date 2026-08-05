@@ -9,13 +9,13 @@ import me.qscbm.projects.lostfound.mapper.EmailVerificationCodeMapper;
 import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
+import me.qscbm.projects.lostfound.mapper.UserItemMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -34,6 +34,7 @@ class UserServiceImplTest {
     private LostItemMapper lostItemMapper;
     private FoundItemMapper foundItemMapper;
     private UserEmailPreferenceMapper emailPreferenceMapper;
+    private UserItemMapper userItemMapper;
     private AtomicLong now;
     private UserServiceImpl service;
 
@@ -46,12 +47,14 @@ class UserServiceImplTest {
         lostItemMapper = mock(LostItemMapper.class);
         foundItemMapper = mock(FoundItemMapper.class);
         emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
+        userItemMapper = mock(UserItemMapper.class);
         OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
         EmailContentBuilder emailContentBuilder = new EmailContentBuilder("http://localhost:5173");
         now = new AtomicLong(1_000_000L);
         service = new UserServiceImpl(
                 userMapper, passwordEncoder, mailSender, verificationCodeMapper,
                 lostItemMapper, foundItemMapper, emailPreferenceMapper,
+                userItemMapper,
                 operationLogRecorder, emailContentBuilder, now::get);
         when(passwordEncoder.encode(anyString()))
                 .thenAnswer(invocation -> "hash:" + invocation.getArgument(0));
@@ -64,8 +67,8 @@ class UserServiceImplTest {
     void changingEmailResetsVerificationAndEmailNotifications() {
         User user = activeUser();
         user.setEmail("old@example.com");
-        user.setEmailVerified(1);
-        user.setNotifyEmail(1);
+        user.setEmailVerified(true);
+        user.setNotifyEmail(true);
         when(userMapper.selectById(1L)).thenReturn(user);
 
         UpdateProfileRequest request = new UpdateProfileRequest();
@@ -74,8 +77,8 @@ class UserServiceImplTest {
         service.updateProfile(1L, request);
 
         assertThat(user.getEmail()).isEqualTo("new@example.com");
-        assertThat(user.getEmailVerified()).isZero();
-        assertThat(user.getNotifyEmail()).isZero();
+        assertThat(user.getEmailVerified()).isFalse();
+        assertThat(user.getNotifyEmail()).isFalse();
         verify(userMapper).updateById(user);
         verify(verificationCodeMapper).deleteById(1L);
     }
@@ -85,10 +88,8 @@ class UserServiceImplTest {
         User user = activeUser();
         user.setEmail("user@example.com");
         when(userMapper.selectById(1L)).thenReturn(user);
-        when(verificationCodeMapper.updateIfCooldown(any(), anyLong())).thenReturn(0);
-        when(verificationCodeMapper.insert(any()))
-                .thenReturn(1)
-                .thenThrow(new DuplicateKeyException("duplicate"));
+        when(verificationCodeMapper.upsertIfCooldown(any(), anyLong()))
+                .thenReturn(1, 0);
 
         service.sendVerifyCode(1L);
 
@@ -97,7 +98,7 @@ class UserServiceImplTest {
         String code = messageCaptor.getValue().getText().replaceAll("\\D", "").substring(0, 6);
         ArgumentCaptor<EmailVerificationCode> codeCaptor =
                 ArgumentCaptor.forClass(EmailVerificationCode.class);
-        verify(verificationCodeMapper).insert(codeCaptor.capture());
+        verify(verificationCodeMapper).upsertIfCooldown(codeCaptor.capture(), anyLong());
         when(verificationCodeMapper.selectById(1L)).thenReturn(codeCaptor.getValue());
 
         assertThatThrownBy(() -> service.sendVerifyCode(1L))
@@ -106,7 +107,7 @@ class UserServiceImplTest {
 
         service.verifyEmail(1L, code);
 
-        assertThat(user.getEmailVerified()).isEqualTo(1);
+        assertThat(user.getEmailVerified()).isTrue();
         verify(userMapper).updateById(user);
     }
 
@@ -115,15 +116,14 @@ class UserServiceImplTest {
         User user = activeUser();
         user.setEmail("user@example.com");
         when(userMapper.selectById(1L)).thenReturn(user);
-        when(verificationCodeMapper.updateIfCooldown(any(), anyLong())).thenReturn(0);
-        when(verificationCodeMapper.insert(any())).thenReturn(1);
+        when(verificationCodeMapper.upsertIfCooldown(any(), anyLong())).thenReturn(1);
 
         service.sendVerifyCode(1L);
         ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(messageCaptor.capture());
         ArgumentCaptor<EmailVerificationCode> codeCaptor =
                 ArgumentCaptor.forClass(EmailVerificationCode.class);
-        verify(verificationCodeMapper).insert(codeCaptor.capture());
+        verify(verificationCodeMapper).upsertIfCooldown(codeCaptor.capture(), anyLong());
         when(verificationCodeMapper.selectById(1L)).thenReturn(codeCaptor.getValue());
         now.addAndGet(5 * 60 * 1000L + 1);
 
@@ -138,8 +138,7 @@ class UserServiceImplTest {
         User user = activeUser();
         user.setEmail("user@example.com");
         when(userMapper.selectById(1L)).thenReturn(user);
-        when(verificationCodeMapper.updateIfCooldown(any(), anyLong())).thenReturn(0, 1);
-        when(verificationCodeMapper.insert(any())).thenReturn(1);
+        when(verificationCodeMapper.upsertIfCooldown(any(), anyLong())).thenReturn(1, 1);
 
         service.sendVerifyCode(1L);
         now.addAndGet(60 * 1000L);
@@ -179,8 +178,7 @@ class UserServiceImplTest {
         User user = activeUser();
         user.setEmail("user@example.com");
         when(userMapper.selectById(1L)).thenReturn(user);
-        when(verificationCodeMapper.updateIfCooldown(any(), anyLong())).thenReturn(0);
-        when(verificationCodeMapper.insert(any())).thenReturn(1);
+        when(verificationCodeMapper.upsertIfCooldown(any(), anyLong())).thenReturn(1);
         doThrow(new RuntimeException("smtp unavailable")).when(mailSender).send(any(SimpleMailMessage.class));
 
         assertThatThrownBy(() -> service.sendVerifyCode(1L))

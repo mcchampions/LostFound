@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../../store/AuthContext';
 import { getUsers, updateUserStatus } from '../../api/admin';
 import type { AdminUserPageParams } from '../../types';
+import { getApiErrorMessage } from '../../api/errors';
 
 interface UserVO {
   id: number;
@@ -70,8 +71,8 @@ export default function AdminUsers() {
       setUsers(data.records || []);
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
-    } catch {
-      setError('加载用户列表失败');
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '加载用户列表失败'));
     } finally {
       setLoading(false);
     }
@@ -85,7 +86,7 @@ export default function AdminUsers() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchTerm(keyword);
-      if (page !== 1) setPage(1);
+      setPage(previous => previous === 1 ? previous : 1);
     }, 500);
     return () => clearTimeout(timer);
   }, [keyword]);
@@ -97,8 +98,8 @@ export default function AdminUsers() {
       setUsers(prev =>
         prev.map(u => (u.id === id ? { ...u, status } : u))
       );
-    } catch {
-      // ignore
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '更新用户状态失败'));
     } finally {
       setActionLoading(null);
     }

@@ -1,16 +1,13 @@
 package me.qscbm.projects.lostfound.controller;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.Result;
-import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.PageResult;
 import me.qscbm.projects.lostfound.dto.*;
-import me.qscbm.projects.lostfound.entity.User;
-import me.qscbm.projects.lostfound.entity.UserEmailPreference;
-import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
-import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.UserService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -25,8 +22,6 @@ import java.util.*;
 public class UserController {
 
     private final UserService userService;
-    private final UserMapper userMapper;
-    private final UserEmailPreferenceMapper emailPreferenceMapper;
 
     @GetMapping("/me")
     public Result<UserVO> getProfile(@AuthenticationPrincipal Long userId) {
@@ -48,20 +43,7 @@ public class UserController {
 
     @GetMapping("/search")
     public Result<List<Map<String, Object>>> search(@RequestParam @Size(min = 1, max = 50) String q) {
-        var users = userMapper.selectList(
-            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<User>()
-                .eq(User::getStatus, "ACTIVE")
-                .and(w -> w.like(User::getUsername, q).or()
-                    .like(User::getRealName, q))
-                .last("LIMIT 10"));
-        var list = users.stream().map(u -> {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", u.getId());
-            m.put("username", u.getUsername());
-            m.put("realName", u.getRealName());
-            return m;
-        }).toList();
-        return Result.success(list);
+        return Result.success(userService.searchUsers(q));
     }
 
     @PostMapping("/me/send-verify-code")
@@ -78,88 +60,24 @@ public class UserController {
 
     @GetMapping("/me/preferences")
     public Result<Map<String, Object>> getPreferences(@AuthenticationPrincipal Long userId) {
-        var user = userMapper.selectById(userId);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("notifyEmail", user.getNotifyEmail() != null && user.getNotifyEmail() == 1);
-        m.put("emailVerified", user.getEmailVerified() != null && user.getEmailVerified() == 1);
-        return Result.success(m);
+        return Result.success(userService.getPreferences(userId));
     }
 
     @PutMapping("/me/preferences")
     public Result<?> updatePreferences(@AuthenticationPrincipal Long userId, @RequestBody Map<String, Object> body) {
-        var user = userMapper.selectById(userId);
-        if (body.containsKey("notifyEmail")) {
-            boolean enabled = Boolean.TRUE.equals(body.get("notifyEmail"));
-            if (enabled && (user.getEmailVerified() == null || user.getEmailVerified() != 1)) {
-                throw new BusinessException("请先验证邮箱");
-            }
-            user.setNotifyEmail(enabled ? 1 : 0);
-        }
-        userMapper.updateById(user);
+        userService.updatePreferences(userId, body);
         return Result.success();
     }
 
     @GetMapping("/me/email-preferences")
     public Result<Map<String, Object>> getEmailPreferences(@AuthenticationPrincipal Long userId) {
-        var user = userMapper.selectById(userId);
-        boolean emailVerified = user.getEmailVerified() != null && user.getEmailVerified() == 1;
-        UserEmailPreference pref = emailPreferenceMapper.selectById(userId);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("emailVerified", emailVerified);
-        if (pref == null) {
-            boolean legacy = user.getNotifyEmail() != null && user.getNotifyEmail() == 1;
-            m.put("claim_request", legacy);
-            m.put("claim_result", legacy);
-            m.put("announcement", legacy);
-            m.put("message", legacy);
-            m.put("system_message", true);
-        } else {
-            m.put("claim_request", pref.getClaimRequest() != null && pref.getClaimRequest() == 1);
-            m.put("claim_result", pref.getClaimResult() != null && pref.getClaimResult() == 1);
-            m.put("announcement", pref.getAnnouncement() != null && pref.getAnnouncement() == 1);
-            m.put("message", pref.getMessage() != null && pref.getMessage() == 1);
-            m.put("system_message", true);
-        }
-        return Result.success(m);
+        return Result.success(userService.getEmailPreferences(userId));
     }
 
     @PutMapping("/me/email-preferences")
     public Result<?> updateEmailPreferences(@AuthenticationPrincipal Long userId,
                                              @RequestBody Map<String, Object> body) {
-        var user = userMapper.selectById(userId);
-        boolean emailVerified = user.getEmailVerified() != null && user.getEmailVerified() == 1;
-        UserEmailPreference pref = emailPreferenceMapper.selectById(userId);
-        if (pref == null) {
-            pref = new UserEmailPreference();
-            pref.setUserId(userId);
-            boolean legacy = user.getNotifyEmail() != null && user.getNotifyEmail() == 1;
-            pref.setClaimRequest(legacy ? 1 : 0);
-            pref.setClaimResult(legacy ? 1 : 0);
-            pref.setAnnouncement(legacy ? 1 : 0);
-            pref.setMessage(legacy ? 1 : 0);
-            pref.setSystemMessage(1);
-        }
-        for (String key : List.of("claim_request", "claim_result", "announcement", "message")) {
-            if (body.containsKey(key)) {
-                if (!emailVerified) {
-                    throw new BusinessException("请先验证邮箱后再开启邮件提醒");
-                }
-                boolean enabled = Boolean.TRUE.equals(body.get(key));
-                switch (key) {
-                    case "claim_request" -> pref.setClaimRequest(enabled ? 1 : 0);
-                    case "claim_result" -> pref.setClaimResult(enabled ? 1 : 0);
-                    case "announcement" -> pref.setAnnouncement(enabled ? 1 : 0);
-                    case "message" -> pref.setMessage(enabled ? 1 : 0);
-                }
-            }
-        }
-        // system_message is always on
-        pref.setSystemMessage(1);
-        if (emailPreferenceMapper.selectById(userId) == null) {
-            emailPreferenceMapper.insert(pref);
-        } else {
-            emailPreferenceMapper.updateById(pref);
-        }
+        userService.updateEmailPreferences(userId, body);
         return Result.success();
     }
 
@@ -173,8 +91,8 @@ public class UserController {
             @PathVariable Long id,
             @RequestParam(defaultValue = "published") String scope,
             @RequestParam(defaultValue = "all") String type,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return Result.success(PageResult.of(
                 userService.getUserItems(id, scope, type, page, size)));
     }

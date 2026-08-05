@@ -36,7 +36,7 @@ web-frontend/src/
 
 ## 全局状态
 
-- `AuthContext`：登录态、token 持久化（localStorage）、401 自动登出；
+- `AuthContext`：登录态、HttpOnly Cookie 会话、401 自动登出；JWT 不写入 `localStorage`；
 - `ChatSocketContext`：登录即建立 WebSocket（SockJS + STOMP），订阅消息与
   通知队列；维护 `unreadTotal`（对话未读）与 `notificationUnread`（通知未读），
   驱动侧边栏「对话」红点与顶栏铃铛角标；登出时归零。

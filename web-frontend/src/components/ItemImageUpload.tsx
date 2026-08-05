@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Box, Button, IconButton, Typography, LinearProgress, Paper, Dialog
+  Alert, Box, Button, IconButton, Typography, LinearProgress, Paper, Dialog
 } from '@mui/material';
 import {
   Close as CloseIcon, AddPhotoAlternate as AddPhotoIcon,
@@ -8,6 +8,7 @@ import {
 } from '@mui/icons-material';
 import { uploadImage } from '../api/upload';
 import { assetUrl } from '../config';
+import { getApiErrorMessage } from '../api/errors';
 
 interface Props {
   images: string[];
@@ -18,6 +19,7 @@ export default function ItemImageUpload({ images, onChange }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState('');
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -28,6 +30,7 @@ export default function ItemImageUpload({ images, onChange }: Props) {
     if (toUpload.length === 0) return;
 
     setUploading(true);
+    setUploadError('');
     setUploadProgress(new Array(toUpload.length).fill(0));
 
     const newUrls: string[] = [];
@@ -37,7 +40,10 @@ export default function ItemImageUpload({ images, onChange }: Props) {
         const url = await uploadImage(toUpload[i]);
         newUrls.push(url);
         setUploadProgress(prev => { const next = [...prev]; next[i] = 100; return next; });
-      } catch {
+      } catch (errorValue) {
+        setUploadError(previous => previous
+          ? `${previous}；${getApiErrorMessage(errorValue, `第${i + 1}张图片上传失败`)}`
+          : getApiErrorMessage(errorValue, `第${i + 1}张图片上传失败`));
         setUploadProgress(prev => { const next = [...prev]; next[i] = -1; return next; });
       }
     }
@@ -53,6 +59,7 @@ export default function ItemImageUpload({ images, onChange }: Props) {
 
   return (
     <Box>
+      {uploadError && <Alert severity="error" sx={{ mb: 1 }} onClose={() => setUploadError('')}>{uploadError}</Alert>}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
         {images.map((url, index) => (
           <Paper

@@ -30,7 +30,7 @@ class UploadControllerTest {
                 createPng(12, 8)
         );
 
-        Result<Map<String, String>> result = controller.upload(file);
+        Result<Map<String, String>> result = controller.upload(1L, file);
 
         assertThat(result.getCode()).isZero();
         String url = result.getData().get("url");
@@ -53,7 +53,7 @@ class UploadControllerTest {
                 "not-an-image".getBytes()
         );
 
-        Result<Map<String, String>> result = controller.upload(file);
+        Result<Map<String, String>> result = controller.upload(1L, file);
 
         assertThat(result.getCode()).isEqualTo(1);
         assertThat(result.getMessage()).contains("不支持的文件类型");
@@ -73,7 +73,7 @@ class UploadControllerTest {
                 corruptedJpeg
         );
 
-        Result<Map<String, String>> result = controller.upload(file);
+        Result<Map<String, String>> result = controller.upload(1L, file);
 
         assertThat(result.getCode()).isEqualTo(1);
         assertThat(result.getMessage()).isEqualTo("图片文件无效");

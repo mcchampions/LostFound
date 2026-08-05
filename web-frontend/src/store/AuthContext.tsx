@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import client from '../api/client';
 
-interface User {
+export interface User {
   id: number;
   username: string;
   realName: string;
@@ -14,8 +14,7 @@ interface User {
 
 interface AuthCtx {
   user: User | null;
-  token: string | null;
-  login: (token: string, user: User) => void;
+  login: (user: User) => void;
   logout: () => void;
   isAdmin: boolean;
   loading: boolean;
@@ -25,24 +24,20 @@ const AuthContext = createContext<AuthCtx | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-  const [loading, setLoading] = useState<boolean>(!!localStorage.getItem('token'));
+  const [loading, setLoading] = useState(true);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    setToken(null);
+    void client.post('/auth/logout').catch(() => {});
     setUser(null);
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem('token');
-    if (stored) {
-      client.get('/users/me')
-        .then(res => setUser(res.data.data))
-        .catch(() => logout())
-        .finally(() => setLoading(false));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    client.get('/users/me')
+      .then(res => { if (active) setUser(res.data.data); })
+      .catch(() => { if (active) setUser(null); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, []);
 
   // Listen for forced logout from 401 interceptor
@@ -52,16 +47,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener('auth:logout', handler);
   }, [logout]);
 
-  const login = (t: string, u: User) => {
-    localStorage.setItem('token', t);
-    setToken(t);
-    setUser(u);
-  };
+  const login = useCallback((u: User) => setUser(u), []);
 
   const isAdmin = user?.role === 'ADMIN';
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAdmin, loading }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, login, logout, isAdmin, loading }}>{children}</AuthContext.Provider>
   );
 };
 

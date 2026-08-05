@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../store/AuthContext';
 import { getStats, getTrend } from '../../api/admin';
+import { getApiErrorMessage } from '../../api/errors';
 
 interface StatsData {
   lostCount?: number;
@@ -58,8 +59,8 @@ export default function AdminStats() {
       try {
         const data = await getStats();
         setStats(data);
-      } catch {
-        setError('加载统计数据失败');
+      } catch (errorValue) {
+        setError(getApiErrorMessage(errorValue, '加载统计数据失败'));
       } finally {
         setLoading(false);
       }
@@ -70,7 +71,10 @@ export default function AdminStats() {
   useEffect(() => {
     getTrend(trendDays)
       .then(setTrend)
-      .catch(() => setTrend([]));
+      .catch(errorValue => {
+        setTrend([]);
+        setError(getApiErrorMessage(errorValue, '加载趋势数据失败'));
+      });
   }, [trendDays]);
 
   if (!isAdmin) {

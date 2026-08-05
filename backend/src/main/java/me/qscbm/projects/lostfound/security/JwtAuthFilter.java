@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Arrays;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -44,7 +46,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 User user = userMapper.selectById(userId);
                 // 仅允许 ACTIVE 用户；角色以数据库为准，防止旧 token 越权
-                if (user == null || !"ACTIVE".equals(user.getStatus())) {
+                if (user == null || !UserStatus.ACTIVE.getValue().equals(user.getStatus())) {
                     SecurityContextHolder.clearContext();
                     filterChain.doFilter(request, response);
                     return;
@@ -78,6 +80,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
-        return null;
+        if (request.getCookies() == null) {
+            return null;
+        }
+        return Arrays.stream(request.getCookies())
+                .filter(cookie -> "AUTH_TOKEN".equals(cookie.getName()))
+                .map(jakarta.servlet.http.Cookie::getValue)
+                .findFirst()
+                .orElse(null);
     }
 }

@@ -8,6 +8,7 @@ import {
 import { ArrowBack as BackIcon, ImageOutlined as ImageIcon } from '@mui/icons-material';
 import client from '../api/client';
 import { assetUrl } from '../config';
+import { getApiErrorMessage } from '../api/errors';
 
 interface PublicProfile {
   id: number;
@@ -56,8 +57,8 @@ export default function UserProfile() {
     try {
       const res = await client.get(`/users/${id}/public-profile`);
       setProfile(res.data.data);
-    } catch {
-      setError('用户不存在或已不可用');
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '用户不存在或已不可用'));
     }
   }, [id]);
 
@@ -70,8 +71,9 @@ export default function UserProfile() {
       const data = res.data.data;
       setItems(data.records || []);
       setTotalPages(data.pages || 1);
-    } catch {
+    } catch (errorValue) {
       setItems([]);
+      setError(getApiErrorMessage(errorValue, '加载用户发布内容失败'));
     }
   }, [id, tab, page]);
 

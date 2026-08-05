@@ -7,7 +7,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { register as registerApi } from '../api/auth';
 import PhoneInput from '../components/PhoneInput';
-import type { ApiError } from '../types';
+import { getApiErrorMessage } from '../api/errors';
 
 export default function Register() {
   const { t } = useTranslation();
@@ -69,8 +69,7 @@ export default function Register() {
       setSuccess('注册成功！请登录。');
       timerRef.current = setTimeout(() => navigate('/login'), 1500);
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || '注册失败，请稍后重试');
+      setError(getApiErrorMessage(err, '注册失败，请稍后重试'));
     } finally {
       setLoading(false);
     }

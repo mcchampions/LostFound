@@ -12,6 +12,7 @@ import { assetUrl } from '../config';
 import { getCategories } from '../api/categories';
 import type { Category } from '../api/categories';
 import type { PageResult } from '../types';
+import { getApiErrorMessage } from '../api/errors';
 
 export interface ItemListConfig<T> {
   type: 'lost' | 'found';
@@ -61,7 +62,7 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
   useEffect(() => {
     getCategories()
       .then(setCategories)
-      .catch(() => {});
+      .catch(errorValue => setError(getApiErrorMessage(errorValue, '加载分类失败')));
   }, []);
 
   const fetchItems = useCallback(async () => {
@@ -77,8 +78,8 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
       setItems(data.records || []);
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
-    } catch {
-      setError(`加载${config.type === 'lost' ? '失物' : '招领'}信息失败`);
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, `加载${config.type === 'lost' ? '失物' : '招领'}信息失败`));
     } finally {
       setLoading(false);
     }

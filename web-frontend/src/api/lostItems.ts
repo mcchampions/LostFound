@@ -1,5 +1,5 @@
 import client from './client';
-import type { CreateLostItemDTO, UpdateLostItemDTO, LostItemPageParams, PageResult } from '../types';
+import type { ApiResponse, CreateLostItemDTO, UpdateLostItemDTO, LostItemPageParams, PageResult } from '../types';
 
 export interface LostItemVO {
   id: number;
@@ -23,16 +23,16 @@ export interface LostItemVO {
 }
 
 export const getLostItems = (params: LostItemPageParams) =>
-  client.get<PageResult<LostItemVO>>('/lost-items', { params }).then(r => r.data.data);
+  client.get<ApiResponse<PageResult<LostItemVO>>>('/lost-items', { params }).then(r => r.data.data);
 
 export const getLostItem = (id: number) =>
-  client.get<LostItemVO>(`/lost-items/${id}`).then(r => r.data.data);
+  client.get<ApiResponse<LostItemVO>>(`/lost-items/${id}`).then(r => r.data.data);
 
 export const createLostItem = (data: CreateLostItemDTO) =>
-  client.post<LostItemVO>('/lost-items', data).then(r => r.data.data);
+  client.post<ApiResponse<LostItemVO>>('/lost-items', data).then(r => r.data.data);
 
 export const updateLostItem = (id: number, data: UpdateLostItemDTO) =>
-  client.put<LostItemVO>(`/lost-items/${id}`, data).then(r => r.data.data);
+  client.put<ApiResponse<LostItemVO>>(`/lost-items/${id}`, data).then(r => r.data.data);
 
 export const deleteLostItem = (id: number) =>
   client.delete(`/lost-items/${id}`).then(r => r.data.data);

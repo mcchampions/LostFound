@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import {
-  Box, Typography, Paper, TextField, Button, List, ListItemButton,
-  ListItemText, ListItemAvatar, Avatar, Divider, Badge, CircularProgress, Alert, Snackbar
-} from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Box, Snackbar } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { useChatSocket } from '../store/ChatSocketContext';
-import { getConversations, getMessages, sendMessage as sendMsg, markConversationRead } from '../api/chat';
+import { getConversations, getMessages, markConversationRead, sendMessage } from '../api/chat';
 import type { ConversationVO, MessageVO } from '../api/chat';
-import { assetUrl } from '../config';
+import { getApiErrorMessage } from '../api/errors';
+import ConversationList from '../components/chat/ConversationList';
+import MessagePanel from '../components/chat/MessagePanel';
+
+const PAGE_SIZE = 50;
 
 export default function Chat() {
   const { user } = useAuth();
@@ -23,20 +23,23 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendError, setSendError] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const selectedConvRef = useRef<string | null>(null);
-  const currentPageRef = useRef(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedConvRef = useRef<string | null>(null);
+  const currentPageRef = useRef(1);
+  const abortRef = useRef<AbortController | null>(null);
 
   const loadConversations = useCallback(async () => {
-    try { setConversations(await getConversations()); } catch { /* ignore */ }
+    try {
+      setConversations(await getConversations());
+    } catch (errorValue) {
+      setConversations([]);
+      setSendError(getApiErrorMessage(errorValue, '加载会话失败，请重试'));
+    }
   }, []);
 
-  // 默认只读最近 PAGE_SIZE 条，避免一次加载整段会话导致包过大
-  const PAGE_SIZE = 50;
-  const loadLatestMessages = async (conversationId: string) => {
+  const loadLatestMessages = useCallback(async (conversationId: string) => {
     const first = await getMessages(conversationId, 1, 1);
     const total = first?.total ?? 0;
     const lastPage = total === 0 ? 1 : Math.ceil(total / PAGE_SIZE);
@@ -44,219 +47,81 @@ export default function Chat() {
     currentPageRef.current = lastPage;
     setHasMore(lastPage > 1);
     return data?.records || [];
-  };
+  }, []);
 
-  const handleLoadEarlier = async () => {
+  const loadEarlier = async () => {
     if (!selectedConv || loadingMore || currentPageRef.current <= 1) return;
     setLoadingMore(true);
     try {
       const page = currentPageRef.current - 1;
       const data = await getMessages(selectedConv, page, PAGE_SIZE);
-      const records = data?.records || [];
-      setMessages(prev => [...records, ...prev]);
+      setMessages(previous => [...(data?.records || []), ...previous]);
       currentPageRef.current = page;
       setHasMore(page > 1);
-    } catch {
-      // 加载更早消息失败，保持现状
-    } finally {
-      setLoadingMore(false);
-    }
+    } catch (errorValue) { setSendError(getApiErrorMessage(errorValue, '加载更早消息失败，请重试')); }
+    finally { setLoadingMore(false); }
   };
 
-  // Fetch messages with abort controller to prevent race conditions
+  useEffect(() => { selectedConvRef.current = selectedConv; }, [selectedConv]);
+
   useEffect(() => {
     if (!selectedConv) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    loadLatestMessages(selectedConv)
-      .then(data => {
-        if (!controller.signal.aborted) {
-          setMessages(data);
-          setActiveConversation(selectedConv);
-          markConversationRead(selectedConv)
-            .then(() => {
-              loadConversations();
-              refreshUnread();
-            })
-            .catch(() => {});
-          setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setMessages([]);
-      });
+    loadLatestMessages(selectedConv).then(data => {
+      if (controller.signal.aborted) return;
+      setMessages(data);
+      setActiveConversation(selectedConv);
+      markConversationRead(selectedConv).then(() => { void loadConversations(); refreshUnread(); }).catch(() => {});
+      window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }).catch(() => { if (!controller.signal.aborted) setSendError('加载消息失败，请重试'); });
     return () => controller.abort();
-  }, [selectedConv]);
+  }, [selectedConv, loadLatestMessages, loadConversations, refreshUnread, setActiveConversation]);
 
   useEffect(() => {
-    selectedConvRef.current = selectedConv;
-  }, [selectedConv]);
-
-  // 全局 WebSocket 消息：当前会话直接追加，其他会话由侧边栏红点提示
-  useEffect(() => {
-    const unsubscribe = subscribe((m: MessageVO) => {
-      // 无论是否当前会话，先刷新会话列表（未读数/最后一条消息实时更新）
-      loadConversations();
-      if (m.conversationId !== selectedConvRef.current) return;
-      setMessages(prev => {
-        if (prev.some(x => x.id === m.id)) return prev;
-        return [...prev, m];
-      });
-      markConversationRead(m.conversationId)
-        .then(() => refreshUnread())
-        .catch(() => {});
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    const unsubscribe = subscribe(message => {
+      void loadConversations();
+      if (message.conversationId !== selectedConvRef.current) return;
+      setMessages(previous => previous.some(current => current.id === message.id) ? previous : [...previous, message]);
+      void markConversationRead(message.conversationId).then(refreshUnread).catch(() => {});
+      window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     });
     return unsubscribe;
   }, [subscribe, loadConversations, refreshUnread]);
 
-  // 离开对话页时清空活动会话，避免未读红点漏计
-  useEffect(() => {
-    return () => setActiveConversation(null);
-  }, [setActiveConversation]);
+  useEffect(() => () => setActiveConversation(null), [setActiveConversation]);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
-    loadConversations().then(() => setLoading(false));
+    loadConversations().finally(() => setLoading(false));
   }, [user, loadConversations]);
+
+  const displayConversations = useMemo(() => {
+    if (!selectedConv || !targetUserId || !targetName || conversations.some(item => item.conversationId === selectedConv)) return conversations;
+    return [{ conversationId: selectedConv, otherUserId: targetUserId, otherUserName: decodeURIComponent(targetName), otherUserAvatar: undefined, lastMessage: '', lastMessageTime: '', unreadCount: 0 }, ...conversations];
+  }, [conversations, selectedConv, targetUserId, targetName]);
+
+  const selectedUser = displayConversations.find(item => item.conversationId === selectedConv);
 
   const handleSend = async () => {
     if (!input.trim() || !selectedConv) return;
-    const conv = conversations.find(c => c.conversationId === selectedConv);
-    const receiverId = conv?.otherUserId ?? targetUserId;
+    const receiverId = selectedUser?.otherUserId ?? targetUserId;
     if (!receiverId) return;
     try {
-      const sent = await sendMsg(selectedConv, receiverId, input.trim());
-      setMessages(prev => prev.some(m => m.id === sent.id) ? prev : [...prev, sent]);
-      setInput('');
-      loadConversations();
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch {
-      setSendError('发送失败，请重试');
-    }
+      const sent = await sendMessage(selectedConv, receiverId, input.trim());
+      setMessages(previous => previous.some(message => message.id === sent.id) ? previous : [...previous, sent]);
+      setInput(''); void loadConversations();
+      window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    } catch (errorValue) { setSendError(getApiErrorMessage(errorValue, '发送失败，请重试')); }
   };
 
-  const displayConversations = useMemo(() => {
-    if (!selectedConv || !targetUserId || !targetName) return conversations;
-    if (conversations.some(c => c.conversationId === selectedConv)) return conversations;
-    const temp: ConversationVO = {
-      conversationId: selectedConv,
-      otherUserId: targetUserId,
-      otherUserName: decodeURIComponent(targetName),
-      otherUserAvatar: undefined,
-      lastMessage: '',
-      lastMessageTime: '',
-      unreadCount: 0,
-    };
-    return [temp, ...conversations];
-  }, [conversations, selectedConv, targetUserId, targetName]);
-
-  const selectedUser = displayConversations.find(c => c.conversationId === selectedConv);
-
   if (!user) return <Alert severity="warning">请先登录</Alert>;
-
-  return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 140px)', gap: 2 }}>
-      <Paper sx={{ width: 320, flexShrink: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-        <Typography variant="h6" sx={{ p: 2, pb: 1 }}>对话列表</Typography>
-        <Divider />
-        {loading ? (
-          <CircularProgress sx={{ m: 3, alignSelf: 'center' }} />
-        ) : (
-          <List sx={{ flex: 1, overflow: 'auto' }}>
-            {displayConversations.length === 0 ? (
-              <Typography sx={{ p: 3, color: 'text.secondary', textAlign: 'center' }}>
-                暂无对话
-              </Typography>
-            ) : displayConversations.map(c => (
-              <ListItemButton key={c.conversationId}
-                selected={selectedConv === c.conversationId}
-                onClick={() => setSelectedConv(c.conversationId)}
-              >
-                <ListItemAvatar>
-                  <Badge color="error" variant="dot" invisible={c.unreadCount === 0}>
-                    <Avatar src={assetUrl(c.otherUserAvatar || '') || undefined}>
-                      {c.otherUserName?.charAt(0) || '?'}
-                    </Avatar>
-                  </Badge>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={c.otherUserName}
-                  secondary={c.lastMessage?.length > 35
-                    ? c.lastMessage.substring(0, 35) + '...'
-                    : c.lastMessage}
-                  slotProps={{ secondary: { noWrap: true, sx: { fontSize: '0.8rem' } } }}
-                />
-                {c.unreadCount > 0 && (
-                  <Badge badgeContent={c.unreadCount} color="error" sx={{ ml: 1 }} />
-                )}
-              </ListItemButton>
-            ))}
-          </List>
-        )}
-      </Paper>
-
-      <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {!selectedConv ? (
-          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography color="text.secondary">选择一个对话开始聊天</Typography>
-          </Box>
-        ) : (
-          <>
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-              <Typography variant="h6">
-                {selectedUser ? (
-                  <Link to={`/users/${selectedUser.otherUserId}`} style={{ color: 'inherit', textDecoration: 'none' }} title="查看用户主页">
-                    {selectedUser.otherUserName}
-                  </Link>
-                ) : '新对话'}
-              </Typography>
-            </Box>
-            <Box sx={{
-              flex: 1, overflow: 'auto', p: 2,
-              display: 'flex', flexDirection: 'column', gap: 1,
-              bgcolor: 'grey.50'
-            }}>
-              {hasMore && (
-                <Box sx={{ textAlign: 'center', mb: 1 }}>
-                  <Button size="small" variant="text" onClick={handleLoadEarlier} disabled={loadingMore}>
-                    {loadingMore ? '加载中...' : '查看更早消息'}
-                  </Button>
-                </Box>
-              )}
-              {messages.map(m => (
-                <Box key={m.id} sx={{
-                  alignSelf: m.senderId === user?.id ? 'flex-end' : 'flex-start',
-                  maxWidth: '70%',
-                  bgcolor: m.senderId === user?.id ? 'primary.main' : '#fff',
-                  color: m.senderId === user?.id ? '#fff' : 'text.primary',
-                  borderRadius: 2, px: 2, py: 1,
-                  boxShadow: m.senderId !== user?.id ? 1 : 0,
-                }}>
-                  <Typography variant="body2">{m.content}</Typography>
-                  <Typography variant="caption" sx={{
-                    color: m.senderId === user?.id ? 'rgba(255,255,255,0.7)' : 'text.disabled',
-                    display: 'block', textAlign: 'right', mt: 0.5
-                  }}>
-                    {new Date(m.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                  </Typography>
-                </Box>
-              ))}
-              <div ref={messagesEndRef} />
-            </Box>
-            <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
-              <TextField fullWidth size="small" placeholder="输入消息..."
-                value={input} onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                slotProps={{ input: { sx: { borderRadius: 2 } } }}
-              />
-              <Button variant="contained" endIcon={<SendIcon />} onClick={handleSend}>发送</Button>
-            </Box>
-          </>
-        )}
-      </Paper>
-      <Snackbar open={!!sendError} autoHideDuration={3000} onClose={() => setSendError('')} message={sendError} />
-    </Box>
-  );
+  return <Box sx={{ display: 'flex', height: 'calc(100vh - 140px)', gap: 2 }}>
+    <ConversationList conversations={displayConversations} selected={selectedConv} loading={loading} onSelect={setSelectedConv} />
+    <MessagePanel userId={user.id} conversation={selectedUser} messages={messages} input={input}
+      hasMore={hasMore} loadingMore={loadingMore} onInputChange={setInput} onLoadEarlier={loadEarlier}
+      onSend={handleSend} endRef={messagesEndRef} />
+    <Snackbar open={Boolean(sendError)} autoHideDuration={3000} onClose={() => setSendError('')} message={sendError} />
+  </Box>;
 }

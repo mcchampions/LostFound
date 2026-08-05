@@ -12,7 +12,7 @@ import { useAuth } from '../../store/AuthContext';
 import { getCategories } from '../../api/categories';
 import type { Category } from '../../api/categories';
 import { createCategory, updateCategory, deleteCategory } from '../../api/admin';
-import type { ApiError } from '../../types';
+import { getApiErrorMessage } from '../../api/errors';
 
 export default function AdminCategories() {
   const { isAdmin } = useAuth();
@@ -40,8 +40,8 @@ export default function AdminCategories() {
     try {
       const data = await getCategories();
       setCategories(data || []);
-    } catch {
-      setError('加载分类列表失败');
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '加载分类列表失败'));
     } finally {
       setLoading(false);
     }
@@ -83,8 +83,7 @@ export default function AdminCategories() {
       setDialogOpen(false);
       fetchData();
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setDialogError(apiErr.response?.data?.message || '操作失败');
+      setDialogError(getApiErrorMessage(err, '操作失败'));
     } finally {
       setDialogLoading(false);
     }
@@ -99,8 +98,7 @@ export default function AdminCategories() {
       setDeleteOpen(false);
       setDeleteTarget(null);
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || '删除失败');
+      setError(getApiErrorMessage(err, '删除失败'));
     } finally {
       setActionLoading(null);
     }

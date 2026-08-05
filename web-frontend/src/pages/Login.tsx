@@ -8,7 +8,7 @@ import { Person as PersonIcon, Lock as LockIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../store/AuthContext';
 import { login as loginApi } from '../api/auth';
-import type { ApiError } from '../types';
+import { getApiErrorMessage } from '../api/errors';
 
 interface RouteState {
   from?: { pathname: string };
@@ -39,11 +39,10 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await loginApi(username, password);
-      login(data.token, data.user);
+      login(data.user);
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || '登录失败，请检查用户名和密码');
+      setError(getApiErrorMessage(err, '登录失败，请检查用户名和密码'));
     } finally {
       setLoading(false);
     }

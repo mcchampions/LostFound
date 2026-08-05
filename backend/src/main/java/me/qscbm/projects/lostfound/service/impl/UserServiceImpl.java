@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
+import me.qscbm.projects.lostfound.common.UserVOMapper;
 import me.qscbm.projects.lostfound.dto.PublicProfileVO;
 import me.qscbm.projects.lostfound.dto.UpdateProfileRequest;
 import me.qscbm.projects.lostfound.dto.UserItemVO;
@@ -16,10 +17,14 @@ import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.entity.enums.UserStatus;
+import me.qscbm.projects.lostfound.entity.enums.UserRole;
+import me.qscbm.projects.lostfound.entity.enums.LostItemStatus;
+import me.qscbm.projects.lostfound.entity.enums.FoundItemStatus;
 import me.qscbm.projects.lostfound.mapper.EmailVerificationCodeMapper;
 import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
+import me.qscbm.projects.lostfound.mapper.UserItemMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +41,6 @@ import java.time.LocalDateTime;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.function.LongSupplier;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -53,6 +57,7 @@ public class UserServiceImpl implements UserService {
     private final LostItemMapper lostItemMapper;
     private final FoundItemMapper foundItemMapper;
     private final UserEmailPreferenceMapper emailPreferenceMapper;
+    private final UserItemMapper userItemMapper;
     private final OperationLogRecorder operationLogRecorder;
     private final EmailContentBuilder emailContentBuilder;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -69,10 +74,11 @@ public class UserServiceImpl implements UserService {
                            LostItemMapper lostItemMapper,
                            FoundItemMapper foundItemMapper,
                            UserEmailPreferenceMapper emailPreferenceMapper,
+                           UserItemMapper userItemMapper,
                            OperationLogRecorder operationLogRecorder,
                            EmailContentBuilder emailContentBuilder) {
         this(userMapper, passwordEncoder, mailSender, verificationCodeMapper,
-             lostItemMapper, foundItemMapper, emailPreferenceMapper, operationLogRecorder,
+             lostItemMapper, foundItemMapper, emailPreferenceMapper, userItemMapper, operationLogRecorder,
              emailContentBuilder, System::currentTimeMillis);
     }
 
@@ -83,6 +89,7 @@ public class UserServiceImpl implements UserService {
                     LostItemMapper lostItemMapper,
                     FoundItemMapper foundItemMapper,
                     UserEmailPreferenceMapper emailPreferenceMapper,
+                    UserItemMapper userItemMapper,
                     OperationLogRecorder operationLogRecorder,
                     EmailContentBuilder emailContentBuilder,
                     LongSupplier currentTimeMillis) {
@@ -93,6 +100,7 @@ public class UserServiceImpl implements UserService {
         this.lostItemMapper = lostItemMapper;
         this.foundItemMapper = foundItemMapper;
         this.emailPreferenceMapper = emailPreferenceMapper;
+        this.userItemMapper = userItemMapper;
         this.operationLogRecorder = operationLogRecorder;
         this.emailContentBuilder = emailContentBuilder;
         this.currentTimeMillis = currentTimeMillis;
@@ -102,7 +110,7 @@ public class UserServiceImpl implements UserService {
     public UserVO getProfile(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
-        return toVO(user);
+        return UserVOMapper.toVO(user);
     }
 
     @Override
@@ -119,8 +127,8 @@ public class UserServiceImpl implements UserService {
                                 .ne(User::getId, userId))) {
                     throw new BusinessException("该邮箱已被其他账号使用");
                 }
-                user.setEmailVerified(0);
-                user.setNotifyEmail(0);
+                user.setEmailVerified(false);
+                user.setNotifyEmail(false);
                 verificationCodeMapper.deleteById(userId);
                 emailPreferenceMapper.deleteById(userId);
             }
@@ -134,7 +142,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("该邮箱已被其他账号使用");
         }
         operationLogRecorder.log(userId, "UPDATE_PROFILE", "USER", userId, "更新个人资料");
-        return toVO(user);
+        return UserVOMapper.toVO(user);
     }
 
     @Override
@@ -145,14 +153,14 @@ public class UserServiceImpl implements UserService {
         }
         qw.orderByDesc(User::getCreatedAt);
         IPage<User> p = userMapper.selectPage(new Page<>(page, size), qw);
-        return p.convert(this::toVO);
+        return p.convert(UserVOMapper::toVO);
     }
 
     @Override
     public void updateStatus(Long userId, String status) {
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
-        if ("ADMIN".equals(user.getRole())) {
+        if (UserRole.ADMIN.getValue().equals(user.getRole())) {
             throw new BusinessException("不能修改管理员账户状态");
         }
         try {
@@ -195,14 +203,10 @@ public class UserServiceImpl implements UserService {
         verificationCode.setExpiresAt(now + VERIFY_CODE_TTL_MS);
         verificationCode.setAttempts(0);
 
-        int updated = verificationCodeMapper.updateIfCooldown(
+        int reserved = verificationCodeMapper.upsertIfCooldown(
                 verificationCode, now - VERIFY_CODE_SEND_INTERVAL_MS);
-        if (updated == 0) {
-            try {
-                verificationCodeMapper.insert(verificationCode);
-            } catch (DuplicateKeyException e) {
-                throw new BusinessException("验证码发送过于频繁，请稍后再试");
-            }
+        if (reserved == 0) {
+            throw new BusinessException("验证码发送过于频繁，请稍后再试");
         }
         try {
             SimpleMailMessage msg = new SimpleMailMessage();
@@ -246,7 +250,7 @@ public class UserServiceImpl implements UserService {
         if (userMapper.exists(
                 new LambdaQueryWrapper<User>()
                         .eq(User::getEmail, user.getEmail())
-                        .eq(User::getEmailVerified, 1)
+                        .eq(User::getEmailVerified, true)
                         .ne(User::getId, userId))) {
             verificationCodeMapper.deleteById(userId);
             throw new BusinessException("该邮箱已被其他账号验证");
@@ -260,7 +264,7 @@ public class UserServiceImpl implements UserService {
             }
             throw new BusinessException("验证码错误，还可尝试 " + remaining + " 次");
         }
-        user.setEmailVerified(1);
+        user.setEmailVerified(true);
         userMapper.updateById(user);
         verificationCodeMapper.deleteById(userId);
         log.info("用户操作: userId={} 邮箱验证成功", userId);
@@ -268,9 +272,114 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public List<Map<String, Object>> searchUsers(String query) {
+        List<User> users = userMapper.selectList(
+                new LambdaQueryWrapper<User>()
+                        .eq(User::getStatus, UserStatus.ACTIVE.getValue())
+                        .and(w -> w.like(User::getUsername, query).or()
+                                .like(User::getRealName, query))
+                        .last("LIMIT 10"));
+        return users.stream().map(user -> {
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("id", user.getId());
+            result.put("username", user.getUsername());
+            result.put("realName", user.getRealName());
+            return result;
+        }).toList();
+    }
+
+    @Override
+    public Map<String, Object> getPreferences(Long userId) {
+        User user = requireUser(userId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("notifyEmail", isEnabled(user.getNotifyEmail()));
+        result.put("emailVerified", isEnabled(user.getEmailVerified()));
+        return result;
+    }
+
+    @Override
+    public void updatePreferences(Long userId, Map<String, Object> values) {
+        User user = requireUser(userId);
+        if (values.containsKey("notifyEmail")) {
+            boolean enabled = Boolean.TRUE.equals(values.get("notifyEmail"));
+            if (enabled && !isEnabled(user.getEmailVerified())) {
+                throw new BusinessException("请先验证邮箱");
+            }
+            user.setNotifyEmail(enabled);
+            userMapper.updateById(user);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getEmailPreferences(Long userId) {
+        User user = requireUser(userId);
+        UserEmailPreference preference = emailPreferenceMapper.selectById(userId);
+        boolean legacy = isEnabled(user.getNotifyEmail());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("emailVerified", isEnabled(user.getEmailVerified()));
+        result.put("claim_request", preference == null ? legacy : isEnabled(preference.getClaimRequest()));
+        result.put("claim_result", preference == null ? legacy : isEnabled(preference.getClaimResult()));
+        result.put("announcement", preference == null ? legacy : isEnabled(preference.getAnnouncement()));
+        result.put("message", preference == null ? legacy : isEnabled(preference.getMessage()));
+        result.put("system_message", true);
+        return result;
+    }
+
+    @Override
+    public void updateEmailPreferences(Long userId, Map<String, Object> values) {
+        User user = requireUser(userId);
+        boolean emailVerified = isEnabled(user.getEmailVerified());
+        UserEmailPreference preference = emailPreferenceMapper.selectById(userId);
+        if (preference == null) {
+            preference = new UserEmailPreference();
+            preference.setUserId(userId);
+            boolean legacy = isEnabled(user.getNotifyEmail());
+            preference.setClaimRequest(legacy);
+            preference.setClaimResult(legacy);
+            preference.setAnnouncement(legacy);
+            preference.setMessage(legacy);
+            preference.setSystemMessage(true);
+        }
+        for (String key : List.of("claim_request", "claim_result", "announcement", "message")) {
+            if (!values.containsKey(key)) {
+                continue;
+            }
+            if (!emailVerified) {
+                throw new BusinessException("请先验证邮箱后再开启邮件提醒");
+            }
+            boolean enabled = Boolean.TRUE.equals(values.get(key));
+            switch (key) {
+                case "claim_request" -> preference.setClaimRequest(enabled);
+                case "claim_result" -> preference.setClaimResult(enabled);
+                case "announcement" -> preference.setAnnouncement(enabled);
+                case "message" -> preference.setMessage(enabled);
+                default -> throw new IllegalStateException("未知邮件偏好: " + key);
+            }
+        }
+        preference.setSystemMessage(true);
+        if (emailPreferenceMapper.selectById(userId) == null) {
+            emailPreferenceMapper.insert(preference);
+        } else {
+            emailPreferenceMapper.updateById(preference);
+        }
+    }
+
+    private User requireUser(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        return user;
+    }
+
+    private boolean isEnabled(Boolean value) {
+        return Boolean.TRUE.equals(value);
+    }
+
+    @Override
     public PublicProfileVO getPublicProfile(Long userId) {
         User user = userMapper.selectById(userId);
-        if (user == null || !"ACTIVE".equals(user.getStatus())) {
+        if (user == null || !UserStatus.ACTIVE.getValue().equals(user.getStatus())) {
             throw new BusinessException("用户不存在");
         }
         Long lostCount = lostItemMapper.selectCount(
@@ -280,19 +389,19 @@ public class UserServiceImpl implements UserService {
         Long resolvedLost = lostItemMapper.selectCount(
                 new LambdaQueryWrapper<LostItem>()
                         .eq(LostItem::getUserId, userId)
-                        .eq(LostItem::getStatus, "FOUND"));
+                        .eq(LostItem::getStatus, LostItemStatus.FOUND.getValue()));
         Long resolvedFound = foundItemMapper.selectCount(
                 new LambdaQueryWrapper<FoundItem>()
                         .eq(FoundItem::getUserId, userId)
-                        .eq(FoundItem::getStatus, "CLAIMED"));
+                        .eq(FoundItem::getStatus, FoundItemStatus.CLAIMED.getValue()));
         Long pendingLost = lostItemMapper.selectCount(
                 new LambdaQueryWrapper<LostItem>()
                         .eq(LostItem::getUserId, userId)
-                        .eq(LostItem::getStatus, "LOST"));
+                        .eq(LostItem::getStatus, LostItemStatus.LOST.getValue()));
         Long pendingFound = foundItemMapper.selectCount(
                 new LambdaQueryWrapper<FoundItem>()
                         .eq(FoundItem::getUserId, userId)
-                        .eq(FoundItem::getStatus, "UNCLAIMED"));
+                        .eq(FoundItem::getStatus, FoundItemStatus.UNCLAIMED.getValue()));
         Long helpedLost = lostItemMapper.selectCount(
                 new LambdaQueryWrapper<LostItem>()
                         .eq(LostItem::getResolvedBy, userId));
@@ -318,128 +427,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public IPage<UserItemVO> getUserItems(Long userId, String scope, String type, int page, int size) {
-        boolean includeLost = "all".equals(type) || "lost".equals(type);
-        boolean includeFound = "all".equals(type) || "found".equals(type);
-        boolean resolvedOnly = "resolved".equals(scope);
-        boolean helpedOnly = "helped".equals(scope);
-
-        List<UserItemVO> allItems = new ArrayList<>();
-
-        if (includeLost) {
-            LambdaQueryWrapper<LostItem> qw = new LambdaQueryWrapper<>();
-            if (helpedOnly) {
-                qw.eq(LostItem::getResolvedBy, userId);
-            } else {
-                qw.eq(LostItem::getUserId, userId);
-                if (resolvedOnly) {
-                    qw.eq(LostItem::getStatus, "FOUND");
-                }
-            }
-            qw.orderByDesc(LostItem::getCreatedAt);
-            List<LostItem> lostItems = lostItemMapper.selectList(qw);
-            allItems.addAll(lostItems.stream().map(item -> UserItemVO.builder()
-                    .id(item.getId())
-                    .userId(item.getUserId())
-                    .itemType("LOST")
-                    .title(item.getTitle())
-                    .status(item.getStatus())
-                    .coverImage(item.getCoverImage())
-                    .location(item.getLocation())
-                    .createdAt(item.getCreatedAt())
-                    .eventTime(item.getLostTime())
-                    .eventTimeEnd(item.getLostTimeEnd())
-                    .resolvedType(item.getResolvedType())
-                    .resolvedBy(item.getResolvedBy())
-                    .resolvedNote(item.getResolvedNote())
-                    .build()).toList());
+        if (!List.of("published", "resolved", "helped").contains(scope)) {
+            throw new BusinessException("无效的内容范围");
         }
-
-        if (includeFound) {
-            LambdaQueryWrapper<FoundItem> qw = new LambdaQueryWrapper<>();
-            if (helpedOnly) {
-                qw.eq(FoundItem::getResolvedBy, userId);
-            } else {
-                qw.eq(FoundItem::getUserId, userId);
-                if (resolvedOnly) {
-                    qw.eq(FoundItem::getStatus, "CLAIMED");
-                }
-            }
-            qw.orderByDesc(FoundItem::getCreatedAt);
-            List<FoundItem> foundItems = foundItemMapper.selectList(qw);
-            allItems.addAll(foundItems.stream().map(item -> UserItemVO.builder()
-                    .id(item.getId())
-                    .userId(item.getUserId())
-                    .itemType("FOUND")
-                    .title(item.getTitle())
-                    .status(item.getStatus())
-                    .coverImage(item.getCoverImage())
-                    .location(item.getLocation())
-                    .createdAt(item.getCreatedAt())
-                    .eventTime(item.getFoundTime())
-                    .eventTimeEnd(item.getFoundTimeEnd())
-                    .resolvedType(item.getResolvedType())
-                    .resolvedBy(item.getResolvedBy())
-                    .resolvedNote(item.getResolvedNote())
-                    .build()).toList());
+        if (!List.of("all", "lost", "found").contains(type)) {
+            throw new BusinessException("无效的内容类型");
         }
-
-        // Sort by createdAt desc and apply manual pagination
-        allItems.sort((a, b) -> {
-            if (a.getCreatedAt() == null) return 1;
-            if (b.getCreatedAt() == null) return -1;
-            return b.getCreatedAt().compareTo(a.getCreatedAt());
-        });
-
-        // Batch load resolver names for resolved items
-        Set<Long> resolverIds = allItems.stream()
-                .map(UserItemVO::getResolvedBy)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<Long, User> resolvers = resolverIds.isEmpty() ? Collections.emptyMap()
-                : userMapper.selectBatchIds(resolverIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
-        allItems.forEach(item -> {
-            if (item.getResolvedBy() != null) {
-                User resolver = resolvers.get(item.getResolvedBy());
-                item.setResolvedByName(resolver != null
-                        ? (resolver.getRealName() != null ? resolver.getRealName() : resolver.getUsername())
-                        : "用户已不可用");
-            }
-        });
-
-        // Batch load publisher names
-        Set<Long> publisherIds = allItems.stream()
-                .map(UserItemVO::getUserId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<Long, User> publishers = publisherIds.isEmpty() ? Collections.emptyMap()
-                : userMapper.selectBatchIds(publisherIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
-        allItems.forEach(item -> {
-            if (item.getUserId() != null) {
-                User publisher = publishers.get(item.getUserId());
-                item.setPublisherName(publisher != null
-                        ? (publisher.getRealName() != null ? publisher.getRealName() : publisher.getUsername())
-                        : "用户已不可用");
-            }
-        });
-
-        int total = allItems.size();
-        int fromIndex = Math.min((page - 1) * size, total);
-        int toIndex = Math.min(fromIndex + size, total);
-        List<UserItemVO> pageRecords = allItems.subList(fromIndex, toIndex);
-
-        Page<UserItemVO> result = new Page<>(page, size, total);
-        result.setRecords(pageRecords);
-        return result;
+        return userItemMapper.selectUserItems(new Page<>(page, size), userId, scope, type);
     }
 
-    private UserVO toVO(User user) {
-        return UserVO.builder()
-                .id(user.getId()).username(user.getUsername())
-                .realName(user.getRealName()).role(user.getRole())
-                .email(user.getEmail()).phone(user.getPhone())
-                .avatar(user.getAvatar())
-                .status(user.getStatus()).build();
-    }
 }

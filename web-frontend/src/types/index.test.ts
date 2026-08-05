@@ -113,9 +113,8 @@ describe('Types', () => {
       expect(user.role).toBe('USER');
     });
 
-    it('LoginResponse 应该包含 token 和 user', () => {
+    it('LoginResponse 应该包含 user，令牌由 HttpOnly Cookie 承载', () => {
       const response: LoginResponse = {
-        token: 'jwt-token',
         user: {
           id: 1,
           username: 'testuser',
@@ -124,7 +123,7 @@ describe('Types', () => {
           createdAt: '2026-08-04',
         },
       };
-      expect(response.token).toBe('jwt-token');
+      expect(response.user.username).toBe('testuser');
     });
 
     it('RegisterDTO 应该包含注册字段', () => {
@@ -183,6 +182,12 @@ describe('Types', () => {
       const stats: StatsData = {
         totalUsers: 100,
         totalLostItems: 50,
+        totalFoundItems: 40,
+        totalClaims: 20,
+        todayLostItems: 2,
+        todayFoundItems: 3,
+        todayClaims: 1,
+        resolvedRate: 0.5,
         lostCount: 50,
       };
       expect(stats.totalUsers).toBe(100);

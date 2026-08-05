@@ -2,7 +2,7 @@ import {
   createContext, useCallback, useContext, useEffect, useRef, useState
 } from 'react';
 import type { ReactNode } from 'react';
-import { Client } from '@stomp/stompjs';
+import { Client, type StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuth } from './AuthContext';
 import { getConversations } from '../api/chat';
@@ -31,7 +31,6 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [unreadTotal, setUnreadTotal] = useState(0);
   const [notificationUnread, setNotificationUnread] = useState(0);
-  const clientRef = useRef<Client | null>(null);
   const activeConversationRef = useRef<string | null>(null);
   const listenersRef = useRef(new Set<(message: MessageVO) => void>());
 
@@ -61,15 +60,20 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('token');
+    const userId = user?.id;
+    if (!userId) return;
+    let disposed = false;
+    const subscriptions: StompSubscription[] = [];
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_ENDPOINT),
-      connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
       reconnectDelay: 5000,
       onConnect: () => {
+        if (disposed) {
+          void client.deactivate();
+          return;
+        }
         setConnected(true);
-        client.subscribe('/user/queue/messages', (frame) => {
+        subscriptions.push(client.subscribe('/user/queue/messages', (frame) => {
           try {
             const message: MessageVO = JSON.parse(frame.body);
             listenersRef.current.forEach(listener => listener(message));
@@ -80,28 +84,26 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
           } catch {
             // 忽略异常帧
           }
-        });
+        }));
         // 通知实时推送：收到即红点 +1
-        client.subscribe('/user/queue/notifications', () => {
+        subscriptions.push(client.subscribe('/user/queue/notifications', () => {
           setNotificationUnread(prev => prev + 1);
-        });
+        }));
         refreshUnread();
         refreshNotificationUnread();
       },
       onStompError: () => setConnected(false),
       onWebSocketClose: () => setConnected(false),
     });
-    clientRef.current = client;
     client.activate();
     return () => {
-      client.deactivate();
-      clientRef.current = null;
+      disposed = true;
+      subscriptions.forEach(subscription => subscription.unsubscribe());
+      void client.deactivate();
       setConnected(false);
       setUnreadTotal(0);
       setNotificationUnread(0);
     };
-    // 依赖 user?.id：资料更新（user 引用变化）时不重建连接
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, refreshUnread, refreshNotificationUnread]);
 
   return (

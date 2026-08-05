@@ -16,6 +16,7 @@ import { useChatSocket } from '../store/ChatSocketContext';
 import { getNotifications, markRead, markAllRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
+import { getApiErrorMessage } from '../api/errors';
 
 const typeIcons: Record<string, React.ReactElement> = {
   CLAIM: <ClaimIcon fontSize="small" />,
@@ -64,8 +65,8 @@ export default function Notifications() {
       setNotifications(data.records || []);
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
-    } catch {
-      setError('加载通知失败');
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '加载通知失败'));
     } finally {
       setLoading(false);
     }
@@ -78,15 +79,15 @@ export default function Notifications() {
   const handleClick = async (item: NotificationVO) => {
     setSelected(item);
     setDialogOpen(true);
-    if (item.isRead === 0) {
+    if (!item.isRead) {
       try {
         await markRead(item.id);
         setNotifications(prev =>
-          prev.map(n => (n.id === item.id ? { ...n, isRead: 1 } : n))
+          prev.map(n => (n.id === item.id ? { ...n, isRead: true } : n))
         );
         refreshNotificationUnread();
-      } catch {
-        // ignore
+      } catch (errorValue) {
+        setError(getApiErrorMessage(errorValue, '标记通知已读失败'));
       }
     }
   };
@@ -94,10 +95,10 @@ export default function Notifications() {
   const handleMarkAllRead = async () => {
     try {
       await markAllRead();
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: 1 })));
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       refreshNotificationUnread();
-    } catch {
-      // ignore
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '标记通知已读失败'));
     }
   };
 
@@ -113,12 +114,12 @@ export default function Notifications() {
       await processClaim(selected.relatedId, 'APPROVED');
       await markRead(selected.id);
       const id = selected.id;
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: 1 } : n));
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
       handleCloseDialog();
       fetchNotifications();
       refreshNotificationUnread();
-    } catch {
-      // ignore
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '处理认领申请失败'));
     } finally {
       setProcessing(false);
     }
@@ -128,7 +129,7 @@ export default function Notifications() {
     setPage(value);
   };
 
-  const hasUnread = notifications.some(n => n.isRead === 0);
+  const hasUnread = notifications.some(n => !n.isRead);
 
   if (!user) {
     return (
@@ -170,7 +171,7 @@ export default function Notifications() {
                 sx={{
                   borderBottom: '1px solid',
                   borderColor: 'divider',
-                  bgcolor: item.isRead === 0 ? 'action.hover' : 'transparent',
+                  bgcolor: !item.isRead ? 'action.hover' : 'transparent',
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 40 }}>
@@ -186,9 +187,9 @@ export default function Notifications() {
                   primary={
                     <Typography
                       variant="body1"
-                      sx={{ fontWeight: item.isRead === 0 ? 'bold' : 'normal' }}
+                    sx={{ fontWeight: !item.isRead ? 'bold' : 'normal' }}
                     >
-                      {item.isRead === 0 && (
+                      {!item.isRead && (
                         <Badge
                           variant="dot"
                           color="error"

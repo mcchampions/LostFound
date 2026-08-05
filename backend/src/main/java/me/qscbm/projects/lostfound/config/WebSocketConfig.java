@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.config;
 
 import me.qscbm.projects.lostfound.security.WebSocketAuthChannelInterceptor;
+import me.qscbm.projects.lostfound.security.JwtHandshakeInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -39,7 +40,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(Arrays.stream(allowedOrigins.split(","))
+                .addInterceptors(new JwtHandshakeInterceptor())
+                .setAllowedOrigins(Arrays.stream(allowedOrigins.split(","))
                         .map(String::trim)
                         .filter(origin -> !origin.isEmpty())
                         .toArray(String[]::new))

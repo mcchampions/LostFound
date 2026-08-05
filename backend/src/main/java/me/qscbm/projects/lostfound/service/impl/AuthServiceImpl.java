@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
+import me.qscbm.projects.lostfound.common.UserVOMapper;
 import me.qscbm.projects.lostfound.dto.*;
 import me.qscbm.projects.lostfound.entity.PasswordResetCode;
 import me.qscbm.projects.lostfound.entity.User;
@@ -95,7 +96,7 @@ public class AuthServiceImpl implements AuthService {
         log.info("用户注册: userId={} username={} role={}", user.getId(), user.getUsername(), user.getRole());
         operationLogRecorder.log(user.getId(), "REGISTER", "USER", user.getId(),
                 "注册账号（角色：" + user.getRole() + "）");
-        return toVO(user);
+        return UserVOMapper.toVO(user);
     }
 
     @Override
@@ -120,7 +121,7 @@ public class AuthServiceImpl implements AuthService {
         loginAttemptService.reset(req.getUsername());
         log.info("用户登录: userId={} username={}", user.getId(), user.getUsername());
         operationLogRecorder.log(user.getId(), "LOGIN", "USER", user.getId(), "用户登录");
-        return new LoginResponse(token, toVO(user));
+        return new LoginResponse(token, UserVOMapper.toVO(user));
     }
 
     @Override
@@ -145,7 +146,7 @@ public class AuthServiceImpl implements AuthService {
         loginAttemptService.reset(req.getUsername());
         log.info("管理员登录: userId={} username={}", user.getId(), user.getUsername());
         operationLogRecorder.log(user.getId(), "ADMIN_LOGIN", "USER", user.getId(), "管理员登录");
-        return new LoginResponse(token, toVO(user));
+        return new LoginResponse(token, UserVOMapper.toVO(user));
     }
 
     @Override
@@ -161,7 +162,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("账号已被禁用");
         }
         String token = jwtUtils.generate(user.getId(), user.getUsername(), user.getRole());
-        return new LoginResponse(token, toVO(user));
+        return new LoginResponse(token, UserVOMapper.toVO(user));
     }
 
     @Override
@@ -297,12 +298,4 @@ public class AuthServiceImpl implements AuthService {
         return null;
     }
 
-    private UserVO toVO(User user) {
-        return UserVO.builder()
-                .id(user.getId()).username(user.getUsername())
-                .realName(user.getRealName()).role(user.getRole())
-                .email(user.getEmail()).phone(user.getPhone())
-                .avatar(user.getAvatar())
-                .status(user.getStatus()).build();
-    }
 }

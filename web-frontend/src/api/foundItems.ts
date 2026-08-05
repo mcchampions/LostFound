@@ -1,5 +1,5 @@
 import client from './client';
-import type { CreateFoundItemDTO, UpdateFoundItemDTO, FoundItemPageParams, PageResult } from '../types';
+import type { ApiResponse, CreateFoundItemDTO, UpdateFoundItemDTO, FoundItemPageParams, PageResult } from '../types';
 
 export interface FoundItemVO {
   id: number;
@@ -23,16 +23,16 @@ export interface FoundItemVO {
 }
 
 export const getFoundItems = (params: FoundItemPageParams) =>
-  client.get<PageResult<FoundItemVO>>('/found-items', { params }).then(r => r.data.data);
+  client.get<ApiResponse<PageResult<FoundItemVO>>>('/found-items', { params }).then(r => r.data.data);
 
 export const getFoundItem = (id: number) =>
-  client.get<FoundItemVO>(`/found-items/${id}`).then(r => r.data.data);
+  client.get<ApiResponse<FoundItemVO>>(`/found-items/${id}`).then(r => r.data.data);
 
 export const createFoundItem = (data: CreateFoundItemDTO) =>
-  client.post<FoundItemVO>('/found-items', data).then(r => r.data.data);
+  client.post<ApiResponse<FoundItemVO>>('/found-items', data).then(r => r.data.data);
 
 export const updateFoundItem = (id: number, data: UpdateFoundItemDTO) =>
-  client.put<FoundItemVO>(`/found-items/${id}`, data).then(r => r.data.data);
+  client.put<ApiResponse<FoundItemVO>>(`/found-items/${id}`, data).then(r => r.data.data);
 
 export const deleteFoundItem = (id: number) =>
   client.delete(`/found-items/${id}`).then(r => r.data.data);

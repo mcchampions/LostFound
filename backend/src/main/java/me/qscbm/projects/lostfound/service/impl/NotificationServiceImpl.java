@@ -34,7 +34,7 @@ public class NotificationServiceImpl implements NotificationService {
         if (!notification.getUserId().equals(userId)) {
             throw new BusinessException("无权操作他人的通知");
         }
-        notification.setIsRead(1);
+        notification.setIsRead(true);
         notificationMapper.updateById(notification);
     }
 
@@ -42,8 +42,8 @@ public class NotificationServiceImpl implements NotificationService {
     public void markAllRead(Long userId) {
         LambdaUpdateWrapper<Notification> uw = new LambdaUpdateWrapper<>();
         uw.eq(Notification::getUserId, userId)
-          .eq(Notification::getIsRead, 0)
-          .set(Notification::getIsRead, 1);
+          .eq(Notification::getIsRead, false)
+          .set(Notification::getIsRead, true);
         notificationMapper.update(uw);
     }
 
@@ -51,7 +51,7 @@ public class NotificationServiceImpl implements NotificationService {
     public long getUnreadCount(Long userId) {
         LambdaQueryWrapper<Notification> qw = new LambdaQueryWrapper<>();
         qw.eq(Notification::getUserId, userId)
-          .eq(Notification::getIsRead, 0);
+          .eq(Notification::getIsRead, false);
         return notificationMapper.selectCount(qw);
     }
 }

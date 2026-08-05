@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.entity.UserEmailPreference;
+import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,8 +43,8 @@ public class AsyncMailSender {
     public void sendAnnouncement(String title, String content) {
         List<User> users = userMapper.selectList(
                 new LambdaQueryWrapper<User>()
-                        .eq(User::getStatus, "ACTIVE")
-                        .eq(User::getEmailVerified, 1)
+                        .eq(User::getStatus, UserStatus.ACTIVE.getValue())
+                        .eq(User::getEmailVerified, true)
                         .isNotNull(User::getEmail));
         for (User user : users) {
             if (canReceiveEmail(user, "announcement")) {
@@ -67,9 +68,8 @@ public class AsyncMailSender {
      */
     boolean canReceiveEmail(User user, String preferenceKey) {
         if (user == null
-                || !"ACTIVE".equals(user.getStatus())
-                || user.getEmailVerified() == null
-                || user.getEmailVerified() != 1
+                || !UserStatus.ACTIVE.getValue().equals(user.getStatus())
+                || !Boolean.TRUE.equals(user.getEmailVerified())
                 || user.getEmail() == null
                 || user.getEmail().isBlank()) {
             return false;
@@ -81,16 +81,16 @@ public class AsyncMailSender {
         UserEmailPreference pref = emailPreferenceMapper.selectById(user.getId());
         if (pref == null) {
             // No preference record: fall back to legacy notify_email flag
-            return user.getNotifyEmail() != null && user.getNotifyEmail() == 1;
+            return Boolean.TRUE.equals(user.getNotifyEmail());
         }
-        Integer enabled = switch (preferenceKey) {
+        Boolean enabled = switch (preferenceKey) {
             case "claim_request" -> pref.getClaimRequest();
             case "claim_result" -> pref.getClaimResult();
             case "announcement" -> pref.getAnnouncement();
             case "message" -> pref.getMessage();
             default -> user.getNotifyEmail();
         };
-        return enabled != null && enabled == 1;
+        return Boolean.TRUE.equals(enabled);
     }
 
     private void send(String recipient, String subject, String content,

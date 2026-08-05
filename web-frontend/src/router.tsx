@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import { Box, CircularProgress } from '@mui/material';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import LoadingSkeleton from './components/LoadingSkeleton';
 
 const Home = lazy(() => import('./pages/Home'));
 const Login = lazy(() => import('./pages/Login'));
@@ -28,11 +28,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 
 const page = (node: React.ReactNode) => (
   <Suspense
-    fallback={(
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
-      </Box>
-    )}
+    fallback={<LoadingSkeleton />}
   >
     {node}
   </Suspense>

@@ -116,7 +116,7 @@ class ClaimServiceImplTest {
                 notification.getUserId().equals(2L)
                         && notification.getTitle().contains("已通过")
                         && notification.getContent().contains("认领申请")
-                        && notification.getIsRead() == 0));
+                        && Boolean.FALSE.equals(notification.getIsRead())));
         verify(mailNotificationService).notifyUserAfterCommit(
                 eq(2L),
                 contains("已通过"),

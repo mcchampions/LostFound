@@ -2,6 +2,7 @@ package me.qscbm.projects.lostfound.security;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -29,14 +30,14 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (user == null) {
             throw new UsernameNotFoundException("用户不存在");
         }
-        if ("INACTIVE".equals(user.getStatus())) {
+        if (UserStatus.INACTIVE.getValue().equals(user.getStatus())) {
             throw new org.springframework.security.authentication.DisabledException("账号已被禁用");
         }
 
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPassword(),
-                "ACTIVE".equals(user.getStatus()),
+                UserStatus.ACTIVE.getValue().equals(user.getStatus()),
                 true, true, true,
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
         );

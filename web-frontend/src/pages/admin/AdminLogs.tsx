@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '../../store/AuthContext';
 import { getLogs } from '../../api/admin';
+import { getApiErrorMessage } from '../../api/errors';
 
 interface LogVO {
   id: number;
@@ -46,8 +47,8 @@ export default function AdminLogs() {
       setLogs(data.records || []);
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
-    } catch {
-      setError('加载操作日志失败');
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, '加载操作日志失败'));
     } finally {
       setLoading(false);
     }

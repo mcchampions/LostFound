@@ -8,7 +8,7 @@ export interface NotificationVO {
   type: string;
   relatedId?: number;
   relatedType?: string;
-  isRead: number;
+  isRead: boolean;
   createdAt: string;
 }
 

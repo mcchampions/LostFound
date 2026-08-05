@@ -7,7 +7,7 @@ export interface MessageVO {
   senderName: string;
   receiverId: number;
   content: string;
-  isRead: number;
+  isRead: boolean;
   createdAt: string;
 }
 

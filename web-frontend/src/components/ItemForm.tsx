@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Typography, Paper, TextField, Button, Select, MenuItem,
@@ -14,7 +14,7 @@ import TextCoverDialog from './TextCoverDialog';
 import DateTimeRangePicker, { formatLocalDateTime } from './DateTimeRangePicker';
 import { uploadImage } from '../api/upload';
 import { assetUrl } from '../config';
-import type { ApiError } from '../types';
+import { getApiErrorMessage } from '../api/errors';
 
 export interface ItemFormValues {
   title: string;
@@ -75,8 +75,22 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
   );
   const timeInvalid = timeRangeInvalid || timeInFuture;
 
+  const populateForm = useCallback((item: TItem) => {
+    const values = config.toFormValues(item);
+    setTitle(values.title);
+    setCategoryId(values.categoryId);
+    setDescription(values.description);
+    setLocationVal(values.location);
+    setTimeStart(values.timeStart);
+    setTimeEnd(values.timeEnd);
+    setImageUrls(values.imageUrls);
+    setCoverImage(values.coverImage);
+  }, [config]);
+
   useEffect(() => {
-    getCategories().then(setCategories).catch(() => {});
+    getCategories()
+      .then(setCategories)
+      .catch(errorValue => setError(getApiErrorMessage(errorValue, '加载分类失败')));
 
     if (isEdit && existingItem) {
       populateForm(existingItem);
@@ -87,24 +101,12 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
           populateForm(data);
           setFetching(false);
         })
-        .catch(() => {
-          setError(`加载${config.type === 'lost' ? '失物' : '招领'}信息失败`);
+        .catch(errorValue => {
+          setError(getApiErrorMessage(errorValue, `加载${config.type === 'lost' ? '失物' : '招领'}信息失败`));
           setFetching(false);
         });
     }
-  }, [config, existingItem, id, isEdit]);
-
-  const populateForm = (item: TItem) => {
-    const values = config.toFormValues(item);
-    setTitle(values.title);
-    setCategoryId(values.categoryId);
-    setDescription(values.description);
-    setLocationVal(values.location);
-    setTimeStart(values.timeStart);
-    setTimeEnd(values.timeEnd);
-    setImageUrls(values.imageUrls);
-    setCoverImage(values.coverImage);
-  };
+  }, [config, existingItem, id, isEdit, populateForm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,8 +161,7 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
       }
       navigate(config.listPath);
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || `${isEdit ? '更新' : '发布'}失败`);
+      setError(getApiErrorMessage(err, `${isEdit ? '更新' : '发布'}失败`));
     } finally {
       setLoading(false);
     }

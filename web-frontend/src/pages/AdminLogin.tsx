@@ -10,7 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
 import { adminLogin as adminLoginApi } from '../api/auth';
-import type { ApiError } from '../types';
+import { getApiErrorMessage } from '../api/errors';
 
 export default function AdminLogin() {
   const { user, isAdmin, login } = useAuth();
@@ -34,11 +34,10 @@ export default function AdminLogin() {
     setLoading(true);
     try {
       const data = await adminLoginApi(username, password);
-      login(data.token, data.user);
+      login(data.user);
       navigate('/admin/users', { replace: true });
     } catch (err: unknown) {
-      const apiErr = err as ApiError;
-      setError(apiErr.response?.data?.message || '登录失败，请检查账号权限');
+      setError(getApiErrorMessage(err, '登录失败，请检查账号权限'));
     } finally {
       setLoading(false);
     }

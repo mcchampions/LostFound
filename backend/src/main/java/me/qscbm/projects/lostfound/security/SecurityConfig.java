@@ -24,12 +24,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final CsrfOriginFilter csrfOriginFilter;
 
     @Value("${app.cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, CsrfOriginFilter csrfOriginFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.csrfOriginFilter = csrfOriginFilter;
     }
 
     @Bean
@@ -53,6 +55,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/upload/image").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/announcements").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/lost-items", "/api/v1/lost-items/*").permitAll()
@@ -62,6 +65,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(csrfOriginFilter, JwtAuthFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -70,7 +74,15 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList();
+        if (origins.isEmpty() || origins.stream().anyMatch(origin -> origin.contains("*"))) {
+            throw new IllegalStateException(
+                    "app.cors.allowed-origins 必须配置明确的来源，不能与 AllowCredentials=true 一起使用通配符");
+        }
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         configuration.setAllowCredentials(true);

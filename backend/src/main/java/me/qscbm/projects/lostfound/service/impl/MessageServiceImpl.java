@@ -12,6 +12,7 @@ import me.qscbm.projects.lostfound.dto.MessageRequest;
 import me.qscbm.projects.lostfound.dto.MessageVO;
 import me.qscbm.projects.lostfound.entity.Message;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
@@ -45,7 +46,7 @@ public class MessageServiceImpl implements MessageService {
     @Override
     public MessageVO send(Long senderId, MessageRequest req) {
         User receiver = userMapper.selectById(req.getReceiverId());
-        if (receiver == null || !"ACTIVE".equals(receiver.getStatus())) {
+        if (receiver == null || !UserStatus.ACTIVE.getValue().equals(receiver.getStatus())) {
             throw new BusinessException("接收用户不存在或不可用");
         }
         if (senderId.equals(req.getReceiverId())) {
@@ -60,7 +61,7 @@ public class MessageServiceImpl implements MessageService {
         msg.setSenderId(senderId);
         msg.setReceiverId(req.getReceiverId());
         msg.setContent(req.getContent().trim());
-        msg.setIsRead(0);
+        msg.setIsRead(false);
         messageMapper.insert(msg);
 
         MessageVO vo = toVO(msg);
@@ -161,7 +162,7 @@ public class MessageServiceImpl implements MessageService {
         if (!msg.getReceiverId().equals(userId)) {
             throw new BusinessException("无权操作该消息");
         }
-        msg.setIsRead(1);
+        msg.setIsRead(true);
         messageMapper.updateById(msg);
     }
 
@@ -173,15 +174,15 @@ public class MessageServiceImpl implements MessageService {
         LambdaUpdateWrapper<Message> uw = new LambdaUpdateWrapper<>();
         uw.eq(Message::getConversationId, conversationId)
                 .eq(Message::getReceiverId, userId)
-                .eq(Message::getIsRead, 0)
-                .set(Message::getIsRead, 1);
+                .eq(Message::getIsRead, false)
+                .set(Message::getIsRead, true);
         messageMapper.update(null, uw);
 
         // Clear message notification state when all messages are read
         Long remainingUnread = messageMapper.selectCount(
                 new LambdaQueryWrapper<Message>()
                         .eq(Message::getReceiverId, userId)
-                        .eq(Message::getIsRead, 0));
+                .eq(Message::getIsRead, false));
         if (remainingUnread == null || remainingUnread == 0) {
             UserEmailPreference pref = emailPreferenceMapper.selectById(userId);
             if (pref != null && pref.getLastMessageNotifiedAt() != null) {
@@ -199,7 +200,7 @@ public class MessageServiceImpl implements MessageService {
         msg.setSenderId(senderId);
         msg.setReceiverId(receiverId);
         msg.setContent(content);
-        msg.setIsRead(0);
+        msg.setIsRead(false);
         messageMapper.insert(msg);
         messagingTemplate.convertAndSendToUser(
                 receiverId.toString(), "/queue/messages", toVO(msg));
@@ -211,7 +212,7 @@ public class MessageServiceImpl implements MessageService {
             throw new BusinessException("不能与自己创建对话");
         }
         User target = userMapper.selectById(userId2);
-        if (target == null || !"ACTIVE".equals(target.getStatus())) {
+        if (target == null || !UserStatus.ACTIVE.getValue().equals(target.getStatus())) {
             throw new BusinessException("目标用户不存在或不可用");
         }
         long a = Math.min(userId1, userId2);

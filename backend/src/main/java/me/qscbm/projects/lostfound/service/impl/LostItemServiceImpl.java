@@ -11,25 +11,17 @@ import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.dto.LostItemRequest;
 import me.qscbm.projects.lostfound.dto.LostItemVO;
-import me.qscbm.projects.lostfound.entity.Category;
 import me.qscbm.projects.lostfound.entity.ClaimApplication;
 import me.qscbm.projects.lostfound.entity.LostItem;
-import me.qscbm.projects.lostfound.entity.User;
-import me.qscbm.projects.lostfound.mapper.CategoryMapper;
+import me.qscbm.projects.lostfound.entity.enums.LostItemStatus;
 import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
-import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.LostItemService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,10 +29,9 @@ import java.util.stream.Collectors;
 public class LostItemServiceImpl implements LostItemService {
 
     private final LostItemMapper lostItemMapper;
-    private final UserMapper userMapper;
-    private final CategoryMapper categoryMapper;
     private final ClaimApplicationMapper claimApplicationMapper;
     private final ObjectMapper objectMapper;
+    private final ItemVOMapper itemVOMapper;
     private final OperationLogRecorder operationLogRecorder;
     private final ImageStorageService imageStorageService;
 
@@ -54,7 +45,8 @@ public class LostItemServiceImpl implements LostItemService {
             qw.eq(LostItem::getCategoryId, categoryId);
         }
         if (status != null && !status.isEmpty()) {
-            if (!"LOST".equals(status) && !"FOUND".equals(status)) {
+            if (!LostItemStatus.LOST.getValue().equals(status)
+                    && !LostItemStatus.FOUND.getValue().equals(status)) {
                 throw new BusinessException("无效的失物状态参数，仅支持 LOST 或 FOUND");
             }
             qw.eq(LostItem::getStatus, status);
@@ -62,7 +54,7 @@ public class LostItemServiceImpl implements LostItemService {
         qw.orderByDesc(LostItem::getCreatedAt);
         IPage<LostItem> p = lostItemMapper.selectPage(new Page<>(page, size), qw);
         Page<LostItemVO> result = new Page<>(p.getCurrent(), p.getSize(), p.getTotal());
-        result.setRecords(toVOs(p.getRecords()));
+        result.setRecords(itemVOMapper.lostList(p.getRecords()));
         return result;
     }
 
@@ -72,7 +64,7 @@ public class LostItemServiceImpl implements LostItemService {
         if (item == null) {
             throw new BusinessException("寻物启事不存在");
         }
-        return toVO(item);
+        return itemVOMapper.lost(item);
     }
 
     @Override
@@ -87,13 +79,13 @@ public class LostItemServiceImpl implements LostItemService {
         item.setLostTimeEnd(req.getLostTimeEnd());
         item.setImageUrls(serializeImageUrls(req.getImageUrls()));
         item.setCoverImage(req.getCoverImage());
-        item.setStatus("LOST");
+        item.setStatus(LostItemStatus.LOST.getValue());
         validateTimeRange(item.getLostTime(), item.getLostTimeEnd());
         lostItemMapper.insert(item);
         log.info("失物发布: userId={} 发布失物 id={} 标题={}", userId, item.getId(), item.getTitle());
         operationLogRecorder.log(userId, "LOST_ITEM_CREATE", "LOST_ITEM", item.getId(),
                 "发布失物：" + item.getTitle());
-        return toVO(item);
+        return itemVOMapper.lost(item);
     }
 
     @Override
@@ -143,7 +135,7 @@ public class LostItemServiceImpl implements LostItemService {
         imageStorageService.deleteFiles(removed);
         operationLogRecorder.log(userId, "LOST_ITEM_UPDATE", "LOST_ITEM", id,
                 "更新失物：" + item.getTitle());
-        return toVO(item);
+        return itemVOMapper.lost(item);
     }
 
     private void validateTimeRange(LocalDateTime start, LocalDateTime end) {
@@ -193,21 +185,22 @@ public class LostItemServiceImpl implements LostItemService {
         if (item == null) throw new BusinessException("寻物启事不存在");
         if (!item.getUserId().equals(userId)) throw new BusinessException("无权修改他人的寻物启事状态");
         String normalized = status.toUpperCase();
-        if (!"LOST".equals(normalized) && !"FOUND".equals(normalized)) {
+        if (!LostItemStatus.LOST.getValue().equals(normalized)
+                && !LostItemStatus.FOUND.getValue().equals(normalized)) {
             throw new BusinessException("寻物启事状态仅支持 LOST 或 FOUND");
         }
         String normalizedResolvedType = resolvedType == null ? null : resolvedType.toUpperCase();
         if (resolvedNote != null && resolvedNote.length() > 1000) {
             throw new BusinessException("补充说明不能超过1000个字符");
         }
-        item.setResolvedType("FOUND".equals(normalized) ? normalizedResolvedType : null);
-        item.setResolvedBy("FOUND".equals(normalized) ? resolvedBy : null);
-        item.setResolvedNote("FOUND".equals(normalized) && resolvedNote != null && !resolvedNote.isBlank()
+        item.setResolvedType(LostItemStatus.FOUND.getValue().equals(normalized) ? normalizedResolvedType : null);
+        item.setResolvedBy(LostItemStatus.FOUND.getValue().equals(normalized) ? resolvedBy : null);
+        item.setResolvedNote(LostItemStatus.FOUND.getValue().equals(normalized) && resolvedNote != null && !resolvedNote.isBlank()
                 ? resolvedNote.trim() : null);
         validateResolution(normalized, item.getResolvedType(), item.getResolvedBy());
         item.setStatus(normalized);
         lostItemMapper.updateById(item);
-        if ("FOUND".equals(normalized)) {
+        if (LostItemStatus.FOUND.getValue().equals(normalized)) {
             List<String> urls = new java.util.ArrayList<>(deserializeImageUrls(item.getImageUrls()));
             if (item.getCoverImage() != null) {
                 urls.add(item.getCoverImage());
@@ -216,74 +209,8 @@ public class LostItemServiceImpl implements LostItemService {
         }
     }
 
-    private LostItemVO toVO(LostItem item) {
-        Map<Long, User> users = new HashMap<>();
-        if (item.getUserId() != null) {
-            User user = userMapper.selectById(item.getUserId());
-            if (user != null) users.put(user.getId(), user);
-        }
-        if (item.getResolvedBy() != null && !Objects.equals(item.getResolvedBy(), item.getUserId())) {
-            User resolver = userMapper.selectById(item.getResolvedBy());
-            if (resolver != null) users.put(resolver.getId(), resolver);
-        }
-        Map<Long, Category> categories = new HashMap<>();
-        if (item.getCategoryId() != null) {
-            Category category = categoryMapper.selectById(item.getCategoryId());
-            if (category != null) categories.put(category.getId(), category);
-        }
-        return toVO(item, users, categories);
-    }
-
-    private List<LostItemVO> toVOs(List<LostItem> items) {
-        Set<Long> userIds = items.stream()
-                .flatMap(item -> java.util.stream.Stream.of(item.getUserId(), item.getResolvedBy()))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Set<Long> categoryIds = items.stream()
-                .map(LostItem::getCategoryId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<Long, User> users = userIds.isEmpty() ? Collections.emptyMap()
-                : userMapper.selectBatchIds(userIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
-        Map<Long, Category> categories = categoryIds.isEmpty() ? Collections.emptyMap()
-                : categoryMapper.selectBatchIds(categoryIds).stream()
-                .collect(Collectors.toMap(Category::getId, category -> category));
-        return items.stream().map(item -> toVO(item, users, categories)).toList();
-    }
-
-    private LostItemVO toVO(LostItem item, Map<Long, User> users, Map<Long, Category> categories) {
-        User publisher = users.get(item.getUserId());
-        User resolver = users.get(item.getResolvedBy());
-        Category category = categories.get(item.getCategoryId());
-        return LostItemVO.builder()
-                .id(item.getId())
-                .userId(item.getUserId())
-                .userName(displayName(publisher))
-                .title(item.getTitle())
-                .description(item.getDescription())
-                .categoryId(item.getCategoryId())
-                .categoryName(category != null ? category.getName() : null)
-                .location(item.getLocation())
-                .lostTime(item.getLostTime())
-                .lostTimeEnd(item.getLostTimeEnd())
-                .imageUrls(deserializeImageUrls(item.getImageUrls()))
-                .coverImage(item.getCoverImage())
-                .status(item.getStatus())
-                .resolvedBy(item.getResolvedBy())
-                .resolvedByName(displayName(resolver))
-                .resolvedType(item.getResolvedType())
-                .resolvedNote(item.getResolvedNote())
-                .createdAt(item.getCreatedAt())
-                .build();
-    }
-
-    private String displayName(User user) {
-        return user == null ? null : user.getRealName() != null ? user.getRealName() : user.getUsername();
-    }
-
     private void validateResolution(String status, String resolvedType, Long resolvedBy) {
-        if (!"FOUND".equals(status)) return;
+        if (!LostItemStatus.FOUND.getValue().equals(status)) return;
         if (resolvedType == null || (!"SELF".equals(resolvedType)
                 && !"USER".equals(resolvedType) && !"OTHER".equals(resolvedType))) {
             throw new BusinessException("解决方式仅支持 SELF、USER 或 OTHER");

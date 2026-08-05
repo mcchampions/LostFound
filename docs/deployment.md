@@ -55,7 +55,8 @@ Linux/macOS：
 | `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD` | 数据库连接 |
 | `MAIL_HOST`、`MAIL_PORT`、`MAIL_USERNAME`、`MAIL_PASSWORD` | SMTP 发信 |
 | `JWT_SECRET` | JWT 签名密钥（强随机字符串） |
-| `SITE_BASE_URL`、`APP_CORS_ALLOWED_ORIGINS` | 前端对外访问地址，如 `http://192.168.1.20` |
+| `SITE_BASE_URL`、`APP_CORS_ALLOWED_ORIGINS` | 前端对外访问地址，如 `http://192.168.1.20`；CORS 必须填写明确来源，禁止 `*` |
+| `AUTH_COOKIE_SECURE`、`AUTH_COOKIE_SAME_SITE` | HTTPS 跨站部署使用 `true`、`None`；同站部署保持 `false`、`Lax` |
 | `FORWARDED_TRUSTED_PROXIES` | 前端机 IP（使用反向代理时填写，见第 5 节） |
 
 其余配置项可保持默认值。完整配置清单见 `backend/CONFIG.md`。

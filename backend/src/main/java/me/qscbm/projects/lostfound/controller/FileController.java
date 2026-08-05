@@ -19,8 +19,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -47,10 +45,10 @@ public class FileController {
 
     @GetMapping("/uploads/**")
     public ResponseEntity<Resource> serve(HttpServletRequest request) {
-        String relative = request.getRequestURI().substring("/uploads/".length());
-        relative = URLDecoder.decode(relative, StandardCharsets.UTF_8);
-        Path file = uploadRoot.resolve(relative).normalize();
-        if (file.startsWith(uploadRoot) && Files.isRegularFile(file)) {
+        String requestUri = request.getRequestURI();
+        String relative = requestUri.substring("/uploads/".length());
+        Path file = resolveSafe(relative);
+        if (file != null && Files.isRegularFile(file)) {
             return ResponseEntity.ok()
                     .contentType(guessMediaType(file))
                     .header(HttpHeaders.CACHE_CONTROL, "max-age=86400")
@@ -60,6 +58,24 @@ public class FileController {
                 .contentType(MediaType.IMAGE_PNG)
                 .header(HttpHeaders.CACHE_CONTROL, "no-cache")
                 .body(new ByteArrayResource(getPlaceholder()));
+    }
+
+    private Path resolveSafe(String relative) {
+        if (relative == null || relative.isBlank()
+                || relative.indexOf('%') >= 0
+                || relative.indexOf('\\') >= 0
+                || relative.indexOf('\0') >= 0) {
+            return null;
+        }
+        String[] segments = relative.split("/", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)
+                    || !segment.matches("[A-Za-z0-9._-]+")) {
+                return null;
+            }
+        }
+        Path file = uploadRoot.resolve(relative).normalize();
+        return file.startsWith(uploadRoot) ? file : null;
     }
 
     private MediaType guessMediaType(Path file) {

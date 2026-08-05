@@ -2,6 +2,7 @@ package me.qscbm.projects.lostfound.security;
 
 import io.jsonwebtoken.Claims;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
 import me.qscbm.projects.lostfound.service.impl.OfflineMessageEmailTracker;
@@ -46,6 +47,10 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             String token = extractBearerToken(accessor.getFirstNativeHeader("Authorization"));
+            if (!StringUtils.hasText(token) && accessor.getSessionAttributes() != null) {
+                token = (String) accessor.getSessionAttributes()
+                        .get(JwtHandshakeInterceptor.AUTH_TOKEN_ATTRIBUTE);
+            }
             if (!StringUtils.hasText(token)) {
                 throw new AccessDeniedException("WebSocket 未认证");
             }
@@ -54,7 +59,7 @@ public class WebSocketAuthChannelInterceptor implements ChannelInterceptor {
                 Claims claims = jwtUtils.parse(token);
                 Long userId = jwtUtils.getUserId(claims);
                 User user = userMapper.selectById(userId);
-                if (user == null || !"ACTIVE".equals(user.getStatus())) {
+                if (user == null || !UserStatus.ACTIVE.getValue().equals(user.getStatus())) {
                     throw new AccessDeniedException("WebSocket 用户不可用");
                 }
                 // 改密后旧 token 立即失效

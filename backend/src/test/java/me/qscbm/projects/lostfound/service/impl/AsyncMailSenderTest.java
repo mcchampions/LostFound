@@ -63,7 +63,7 @@ class AsyncMailSenderTest {
         User user = eligibleUser();
         when(userMapper.selectById(1L)).thenReturn(user);
         UserEmailPreference pref = prefWithAllEnabled();
-        pref.setClaimRequest(0);
+        pref.setClaimRequest(false);
         when(emailPreferenceMapper.selectById(1L)).thenReturn(pref);
 
         asyncMailSender.sendUserNotification(1L, "Subject", "Content", "claim_request");
@@ -102,7 +102,7 @@ class AsyncMailSenderTest {
         User user = eligibleUser();
         when(userMapper.selectById(1L)).thenReturn(user);
         UserEmailPreference pref = prefWithAllEnabled();
-        pref.setSystemMessage(0); // even if system is 0, it should still send
+        pref.setSystemMessage(false); // even if system is 0, it should still send
         when(emailPreferenceMapper.selectById(1L)).thenReturn(pref);
 
         asyncMailSender.sendUserNotification(1L, "Subject", "Content", "system_message");
@@ -143,19 +143,19 @@ class AsyncMailSenderTest {
         user.setId(1L);
         user.setEmail("user@example.com");
         user.setStatus("ACTIVE");
-        user.setEmailVerified(1);
-        user.setNotifyEmail(1);
+        user.setEmailVerified(true);
+        user.setNotifyEmail(true);
         return user;
     }
 
     private UserEmailPreference prefWithAllEnabled() {
         UserEmailPreference pref = new UserEmailPreference();
         pref.setUserId(1L);
-        pref.setClaimRequest(1);
-        pref.setClaimResult(1);
-        pref.setAnnouncement(1);
-        pref.setMessage(1);
-        pref.setSystemMessage(1);
+        pref.setClaimRequest(true);
+        pref.setClaimResult(true);
+        pref.setAnnouncement(true);
+        pref.setMessage(true);
+        pref.setSystemMessage(true);
         return pref;
     }
 }

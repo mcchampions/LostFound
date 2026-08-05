@@ -16,6 +16,8 @@ import me.qscbm.projects.lostfound.entity.FoundItem;
 import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.Notification;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.ClaimStatus;
+import me.qscbm.projects.lostfound.entity.enums.FoundItemStatus;
 import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
 import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
@@ -64,7 +66,7 @@ public class ClaimServiceImpl implements ClaimService {
                         .eq(ClaimApplication::getApplicantId, applicantId)
                         .eq(ClaimApplication::getItemType, req.getItemType().toUpperCase())
                         .eq(ClaimApplication::getItemId, req.getItemId())
-                        .eq(ClaimApplication::getStatus, "PENDING"));
+                        .eq(ClaimApplication::getStatus, ClaimStatus.PENDING.getValue()));
         if (count != null && count > 0) {
             throw new BusinessException("你已经对该物品提交过认领申请，请等待处理");
         }
@@ -87,7 +89,7 @@ public class ClaimServiceImpl implements ClaimService {
             if (item == null) {
                 throw new BusinessException("失物招领不存在");
             }
-            if (!"UNCLAIMED".equals(item.getStatus())) {
+            if (!FoundItemStatus.UNCLAIMED.getValue().equals(item.getStatus())) {
                 throw new BusinessException("该物品已被认领，无法重复申请");
             }
             publisherId = item.getUserId();
@@ -107,7 +109,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setPublisherId(publisherId);
         claim.setMessage(req.getMessage());
         claim.setImageUrls(req.getImageUrls());
-        claim.setStatus("PENDING");
+        claim.setStatus(ClaimStatus.PENDING.getValue());
         try {
             claimApplicationMapper.insert(claim);
         } catch (DuplicateKeyException e) {
@@ -121,7 +123,7 @@ public class ClaimServiceImpl implements ClaimService {
         notification.setType("CLAIM");
         notification.setRelatedId(claim.getId());
         notification.setRelatedType("CLAIM_APPLICATION");
-        notification.setIsRead(0);
+        notification.setIsRead(false);
         if ("LOST".equalsIgnoreCase(req.getItemType())) {
             notification.setTitle("有人找到了你丢失的物品");
             notification.setContent(applicantName + " 联系你表示找到了你丢失的物品「" + itemTitle + "」"
@@ -177,8 +179,20 @@ public class ClaimServiceImpl implements ClaimService {
     }
 
     private void validateClaimStatus(String status) {
-        if (!"PENDING".equals(status) && !"APPROVED".equals(status) && !"REJECTED".equals(status)) {
+        if (!isClaimStatus(status)) {
             throw new BusinessException("无效的认领状态参数，仅支持 PENDING、APPROVED 或 REJECTED");
+        }
+    }
+
+    private boolean isClaimStatus(String status) {
+        if (status == null) {
+            return false;
+        }
+        try {
+            ClaimStatus.valueOf(status);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 
@@ -193,11 +207,12 @@ public class ClaimServiceImpl implements ClaimService {
             throw new BusinessException("无权处理该认领申请");
         }
         // Validate status input
-        if (status == null || (!"APPROVED".equals(status) && !"REJECTED".equals(status))) {
+        if (status == null || (!ClaimStatus.APPROVED.getValue().equals(status)
+                && !ClaimStatus.REJECTED.getValue().equals(status))) {
             throw new BusinessException("无效的处理状态，仅支持 APPROVED 或 REJECTED");
         }
         // Validate state transition: only allow processing PENDING claims
-        if (!"PENDING".equals(claim.getStatus())) {
+        if (!ClaimStatus.PENDING.getValue().equals(claim.getStatus())) {
             throw new BusinessException("该认领申请已被处理");
         }
 
@@ -205,7 +220,7 @@ public class ClaimServiceImpl implements ClaimService {
                 new UpdateWrapper<ClaimApplication>()
                         .eq("id", id)
                         .eq("publisher_id", userId)
-                        .eq("status", "PENDING")
+                        .eq("status", ClaimStatus.PENDING.getValue())
                         .set("status", status));
         if (updated != 1) {
             throw new BusinessException("该认领申请已被处理，请刷新后重试");
@@ -213,7 +228,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setStatus(status);
 
         // If approved, update item status
-        if ("APPROVED".equals(status)) {
+        if (ClaimStatus.APPROVED.getValue().equals(status)) {
             if ("LOST".equals(claim.getItemType())) {
                 LostItem lostItem = lostItemMapper.selectById(claim.getItemId());
                 if (lostItem == null) {
@@ -239,8 +254,8 @@ public class ClaimServiceImpl implements ClaimService {
                 int itemUpdated = foundItemMapper.update(null,
                         new UpdateWrapper<FoundItem>()
                                 .eq("id", claim.getItemId())
-                                .eq("status", "UNCLAIMED")
-                                .set("status", "CLAIMED")
+                                .eq("status", FoundItemStatus.UNCLAIMED.getValue())
+                                .set("status", FoundItemStatus.CLAIMED.getValue())
                                 .set("resolved_type", "USER")
                                 .set("resolved_by", claim.getApplicantId())
                                 .set("resolved_note", "通过认领申请归还"));
@@ -251,10 +266,10 @@ public class ClaimServiceImpl implements ClaimService {
             }
             // 级联拒绝同物品的其他待处理申请，保证数据一致
             claimApplicationMapper.update(null, new UpdateWrapper<ClaimApplication>()
-                    .set("status", "REJECTED")
+                    .set("status", ClaimStatus.REJECTED.getValue())
                     .eq("item_type", claim.getItemType())
                     .eq("item_id", claim.getItemId())
-                    .eq("status", "PENDING")
+                    .eq("status", ClaimStatus.PENDING.getValue())
                     .ne("id", claim.getId()));
             // Auto-create conversation
             String convId = "claim_" + claim.getId();
@@ -263,7 +278,7 @@ public class ClaimServiceImpl implements ClaimService {
         }
 
         // Notify applicant of the result
-        boolean approved = "APPROVED".equals(status);
+        boolean approved = ClaimStatus.APPROVED.getValue().equals(status);
         String statusText = approved ? "已通过" : "已拒绝";
         String publisherName = getUserName(userId);
         String itemTitle = getItemTitle(claim.getItemType(), claim.getItemId());
@@ -278,7 +293,7 @@ public class ClaimServiceImpl implements ClaimService {
         notification.setType("CLAIM_RESULT");
         notification.setRelatedId(claim.getItemId());
         notification.setRelatedType(lostItemClaim ? "LOST_ITEM" : "FOUND_ITEM");
-        notification.setIsRead(0);
+        notification.setIsRead(false);
         notificationMapper.insert(notification);
         pushNotificationAfterCommit(claim.getApplicantId(), notification);
         mailNotificationService.notifyUserAfterCommit(

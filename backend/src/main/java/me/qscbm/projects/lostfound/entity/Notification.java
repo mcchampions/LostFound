@@ -17,7 +17,7 @@ public class Notification {
     private String type;
     private Long relatedId;
     private String relatedType;
-    private Integer isRead;
+    private Boolean isRead;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

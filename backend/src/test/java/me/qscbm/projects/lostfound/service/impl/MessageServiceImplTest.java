@@ -150,7 +150,7 @@ class MessageServiceImplTest {
     void conversationListMergesMultipleThreadsWithTheSamePerson() {
         LocalDateTime older = LocalDateTime.of(2026, 7, 29, 10, 0);
         LocalDateTime newer = older.plusMinutes(5);
-        when(messageMapper.selectMaps(any())).thenReturn(List.of(
+        when(messageMapper.selectConversationSummaries(anyLong())).thenReturn(List.of(
                 Map.of("conversationId", "claim_9", "latestId", 9L, "unreadCount", 1L),
                 Map.of("conversationId", "1_2", "latestId", 10L, "unreadCount", 2L)));
         Message oldMessage = message(9L, "claim_9", 2L, 1L, older);
@@ -188,7 +188,7 @@ class MessageServiceImplTest {
         message.setSenderId(senderId);
         message.setReceiverId(receiverId);
         message.setContent("message");
-        message.setIsRead(0);
+        message.setIsRead(false);
         message.setCreatedAt(createdAt);
         return message;
     }

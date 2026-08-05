@@ -13,11 +13,11 @@ import java.time.LocalDateTime;
 public class UserEmailPreference {
     @TableId
     private Long userId;
-    private Integer claimRequest;
-    private Integer claimResult;
-    private Integer announcement;
-    private Integer message;
-    private Integer systemMessage;
+    private Boolean claimRequest;
+    private Boolean claimResult;
+    private Boolean announcement;
+    private Boolean message;
+    private Boolean systemMessage;
     private LocalDateTime lastMessageNotifiedAt;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

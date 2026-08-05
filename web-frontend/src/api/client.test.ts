@@ -20,7 +20,6 @@ vi.mock('axios', () => ({
 describe('API Client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
   });
 
   it('应该正确导出 client 实例', () => {
@@ -31,15 +30,7 @@ describe('API Client', () => {
     expect(client.delete).toBeDefined();
   });
 
-  it('应该支持在 localStorage 中设置和获取 token', () => {
-    const token = 'test-jwt-token';
-    localStorage.setItem('token', token);
-    expect(localStorage.getItem('token')).toBe(token);
-  });
-
-  it('应该支持清除 token', () => {
-    localStorage.setItem('token', 'test-token');
-    localStorage.removeItem('token');
-    expect(localStorage.getItem('token')).toBeNull();
+  it('使用 HttpOnly Cookie 认证，不在浏览器存储 JWT', () => {
+    expect(window.localStorage.getItem('token')).toBeNull();
   });
 });

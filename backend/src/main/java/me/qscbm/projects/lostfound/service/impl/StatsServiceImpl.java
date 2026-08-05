@@ -7,6 +7,9 @@ import me.qscbm.projects.lostfound.entity.Category;
 import me.qscbm.projects.lostfound.entity.FoundItem;
 import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.FoundItemStatus;
+import me.qscbm.projects.lostfound.entity.enums.LostItemStatus;
+import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.mapper.CategoryMapper;
 import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
@@ -32,11 +35,11 @@ public class StatsServiceImpl implements StatsService {
         result.put("lostCount", lostItemMapper.selectCount(null));
         result.put("foundCount", foundItemMapper.selectCount(null));
         result.put("claimedCount", foundItemMapper.selectCount(
-                new LambdaQueryWrapper<FoundItem>().eq(FoundItem::getStatus, "CLAIMED")));
+                new LambdaQueryWrapper<FoundItem>().eq(FoundItem::getStatus, FoundItemStatus.CLAIMED.getValue())));
         result.put("foundLostCount", lostItemMapper.selectCount(
-                new LambdaQueryWrapper<LostItem>().eq(LostItem::getStatus, "FOUND")));
+                new LambdaQueryWrapper<LostItem>().eq(LostItem::getStatus, LostItemStatus.FOUND.getValue())));
         result.put("pendingUserCount", userMapper.selectCount(
-                new LambdaQueryWrapper<User>().eq(User::getStatus, "PENDING")));
+                new LambdaQueryWrapper<User>().eq(User::getStatus, UserStatus.PENDING.getValue())));
 
         List<Map<String, Object>> categoryStats = new ArrayList<>();
         List<Category> categories = categoryMapper.selectList(null);

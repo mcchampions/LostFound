@@ -17,6 +17,7 @@ import type { LostItemVO } from '../api/lostItems';
 import { getFoundItems } from '../api/foundItems';
 import type { FoundItemVO } from '../api/foundItems';
 import client from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 interface Announcement {
   id: number;
@@ -61,11 +62,12 @@ export default function Home() {
           claimedTotal: 0,
         });
 
-        if (results.every(r => r.status === 'rejected')) {
-          setError('加载数据失败');
+        const rejected = results.find(result => result.status === 'rejected');
+        if (rejected && rejected.status === 'rejected') {
+          setError(getApiErrorMessage(rejected.reason, '部分数据加载失败'));
         }
-      } catch {
-        setError('加载数据失败');
+      } catch (errorValue) {
+        setError(getApiErrorMessage(errorValue, '加载数据失败'));
       } finally {
         setLoading(false);
       }

@@ -90,7 +90,7 @@ public class MessageDigestMailTask {
             Long unreadCount = messageMapper.selectCount(
                     new LambdaQueryWrapper<Message>()
                             .eq(Message::getReceiverId, userId)
-                            .eq(Message::getIsRead, 0)
+                            .eq(Message::getIsRead, false)
                             .in(Message::getConversationId, conversationList));
             if (unreadCount == null || unreadCount == 0) {
                 log.debug("离线邮件:userId={} 已无未读消息,清理收集状态", userId);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SERVER_BASE, API_BASE, SOCKJS_ENDPOINT, WS_ENDPOINT, assetUrl } from '../config';
+import { SERVER_BASE, API_BASE, SOCKJS_ENDPOINT, WS_ENDPOINT, assetUrl } from './config';
 
 describe('Config', () => {
   describe('SERVER_BASE', () => {

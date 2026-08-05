@@ -3,7 +3,7 @@
 ## 通用约定
 
 - 前缀：`/api/v1`；
-- 认证：`Authorization: Bearer <token>`；
+- 认证：登录接口下发 `HttpOnly` 的 `AUTH_TOKEN` Cookie，前端通过带凭据请求自动携带；
 - 统一响应：`{"code": 0, "message": "success", "data": ...}`，非 0 为错误；
 - 分页响应：`PageResult {records, total, current, size}`；
 - 公开接口：认证、分类/公告读取、失物/招领列表与详情、公开主页、
@@ -98,7 +98,7 @@
 
 ## WebSocket
 
-- 端点：`/ws`（SockJS），连接头携带 `Authorization: Bearer <token>`；
+- 端点：`/ws`（SockJS），服务端从登录 Cookie 完成握手鉴权（仍兼容 STOMP `Authorization` 头）；
 - 可订阅目标：
   - `/user/queue/messages`：新消息（`MessageVO`）
   - `/user/queue/notifications`：新通知（`Notification`）

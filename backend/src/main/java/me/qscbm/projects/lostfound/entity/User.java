@@ -21,8 +21,8 @@ public class User {
     private String avatar;
     @TableField("status")
     private String status;
-    private Integer emailVerified;
-    private Integer notifyEmail;
+    private Boolean emailVerified;
+    private Boolean notifyEmail;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)
