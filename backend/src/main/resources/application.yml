@@ -46,7 +46,7 @@ app:
     base-url: ${SITE_BASE_URL:http://localhost:5173}
   jwt:
     # 常用变量：JWT 密钥必须替换为强随机值
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:lostfound-2026-jwt-secret}
     # 非常用变量：token 有效期，默认 24 小时
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   security:
