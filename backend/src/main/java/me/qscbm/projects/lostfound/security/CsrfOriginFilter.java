@@ -60,10 +60,15 @@ public class CsrfOriginFilter extends OncePerRequestFilter {
 
     private boolean isAllowedOrigin(HttpServletRequest request) {
         String origin = request.getHeader("Origin");
-        if (!StringUtils.hasText(origin)) {
-            origin = originFromReferer(request.getHeader("Referer"));
+        if (StringUtils.hasText(origin)) {
+            return allowedOrigins.contains(origin);
         }
-        return !StringUtils.hasText(origin) || allowedOrigins.contains(origin);
+        String referer = request.getHeader("Referer");
+        if (!StringUtils.hasText(referer)) {
+            return true;
+        }
+        String refererOrigin = originFromReferer(referer);
+        return StringUtils.hasText(refererOrigin) && allowedOrigins.contains(refererOrigin);
     }
 
     private String originFromReferer(String referer) {

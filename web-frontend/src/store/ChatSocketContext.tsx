@@ -63,7 +63,7 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
     const userId = user?.id;
     if (!userId) return;
     let disposed = false;
-    const subscriptions: StompSubscription[] = [];
+    let subscriptions: StompSubscription[] = [];
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_ENDPOINT),
       reconnectDelay: 5000,
@@ -72,6 +72,7 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
           void client.deactivate();
           return;
         }
+        subscriptions = [];
         setConnected(true);
         subscriptions.push(client.subscribe('/user/queue/messages', (frame) => {
           try {
@@ -93,12 +94,16 @@ export function ChatSocketProvider({ children }: { children: ReactNode }) {
         refreshNotificationUnread();
       },
       onStompError: () => setConnected(false),
-      onWebSocketClose: () => setConnected(false),
+      onWebSocketClose: () => {
+        subscriptions = [];
+        setConnected(false);
+      },
     });
     client.activate();
     return () => {
       disposed = true;
       subscriptions.forEach(subscription => subscription.unsubscribe());
+      subscriptions = [];
       void client.deactivate();
       setConnected(false);
       setUnreadTotal(0);

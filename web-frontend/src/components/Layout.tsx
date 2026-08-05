@@ -18,6 +18,22 @@ import NotificationPopover from './NotificationPopover';
 
 const DRAWER_WIDTH = 240;
 
+function pageTitle(pathname: string) {
+  if (pathname === '/login') return '登录';
+  if (pathname === '/login/admin') return '管理员登录';
+  if (pathname === '/register') return '注册';
+  if (pathname === '/forgot-password') return '找回密码';
+  if (pathname.startsWith('/admin')) return '管理后台';
+  if (pathname.startsWith('/lost-items')) return '失物信息';
+  if (pathname.startsWith('/found-items')) return '招领信息';
+  if (pathname.startsWith('/chat')) return '对话';
+  if (pathname.startsWith('/profile')) return '个人中心';
+  if (pathname.startsWith('/notifications')) return '消息通知';
+  if (pathname === '/claims') return '认领申请';
+  if (pathname.startsWith('/users/')) return '用户主页';
+  return '首页';
+}
+
 function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
   const { isAdmin } = useAuth();
   const { unreadTotal } = useChatSocket();
@@ -61,14 +77,7 @@ export default function Layout() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
-    const title = location.pathname.startsWith('/admin') ? '管理后台'
-      : location.pathname.startsWith('/lost-items') ? '失物信息'
-        : location.pathname.startsWith('/found-items') ? '招领信息'
-          : location.pathname.startsWith('/chat') ? '对话'
-            : location.pathname.startsWith('/profile') ? '个人中心'
-              : location.pathname.startsWith('/notifications') ? '消息通知'
-                : location.pathname.startsWith('/users/') ? '用户主页' : '首页';
-    document.title = `${title} - 校园失物招领系统`;
+    document.title = `${pageTitle(location.pathname)} - 校园失物招领系统`;
   }, [location.pathname]);
 
   useEffect(() => {

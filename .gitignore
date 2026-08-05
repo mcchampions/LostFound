@@ -5,9 +5,7 @@ local/
 
 backend/target/
 backend/postgen-work/
-backend/uploads/
 backend/app/
-*.pid
 web-frontend/dist/
 web-frontend/vite.config.ts.timestamp-*.mjs
 
@@ -18,12 +16,13 @@ web-frontend/node_modules/
 .idea/
 *.iml
 
-# 系统
-.DS_Store
-Thumbs.db
 
-*.jar
 .workbuddy/
 ai-docs/
+
+*.jar
+*.pid
+.DS_Store
+*.db
 yarn.lock
 package-lock.json

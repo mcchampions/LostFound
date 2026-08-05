@@ -11,6 +11,14 @@ import MessagePanel from '../components/chat/MessagePanel';
 
 const PAGE_SIZE = 50;
 
+function decodeQueryValue(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export default function Chat() {
   const { user } = useAuth();
   const { subscribe, setActiveConversation, refreshUnread } = useChatSocket();
@@ -50,11 +58,13 @@ export default function Chat() {
   }, []);
 
   const loadEarlier = async () => {
-    if (!selectedConv || loadingMore || currentPageRef.current <= 1) return;
+    const conversationId = selectedConv;
+    if (!conversationId || loadingMore || currentPageRef.current <= 1) return;
     setLoadingMore(true);
     try {
       const page = currentPageRef.current - 1;
-      const data = await getMessages(selectedConv, page, PAGE_SIZE);
+      const data = await getMessages(conversationId, page, PAGE_SIZE);
+      if (selectedConvRef.current !== conversationId) return;
       setMessages(previous => [...(data?.records || []), ...previous]);
       currentPageRef.current = page;
       setHasMore(page > 1);
@@ -99,7 +109,8 @@ export default function Chat() {
 
   const displayConversations = useMemo(() => {
     if (!selectedConv || !targetUserId || !targetName || conversations.some(item => item.conversationId === selectedConv)) return conversations;
-    return [{ conversationId: selectedConv, otherUserId: targetUserId, otherUserName: decodeURIComponent(targetName), otherUserAvatar: undefined, lastMessage: '', lastMessageTime: '', unreadCount: 0 }, ...conversations];
+    const otherUserName = decodeQueryValue(targetName);
+    return [{ conversationId: selectedConv, otherUserId: targetUserId, otherUserName, otherUserAvatar: undefined, lastMessage: '', lastMessageTime: '', unreadCount: 0 }, ...conversations];
   }, [conversations, selectedConv, targetUserId, targetName]);
 
   const selectedUser = displayConversations.find(item => item.conversationId === selectedConv);

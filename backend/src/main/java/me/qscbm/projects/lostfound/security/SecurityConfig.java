@@ -64,11 +64,18 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
-                )
-                .addFilterBefore(csrfOriginFilter, JwtAuthFilter.class)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                );
+
+        registerCustomFilters(http, jwtAuthFilter, csrfOriginFilter);
 
         return http.build();
+    }
+
+    static void registerCustomFilters(HttpSecurity http,
+                                      JwtAuthFilter jwtAuthFilter,
+                                      CsrfOriginFilter csrfOriginFilter) {
+        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(csrfOriginFilter, JwtAuthFilter.class);
     }
 
     @Bean

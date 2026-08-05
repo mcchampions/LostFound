@@ -26,8 +26,8 @@
 | `SERVER_PORT` | `8080` | 后端端口 | .env |
 | `SITE_BASE_URL` | `http://localhost:5173` | 邮件跳转链接的前端地址 | .env |
 | `APP_CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | 允许的明确跨域来源（禁止 `*`） | .env |
-| `AUTH_COOKIE_SECURE` | `false` | 认证 Cookie 是否仅通过 HTTPS 发送 | .env |
-| `AUTH_COOKIE_SAME_SITE` | `Lax` | 认证 Cookie SameSite 策略 | .env |
+| `AUTH_COOKIE_SECURE` | `false` | 认证 Cookie 是否仅通过 HTTPS 发送；HTTPS 部署应设为 `true` | .env |
+| `AUTH_COOKIE_SAME_SITE` | `Lax` | 认证 Cookie SameSite 策略；跨站部署设为 `None` | .env |
 | `APP_UPLOAD_PATH` | `./uploads` | 上传目录（相对 app 目录） | .env |
 | `POSTGEN_ENABLED` | `true` | 文字封面生成开关（jar 模式需自行启动 postgen-service，否则请改 false） | .env |
 | `POSTGEN_BASE_URL` | `http://localhost:3000` | postgen 服务地址（postgen 在其他机器/端口时必改；`start-app*.bat/sh` 默认自动启动本机 postgen） | .env |
