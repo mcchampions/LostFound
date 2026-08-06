@@ -52,6 +52,23 @@ public class ChatController {
                 messageService.getMessages(userId, conversationId, page, size)));
     }
 
+    @GetMapping("/messages/{conversationId}/latest")
+    public Result<MessageBatchVO> latestMessages(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String conversationId,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
+        return Result.success(messageService.getLatestMessages(userId, conversationId, size));
+    }
+
+    @GetMapping("/messages/{conversationId}/before/{beforeId}")
+    public Result<MessageBatchVO> messagesBefore(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable String conversationId,
+            @PathVariable Long beforeId,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
+        return Result.success(messageService.getMessagesBefore(userId, conversationId, beforeId, size));
+    }
+
     @PutMapping("/messages/{id}/read")
     public Result<?> markRead(@AuthenticationPrincipal Long userId, @PathVariable Long id) {
         messageService.markRead(userId, id);

@@ -7,6 +7,8 @@ import java.util.List;
 public interface MessageService {
     MessageVO send(Long senderId, MessageRequest req);
     IPage<MessageVO> getMessages(Long userId, String conversationId, int page, int size);
+    MessageBatchVO getLatestMessages(Long userId, String conversationId, int size);
+    MessageBatchVO getMessagesBefore(Long userId, String conversationId, Long beforeId, int size);
     List<ConversationVO> getConversations(Long userId);
     void markRead(Long userId, Long messageId);
     void markConversationRead(Long userId, String conversationId);

@@ -11,11 +11,12 @@ export const WS_ENDPOINT = SOCKJS_ENDPOINT;
 
 export function assetUrl(path: string): string {
   if (!path) return '';
-  const lower = path.toLowerCase();
-  if (lower.startsWith('http://') || lower.startsWith('https://')
-      || lower.startsWith('data:') || lower.startsWith('blob:')
-      || lower.startsWith('//')) {
+  if (path.toLowerCase().startsWith('blob:')) {
     return path;
   }
+  if (!path.startsWith('/uploads/')) return '';
+  const relative = path.slice('/uploads/'.length);
+  if (relative.split('/').some(segment => !segment || segment === '.' || segment === '..'
+      || !/^[A-Za-z0-9._-]+$/.test(segment))) return '';
   return SERVER_BASE + path;
 }

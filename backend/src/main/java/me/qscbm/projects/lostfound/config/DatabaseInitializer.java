@@ -46,8 +46,9 @@ public class DatabaseInitializer implements ApplicationRunner {
               "db/migration_message_conversation.sql",
               "db/migration_email_preference.sql",
               "db/migration_time_range.sql",
-              "db/migration_password_reset.sql",
-              "db/migration_security_hardening.sql"
+            "db/migration_password_reset.sql",
+            "db/migration_security_hardening.sql",
+            "db/migration_media_file.sql"
       };
 
     private final JdbcTemplate jdbcTemplate;
@@ -73,12 +74,14 @@ public class DatabaseInitializer implements ApplicationRunner {
                 int[] results = executeSqlScript(scriptPath);
                 totalSuccess += results[0];
                 totalFailed += results[1];
-                if (results[1] == 0) {
-                    recordApplied(scriptPath);
+                if (results[1] != 0) {
+                    throw new IllegalStateException("数据库脚本执行失败: " + scriptPath
+                            + "，失败语句数=" + results[1]);
                 }
+                recordApplied(scriptPath);
             } catch (Exception e) {
                 log.error("读取 SQL 脚本失败: {}", scriptPath, e);
-                totalFailed++;
+                throw new IllegalStateException("数据库迁移失败，应用拒绝启动: " + scriptPath, e);
             }
         }
 
@@ -105,8 +108,7 @@ public class DatabaseInitializer implements ApplicationRunner {
                     Integer.class, scriptName);
             return count != null && count > 0;
         } catch (Exception e) {
-            log.warn("查询迁移记录失败: {}", scriptName, e);
-            return false;
+            throw new IllegalStateException("查询数据库迁移记录失败: " + scriptName, e);
         }
     }
 
@@ -116,7 +118,7 @@ public class DatabaseInitializer implements ApplicationRunner {
                     "INSERT IGNORE INTO schema_migration (script_name) VALUES (?)", scriptName);
             log.info("数据库脚本已应用并记录: {}", scriptName);
         } catch (Exception e) {
-            log.warn("记录迁移脚本失败: {}", scriptName, e);
+            throw new IllegalStateException("记录数据库迁移失败: " + scriptName, e);
         }
     }
 
@@ -132,8 +134,7 @@ public class DatabaseInitializer implements ApplicationRunner {
             );
             return count != null && count > 0;
         } catch (Exception e) {
-            log.warn("检测数据库表存在性失败，将尝试自动初始化", e);
-            return false;
+            throw new IllegalStateException("检测数据库表失败，应用拒绝启动", e);
         }
     }
 

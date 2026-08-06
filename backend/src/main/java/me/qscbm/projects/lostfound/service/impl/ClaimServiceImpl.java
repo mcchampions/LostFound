@@ -109,6 +109,7 @@ public class ClaimServiceImpl implements ClaimService {
         claim.setPublisherId(publisherId);
         claim.setMessage(req.getMessage());
         claim.setImageUrls(req.getImageUrls());
+        validateClaimImages(applicantId, req.getImageUrls());
         claim.setStatus(ClaimStatus.PENDING.getValue());
         try {
             claimApplicationMapper.insert(claim);
@@ -425,6 +426,13 @@ public class ClaimServiceImpl implements ClaimService {
             urls.add(coverImage);
         }
         imageStorageService.compressItemTo540p(urls);
+    }
+
+    private void validateClaimImages(Long applicantId, String imageUrls) {
+        if (imageUrls == null || imageUrls.isBlank()) return;
+        for (String url : imageUrls.split(",")) {
+            imageStorageService.validateOwnedUrl(applicantId, url.trim());
+        }
     }
 
     /** 事务提交后再推送 WS 通知，避免事务回滚后客户端收到不存在的通知。 */

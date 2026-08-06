@@ -1,0 +1,42 @@
+[
+  {
+    "name": "d01-short-punch",
+    "title": "今天先做重要的事"
+  },
+  {
+    "name": "d02-clear-claim",
+    "title": "把复杂问题讲简单"
+  },
+  {
+    "name": "d03-reader-entry",
+    "title": "让读者一眼找到重点"
+  },
+  {
+    "name": "d04-creator-workflow",
+    "title": "先写结论，再补解释"
+  },
+  {
+    "name": "d05-layout-engine",
+    "title": "稳定的排版让内容更像产品"
+  },
+  {
+    "name": "d06-long-meaningful",
+    "title": "好的模板不是把文字塞进框里，而是让字号、行距和留白一起协作"
+  },
+  {
+    "name": "d07-cn-en-emoji",
+    "title": "我用 OpenClaw🦊 和 Claude Code 整理今天的工作流"
+  },
+  {
+    "name": "d08-tooling-stack",
+    "title": "Prompt、Workflow、UI：让想法变成可复用的系统"
+  },
+  {
+    "name": "d09-tesla-case",
+    "title": "接入 Tesla 数据后，内容生产开始提速"
+  },
+  {
+    "name": "d10-manual-lines",
+    "title": "今天不追求\n信息堆满\n只追求\n好读一点"
+  }
+]

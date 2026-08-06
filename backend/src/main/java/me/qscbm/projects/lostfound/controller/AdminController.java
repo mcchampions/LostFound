@@ -1,30 +1,21 @@
 package me.qscbm.projects.lostfound.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.PageResult;
 import me.qscbm.projects.lostfound.common.Result;
 import me.qscbm.projects.lostfound.dto.UserVO;
-import me.qscbm.projects.lostfound.entity.FoundItem;
-import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.OperationLog;
-import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
-import me.qscbm.projects.lostfound.mapper.LostItemMapper;
-import me.qscbm.projects.lostfound.mapper.UserMapper;
-import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.service.OperationLogService;
 import me.qscbm.projects.lostfound.service.StatsService;
 import me.qscbm.projects.lostfound.service.UserService;
 import me.qscbm.projects.lostfound.service.impl.OperationLogRecorder;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+import me.qscbm.projects.lostfound.common.ExcelCellSanitizer;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
@@ -35,17 +26,26 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin")
-@RequiredArgsConstructor
 @Validated
 public class AdminController {
 
     private final UserService userService;
     private final StatsService statsService;
     private final OperationLogService logService;
-    private final LostItemMapper lostItemMapper;
-    private final FoundItemMapper foundItemMapper;
     private final OperationLogRecorder operationLogRecorder;
-    private final UserMapper userMapper;
+    private final me.qscbm.projects.lostfound.service.impl.AdminExportService adminExportService;
+
+    @Autowired
+    public AdminController(UserService userService, StatsService statsService,
+                           OperationLogService logService, OperationLogRecorder operationLogRecorder,
+                           me.qscbm.projects.lostfound.service.impl.AdminExportService adminExportService) {
+        this.userService = userService;
+        this.statsService = statsService;
+        this.logService = logService;
+        this.operationLogRecorder = operationLogRecorder;
+        this.adminExportService = adminExportService;
+    }
+
 
     @GetMapping("/users")
     public Result<PageResult<UserVO>> listUsers(
@@ -86,37 +86,7 @@ public class AdminController {
         operationLogRecorder.log(userId, "EXPORT", "USER", null, "导出用户数据");
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
-        try (SXSSFWorkbook workbook = new SXSSFWorkbook(EXPORT_BATCH_SIZE)) {
-            Sheet sheet = workbook.createSheet("用户信息");
-            Row header = sheet.createRow(0);
-            header.createCell(0).setCellValue("用户名");
-            header.createCell(1).setCellValue("真实姓名");
-            header.createCell(2).setCellValue("角色");
-            header.createCell(3).setCellValue("状态");
-            header.createCell(4).setCellValue("邮箱");
-            header.createCell(5).setCellValue("手机号");
-            header.createCell(6).setCellValue("注册时间");
-            int rowNum = 1;
-            long page = 1;
-            IPage<User> p;
-            do {
-                p = userMapper.selectPage(new Page<>(page, EXPORT_BATCH_SIZE), new LambdaQueryWrapper<>());
-                for (User user : p.getRecords()) {
-                    Row row = sheet.createRow(rowNum++);
-                    row.createCell(0).setCellValue(safeCell(user.getUsername()));
-                    row.createCell(1).setCellValue(safeCell(user.getRealName()));
-                    row.createCell(2).setCellValue(safeCell(user.getRole()));
-                    row.createCell(3).setCellValue(safeCell(user.getStatus()));
-                    row.createCell(4).setCellValue(safeCell(user.getEmail()));
-                    row.createCell(5).setCellValue(safeCell(user.getPhone()));
-                    row.createCell(6).setCellValue(user.getCreatedAt() != null
-                            ? user.getCreatedAt().toString() : "");
-                }
-                page++;
-            } while (p.getRecords().size() == EXPORT_BATCH_SIZE);
-            workbook.write(response.getOutputStream());
-            workbook.dispose();
-        }
+        adminExportService.exportUsers(response);
     }
 
     @GetMapping("/export/lost-items")
@@ -125,36 +95,7 @@ public class AdminController {
         operationLogRecorder.log(userId, "EXPORT", "LOST_ITEM", null, "导出失物数据");
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=lost-items.xlsx");
-        try (SXSSFWorkbook workbook = new SXSSFWorkbook(EXPORT_BATCH_SIZE)) {
-            Sheet sheet = workbook.createSheet("失物信息");
-            Row header = sheet.createRow(0);
-            header.createCell(0).setCellValue("标题");
-            header.createCell(1).setCellValue("描述");
-            header.createCell(2).setCellValue("分类ID");
-            header.createCell(3).setCellValue("地点");
-            header.createCell(4).setCellValue("丢失时间");
-            header.createCell(5).setCellValue("状态");
-            header.createCell(6).setCellValue("创建时间");
-            int rowNum = 1;
-            long page = 1;
-            IPage<LostItem> p;
-            do {
-                p = lostItemMapper.selectPage(new Page<>(page, EXPORT_BATCH_SIZE), new LambdaQueryWrapper<>());
-                for (LostItem item : p.getRecords()) {
-                    Row row = sheet.createRow(rowNum++);
-                    row.createCell(0).setCellValue(safeCell(item.getTitle()));
-                    row.createCell(1).setCellValue(safeCell(item.getDescription()));
-                    row.createCell(2).setCellValue(item.getCategoryId() != null ? item.getCategoryId().toString() : "");
-                    row.createCell(3).setCellValue(safeCell(item.getLocation()));
-                    row.createCell(4).setCellValue(item.getLostTime() != null ? item.getLostTime().toString() : "");
-                    row.createCell(5).setCellValue(item.getStatus() != null ? item.getStatus() : "");
-                    row.createCell(6).setCellValue(item.getCreatedAt() != null ? item.getCreatedAt().toString() : "");
-                }
-                page++;
-            } while (p.getRecords().size() == EXPORT_BATCH_SIZE);
-            workbook.write(response.getOutputStream());
-            workbook.dispose();
-        }
+        adminExportService.exportLostItems(response);
     }
 
     @GetMapping("/export/found-items")
@@ -163,36 +104,7 @@ public class AdminController {
         operationLogRecorder.log(userId, "EXPORT", "FOUND_ITEM", null, "导出招领数据");
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=found-items.xlsx");
-        try (SXSSFWorkbook workbook = new SXSSFWorkbook(EXPORT_BATCH_SIZE)) {
-            Sheet sheet = workbook.createSheet("拾物信息");
-            Row header = sheet.createRow(0);
-            header.createCell(0).setCellValue("标题");
-            header.createCell(1).setCellValue("描述");
-            header.createCell(2).setCellValue("分类ID");
-            header.createCell(3).setCellValue("地点");
-            header.createCell(4).setCellValue("找到时间");
-            header.createCell(5).setCellValue("状态");
-            header.createCell(6).setCellValue("创建时间");
-            int rowNum = 1;
-            long page = 1;
-            IPage<FoundItem> p;
-            do {
-                p = foundItemMapper.selectPage(new Page<>(page, EXPORT_BATCH_SIZE), new LambdaQueryWrapper<>());
-                for (FoundItem item : p.getRecords()) {
-                    Row row = sheet.createRow(rowNum++);
-                    row.createCell(0).setCellValue(safeCell(item.getTitle()));
-                    row.createCell(1).setCellValue(safeCell(item.getDescription()));
-                    row.createCell(2).setCellValue(item.getCategoryId() != null ? item.getCategoryId().toString() : "");
-                    row.createCell(3).setCellValue(safeCell(item.getLocation()));
-                    row.createCell(4).setCellValue(item.getFoundTime() != null ? item.getFoundTime().toString() : "");
-                    row.createCell(5).setCellValue(item.getStatus() != null ? item.getStatus() : "");
-                    row.createCell(6).setCellValue(item.getCreatedAt() != null ? item.getCreatedAt().toString() : "");
-                }
-                page++;
-            } while (p.getRecords().size() == EXPORT_BATCH_SIZE);
-            workbook.write(response.getOutputStream());
-            workbook.dispose();
-        }
+        adminExportService.exportFoundItems(response);
     }
 
     @GetMapping("/logs")
@@ -205,10 +117,7 @@ public class AdminController {
     }
 
     /** Excel 公式注入防护：以 = + - @ \t \r 开头的内容前置单引号，强制按文本处理。 */
-    static String safeCell(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.matches("^[=+@\\-\\t\\r].*") ? "'" + value : value;
+    public static String safeCell(String value) {
+        return ExcelCellSanitizer.safeCell(value);
     }
 }

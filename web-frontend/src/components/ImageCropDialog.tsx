@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Slider, Typography, Box, IconButton } from '@mui/material';
+import { Alert, Dialog, DialogTitle, DialogContent, DialogActions, Button, Slider, Typography, Box, IconButton } from '@mui/material';
 import { RotateRight as RotateRightIcon } from '@mui/icons-material';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
@@ -30,6 +30,7 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
   const [workingUrl, setWorkingUrl] = useState(imageUrl);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [processingError, setProcessingError] = useState('');
 
   // 图片源变化时重置工作图（并释放之前旋转产生的 blob）
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
   const handleConfirm = async () => {
     if (!croppedAreaPixels) return;
     setProcessing(true);
+    setProcessingError('');
     try {
       const img = await createImage(workingUrl);
       const canvas = document.createElement('canvas');
@@ -102,8 +104,7 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
       onCropped(url);
       onClose();
     } catch {
-      onCropped(workingUrl);
-      onClose();
+      setProcessingError('裁剪或上传失败，请重试；未保存临时图片地址。');
     } finally {
       setProcessing(false);
     }
@@ -113,6 +114,7 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>裁剪封面</DialogTitle>
       <DialogContent>
+        {processingError && <Alert severity="error" sx={{ mb: 1 }}>{processingError}</Alert>}
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           拖动调整位置，滑动缩放，点击旋转修正方向。裁剪后的区域将作为封面显示。
         </Typography>

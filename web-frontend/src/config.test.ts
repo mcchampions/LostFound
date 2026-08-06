@@ -29,35 +29,39 @@ describe('Config', () => {
       expect(assetUrl('')).toBe('');
     });
 
-    it('http 开头的路径应原样返回', () => {
+    it('外部 http 地址应被拒绝', () => {
       const url = 'http://example.com/image.png';
-      expect(assetUrl(url)).toBe(url);
+      expect(assetUrl(url)).toBe('');
     });
 
-    it('https 开头的路径应原样返回', () => {
+    it('外部 https 地址应被拒绝', () => {
       const url = 'https://example.com/image.png';
-      expect(assetUrl(url)).toBe(url);
+      expect(assetUrl(url)).toBe('');
     });
 
-    it('data: 开头的路径应原样返回', () => {
+    it('data 地址应被拒绝', () => {
       const url = 'data:image/png;base64,abc';
-      expect(assetUrl(url)).toBe(url);
+      expect(assetUrl(url)).toBe('');
     });
 
-    it('blob: 开头的路径应原样返回', () => {
+    it('blob 地址仅用于临时界面预览', () => {
       const url = 'blob:http://localhost:5173/abc';
       expect(assetUrl(url)).toBe(url);
     });
 
-    it('// 开头的路径应原样返回', () => {
+    it('协议相对地址应被拒绝', () => {
       const url = '//cdn.example.com/image.png';
-      expect(assetUrl(url)).toBe(url);
+      expect(assetUrl(url)).toBe('');
     });
 
     it('相对路径应拼接 SERVER_BASE', () => {
       const result = assetUrl('/uploads/image.png');
       expect(result).toContain('/uploads/image.png');
       expect(result.startsWith('http') || result.startsWith('/')).toBe(true);
+    });
+
+    it('路径遍历地址应被拒绝', () => {
+      expect(assetUrl('/uploads/../secret.png')).toBe('');
     });
   });
 });

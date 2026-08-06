@@ -1,12 +1,10 @@
 package me.qscbm.projects.lostfound.controller;
 
-import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
-import me.qscbm.projects.lostfound.mapper.LostItemMapper;
-import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.OperationLogService;
 import me.qscbm.projects.lostfound.service.StatsService;
 import me.qscbm.projects.lostfound.service.UserService;
 import me.qscbm.projects.lostfound.service.impl.OperationLogRecorder;
+import me.qscbm.projects.lostfound.service.impl.AdminExportService;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,10 +28,8 @@ class AdminControllerTest {
                 mock(UserService.class),
                 mock(StatsService.class),
                 mock(OperationLogService.class),
-                mock(LostItemMapper.class),
-                mock(FoundItemMapper.class),
                 mock(OperationLogRecorder.class),
-                mock(UserMapper.class));
+                mock(AdminExportService.class));
         assertThat(controller).isNotNull();
     }
 }

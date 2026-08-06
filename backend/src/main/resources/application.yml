@@ -65,6 +65,7 @@ app:
     enabled: ${POSTGEN_ENABLED:true}
     base-url: ${POSTGEN_BASE_URL:http://localhost:3000}
     rate-limit-per-minute: ${POSTGEN_RATE_LIMIT:10}
+    token: ${POSTGEN_TOKEN:}
   mail:
     # 非常用变量：离线未读摘要邮件发送间隔 / 已提醒状态清空间隔
     digest-interval-ms: ${MAIL_DIGEST_INTERVAL_MS:180000}

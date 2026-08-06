@@ -70,7 +70,7 @@ export default function UserProfile() {
       });
       const data = res.data.data;
       setItems(data.records || []);
-      setTotalPages(data.pages || 1);
+      setTotalPages(Math.ceil((data.total || 0) / (data.size || 12)) || 1);
     } catch (errorValue) {
       setItems([]);
       setError(getApiErrorMessage(errorValue, '加载用户发布内容失败'));

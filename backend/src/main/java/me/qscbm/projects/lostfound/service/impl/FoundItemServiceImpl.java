@@ -69,6 +69,8 @@ public class FoundItemServiceImpl implements FoundItemService {
 
     @Override
     public FoundItemVO create(Long userId, FoundItemRequest req) {
+        imageStorageService.validateOwnedUrls(userId, req.getImageUrls());
+        imageStorageService.validateOwnedUrl(userId, req.getCoverImage());
         FoundItem item = new FoundItem();
         item.setUserId(userId);
         item.setTitle(req.getTitle());
@@ -96,6 +98,12 @@ public class FoundItemServiceImpl implements FoundItemService {
         }
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权修改他人的失物招领");
+        }
+        if (req.getImageUrls() != null) {
+            imageStorageService.validateOwnedUrls(userId, req.getImageUrls());
+        }
+        if (req.getCoverImage() != null) {
+            imageStorageService.validateOwnedUrl(userId, req.getCoverImage());
         }
         List<String> oldImageUrls = deserializeImageUrls(item.getImageUrls());
         String oldCover = item.getCoverImage();
@@ -184,10 +192,14 @@ public class FoundItemServiceImpl implements FoundItemService {
         FoundItem item = foundItemMapper.selectById(id);
         if (item == null) throw new BusinessException("失物招领不存在");
         if (!item.getUserId().equals(userId)) throw new BusinessException("无权修改他人的失物招领状态");
-        String normalized = status.toUpperCase();
+        String normalized = status == null ? "" : status.trim().toUpperCase();
         if (!FoundItemStatus.UNCLAIMED.getValue().equals(normalized)
                 && !FoundItemStatus.CLAIMED.getValue().equals(normalized)) {
             throw new BusinessException("招领信息状态仅支持 UNCLAIMED 或 CLAIMED");
+        }
+        if (FoundItemStatus.CLAIMED.getValue().equals(item.getStatus())
+                && FoundItemStatus.UNCLAIMED.getValue().equals(normalized)) {
+            throw new BusinessException("已认领的招领信息不能恢复为待认领状态");
         }
         String normalizedResolvedType = resolvedType == null ? null : resolvedType.toUpperCase();
         if (resolvedNote != null && resolvedNote.length() > 1000) {

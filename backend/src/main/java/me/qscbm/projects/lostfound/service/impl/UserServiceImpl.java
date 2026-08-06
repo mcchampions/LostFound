@@ -264,9 +264,15 @@ public class UserServiceImpl implements UserService {
             }
             throw new BusinessException("验证码错误，还可尝试 " + remaining + " 次");
         }
+        long now = currentTimeMillis.getAsLong();
+        int consumed = verificationCodeMapper.consumeValidCode(
+                userId, expected.getEmail(), expected.getCodeHash(), now, VERIFY_CODE_MAX_ATTEMPTS);
+        if (consumed != 1) {
+            throw new BusinessException("验证码错误或已过期");
+        }
+
         user.setEmailVerified(true);
         userMapper.updateById(user);
-        verificationCodeMapper.deleteById(userId);
         log.info("用户操作: userId={} 邮箱验证成功", userId);
         operationLogRecorder.log(userId, "VERIFY_EMAIL", "USER", userId, "邮箱验证成功");
     }

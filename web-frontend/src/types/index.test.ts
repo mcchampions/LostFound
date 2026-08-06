@@ -32,7 +32,7 @@ describe('Types', () => {
       const result: PageResult<string> = {
         records: ['a', 'b'],
         total: 2,
-        current: 1,
+        page: 1,
         size: 20,
       };
       expect(result.records).toHaveLength(2);

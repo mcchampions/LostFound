@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Button, TextField, Select, MenuItem, FormControl,
@@ -54,8 +54,10 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [keyword, setKeyword] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [categoryId, setCategoryId] = useState<number | ''>('');
   const [status, setStatus] = useState<string>('');
+  const requestIdRef = useRef(0);
 
   const pageSize = 12;
 
@@ -66,32 +68,37 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
   }, []);
 
   const fetchItems = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setError('');
     try {
       const params: { page: number; size: number; keyword?: string; categoryId?: number; status?: string } = { page, size: pageSize };
-      if (keyword.trim()) params.keyword = keyword.trim();
+      if (searchKeyword.trim()) params.keyword = searchKeyword.trim();
       if (categoryId !== '') params.categoryId = categoryId;
       if (status) params.status = status;
 
       const data = await config.fetchItems(params);
+      if (requestId !== requestIdRef.current) return;
       setItems(data.records || []);
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, `加载${config.type === 'lost' ? '失物' : '招领'}信息失败`));
+      if (requestId === requestIdRef.current) {
+        setError(getApiErrorMessage(errorValue, `加载${config.type === 'lost' ? '失物' : '招领'}信息失败`));
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [page, keyword, categoryId, status, config]);
+  }, [page, searchKeyword, categoryId, status, config]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
 
   const handleSearch = () => {
+    setSearchKeyword(keyword);
     if (page === 1) {
-      fetchItems();
+      if (keyword === searchKeyword) fetchItems();
     } else {
       setPage(1);
     }

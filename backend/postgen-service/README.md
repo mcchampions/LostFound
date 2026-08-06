@@ -11,7 +11,7 @@
 ```bash
 npm install           # 安装依赖并自动构建 dist/（prepare 钩子）
 npm run build         # 若跳过 prepare，可手动构建
-node server.js        # 默认监听 :3000
+POSTGEN_TOKEN=... node server.js        # 默认仅监听 127.0.0.1:3000
 ```
 
 环境变量:
@@ -20,6 +20,9 @@ node server.js        # 默认监听 :3000
 |---|---|---|
 | `PORT` | `3000` | HTTP 端口 |
 | `WORK_DIR` | `/tmp/postgen-work` | 临时渲染目录 |
+| `HOST` | `127.0.0.1` | 监听地址，跨主机部署时应使用内网地址并配合防火墙 |
+| `POSTGEN_TOKEN` | 无 | 后端调用令牌，必须与后端 `POSTGEN_TOKEN` 一致 |
+| `MAX_CONCURRENT_RENDERS` | `2` | 最大并发渲染数 |
 
 ### 随后端启动（jar 部署）
 
@@ -67,7 +70,7 @@ example JSON 一并维护在本目录中。
 
 ## 与后端集成
 
-后端 `app.postgen.enabled` / `base-url` / `rate-limit-per-minute` 控制开关、
+后端 `app.postgen.enabled` / `base-url` / `token` / `rate-limit-per-minute` 控制开关、
 地址与限流;jar 直跑模式需自行启动本服务,否则封面生成会报错。
 
 ## 排版说明

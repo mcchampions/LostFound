@@ -100,6 +100,8 @@ class UserServiceImplTest {
                 ArgumentCaptor.forClass(EmailVerificationCode.class);
         verify(verificationCodeMapper).upsertIfCooldown(codeCaptor.capture(), anyLong());
         when(verificationCodeMapper.selectById(1L)).thenReturn(codeCaptor.getValue());
+        when(verificationCodeMapper.consumeValidCode(anyLong(), anyString(), anyString(), anyLong(), anyInt()))
+                .thenReturn(1);
 
         assertThatThrownBy(() -> service.sendVerifyCode(1L))
                 .isInstanceOf(BusinessException.class)

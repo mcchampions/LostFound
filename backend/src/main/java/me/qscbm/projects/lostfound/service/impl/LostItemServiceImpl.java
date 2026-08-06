@@ -69,6 +69,8 @@ public class LostItemServiceImpl implements LostItemService {
 
     @Override
     public LostItemVO create(Long userId, LostItemRequest req) {
+        imageStorageService.validateOwnedUrls(userId, req.getImageUrls());
+        imageStorageService.validateOwnedUrl(userId, req.getCoverImage());
         LostItem item = new LostItem();
         item.setUserId(userId);
         item.setTitle(req.getTitle());
@@ -96,6 +98,12 @@ public class LostItemServiceImpl implements LostItemService {
         }
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权修改他人的寻物启事");
+        }
+        if (req.getImageUrls() != null) {
+            imageStorageService.validateOwnedUrls(userId, req.getImageUrls());
+        }
+        if (req.getCoverImage() != null) {
+            imageStorageService.validateOwnedUrl(userId, req.getCoverImage());
         }
         List<String> oldImageUrls = deserializeImageUrls(item.getImageUrls());
         String oldCover = item.getCoverImage();
@@ -184,10 +192,14 @@ public class LostItemServiceImpl implements LostItemService {
         LostItem item = lostItemMapper.selectById(id);
         if (item == null) throw new BusinessException("寻物启事不存在");
         if (!item.getUserId().equals(userId)) throw new BusinessException("无权修改他人的寻物启事状态");
-        String normalized = status.toUpperCase();
+        String normalized = status == null ? "" : status.trim().toUpperCase();
         if (!LostItemStatus.LOST.getValue().equals(normalized)
                 && !LostItemStatus.FOUND.getValue().equals(normalized)) {
             throw new BusinessException("寻物启事状态仅支持 LOST 或 FOUND");
+        }
+        if (LostItemStatus.FOUND.getValue().equals(item.getStatus())
+                && LostItemStatus.LOST.getValue().equals(normalized)) {
+            throw new BusinessException("已找到的失物不能恢复为未找到状态");
         }
         String normalizedResolvedType = resolvedType == null ? null : resolvedType.toUpperCase();
         if (resolvedNote != null && resolvedNote.length() > 1000) {

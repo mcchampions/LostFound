@@ -22,6 +22,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -219,6 +220,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void resetPassword(String email, String code, String newPassword) {
         String normalized = EmailNormalizer.normalize(email);
         if (normalized == null || code == null || code.isBlank()) {
@@ -256,10 +258,16 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("验证码错误，还可尝试 " + remaining + " 次");
         }
 
+        long now = System.currentTimeMillis();
+        int consumed = passwordResetCodeMapper.consumeValidCode(
+                user.getId(), normalized, record.getCodeHash(), now, RESET_CODE_MAX_ATTEMPTS);
+        if (consumed != 1) {
+            throw new BusinessException("验证码错误或已过期");
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setPasswordChangedAt(LocalDateTime.now());
         userMapper.updateById(user);
-        passwordResetCodeMapper.deleteById(user.getId());
         log.info("密码重置: userId={} 重置密码成功", user.getId());
         operationLogRecorder.log(user.getId(), "RESET_PASSWORD", "USER",
                 user.getId(), "通过邮箱验证码重置密码");

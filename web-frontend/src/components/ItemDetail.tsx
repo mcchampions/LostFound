@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
@@ -101,6 +101,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
   const [userSearch, setUserSearch] = useState('');
   const [userResults, setUserResults] = useState<UserSearchResult[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
+  const userSearchRequestRef = useRef(0);
 
   const fetchItem = useCallback(async () => {
     setLoading(true);
@@ -149,19 +150,26 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
     setResolveOpen(true);
   };
 
-  const handleUserSearch = async (query: string) => {
-    setUserSearch(query);
+  useEffect(() => {
+    const query = userSearch.trim();
+    const requestId = ++userSearchRequestRef.current;
     if (!query) {
       setUserResults([]);
       return;
     }
-    try {
-      const response = await client.get('/users/search', { params: { q: query } });
-      setUserResults(response.data.data || []);
-    } catch {
-      setUserResults([]);
-    }
-  };
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await client.get('/users/search', { params: { q: query } });
+        if (requestId === userSearchRequestRef.current) setUserResults(response.data.data || []);
+      } catch (errorValue) {
+        if (requestId === userSearchRequestRef.current) {
+          setUserResults([]);
+          setError(getApiErrorMessage(errorValue, '搜索用户失败，请重试'));
+        }
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [userSearch]);
 
   const handleResolve = async () => {
     if (resolveType === 'USER' && !selectedUser) return;
@@ -326,7 +334,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
           {resolveType === 'USER' && (
             <Box sx={{ mt: 1 }}>
               {selectedUser ? <Chip label={selectedUser.realName} onDelete={() => setSelectedUser(null)} color="primary" /> : <>
-                <TextField fullWidth size="small" placeholder="搜索用户名或真实姓名..." value={userSearch} onChange={event => handleUserSearch(event.target.value)} />
+                <TextField fullWidth size="small" placeholder="搜索用户名或真实姓名..." value={userSearch} onChange={event => setUserSearch(event.target.value)} />
                 {userResults.length > 0 && (
                   <Paper variant="outlined" sx={{ maxHeight: 150, overflow: 'auto', mt: 0.5 }}>
                     {userResults.map(result => (

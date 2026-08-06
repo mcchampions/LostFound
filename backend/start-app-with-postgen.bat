@@ -73,7 +73,7 @@ powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort %POSTGEN_PORT% -
 if not exist "%POSTGEN_WORK_DIR%" mkdir "%POSTGEN_WORK_DIR%"
 echo [postgen] starting http://localhost:%POSTGEN_PORT% ...
 set "POSTGEN_PID_FILE=%TEMP%\lostfound-postgen.pid"
-powershell -NoProfile -Command "$env:PORT='%POSTGEN_PORT%'; $env:WORK_DIR='%POSTGEN_WORK_DIR%'; $p = Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory '%POSTGEN_DIR%' -NoNewWindow -PassThru -RedirectStandardOutput ('%POSTGEN_WORK_DIR%\postgen.log') -RedirectStandardError ('%POSTGEN_WORK_DIR%\postgen.err.log'); $p.Id | Out-File -Encoding ascii ($env:TEMP+'\lostfound-postgen.pid')"
+powershell -NoProfile -Command "$env:PORT='%POSTGEN_PORT%'; $env:WORK_DIR='%POSTGEN_WORK_DIR%'; $env:POSTGEN_TOKEN='%POSTGEN_TOKEN%'; $p = Start-Process -FilePath 'node' -ArgumentList 'server.js' -WorkingDirectory '%POSTGEN_DIR%' -NoNewWindow -PassThru -RedirectStandardOutput ('%POSTGEN_WORK_DIR%\postgen.log') -RedirectStandardError ('%POSTGEN_WORK_DIR%\postgen.err.log'); $p.Id | Out-File -Encoding ascii ($env:TEMP+'\lostfound-postgen.pid')"
 if errorlevel 1 (
     echo [postgen] start command failed
     pause

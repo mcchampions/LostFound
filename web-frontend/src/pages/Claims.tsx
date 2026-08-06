@@ -148,7 +148,7 @@ export default function Claims() {
                       const path = claim.itemType === 'LOST'
                         ? `/lost-items/${claim.itemId}`
                         : `/found-items/${claim.itemId}`;
-                      window.open(path, '_blank');
+                      window.open(path, '_blank', 'noopener,noreferrer');
                     }}
                   >
                     {claim.itemTitle}

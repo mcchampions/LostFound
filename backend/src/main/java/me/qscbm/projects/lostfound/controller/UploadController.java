@@ -32,16 +32,24 @@ import java.util.UUID;
 public class UploadController {
 
     private final Path uploadRoot;
+    private final ImageStorageService imageStorageService;
 
     private static final long MAX_IMAGE_SIZE = 5L * 1024 * 1024;
     private static final long MAX_PIXELS = 20_000_000L;
 
     public UploadController(@Value("${app.upload.path:./uploads}") String uploadPath) {
+        this(uploadPath, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public UploadController(@Value("${app.upload.path:./uploads}") String uploadPath,
+                            ImageStorageService imageStorageService) {
         File dir = new File(uploadPath);
         if (!dir.isAbsolute()) {
             dir = new File(AppHome.dir(), uploadPath);
         }
         this.uploadRoot = dir.toPath().toAbsolutePath().normalize();
+        this.imageStorageService = imageStorageService;
         log.info("Upload directory: {}", uploadRoot);
     }
 
@@ -51,10 +59,10 @@ public class UploadController {
         if (userId == null) {
             return Result.error("请先登录后再上传图片");
         }
-        return store(file);
+        return store(userId, file);
     }
 
-    private Result<Map<String, String>> store(MultipartFile file) throws IOException {
+    private Result<Map<String, String>> store(Long userId, MultipartFile file) throws IOException {
         if (file.isEmpty()) {
             return Result.error("请选择要上传的图片");
         }
@@ -107,6 +115,9 @@ public class UploadController {
         }
 
         String url = "/uploads/" + dateDir + "/" + filename;
+        if (imageStorageService != null) {
+            imageStorageService.registerOwnedUrl(userId, url);
+        }
         return Result.success(Map.of("url", url));
     }
 

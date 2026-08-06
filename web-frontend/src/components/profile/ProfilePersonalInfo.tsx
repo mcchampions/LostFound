@@ -37,6 +37,9 @@ export default function ProfilePersonalInfo({
     () => (cropFile ? URL.createObjectURL(cropFile) : ''),
     [cropFile],
   );
+  const roleLabels: Record<string, string> = {
+    ADMIN: '管理员', STUDENT: '学生', TEACHER: '教师', USER: '普通用户',
+  };
 
   useEffect(() => () => {
     if (cropImageUrl) URL.revokeObjectURL(cropImageUrl);
@@ -70,7 +73,7 @@ export default function ProfilePersonalInfo({
             <Typography variant="h6">{user.realName}</Typography>
             <Typography variant="body2" color="text.secondary">@{user.username}</Typography>
             <Box sx={{ mt: 1 }}>
-              <Chip label={user.role === 'ADMIN' ? '管理员' : '普通用户'} size="small" />
+              <Chip label={roleLabels[user.role] || user.role} size="small" />
             </Box>
             <Grid container spacing={2} sx={{ mt: 3, width: '100%' }}>
               <Grid size={{ xs: 6 }}>
@@ -88,7 +91,7 @@ export default function ProfilePersonalInfo({
               <Grid size={{ xs: 6 }}>
                 <Box sx={{ py: 1 }}>
                   <Typography variant="body2" color="text.secondary">角色</Typography>
-                  <Typography variant="body2">{user.role === 'ADMIN' ? '管理员' : '普通用户'}</Typography>
+              <Typography variant="body2">{roleLabels[user.role] || user.role}</Typography>
                 </Box>
               </Grid>
               <Grid size={{ xs: 6 }}>

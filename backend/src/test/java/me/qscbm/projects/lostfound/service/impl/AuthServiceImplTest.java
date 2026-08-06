@@ -170,6 +170,8 @@ class AuthServiceImplTest {
         when(userMapper.selectOne(any())).thenReturn(activeUser("user@example.com"));
         PasswordResetCode record = resetRecord(0, System.currentTimeMillis() + 300_000);
         when(passwordResetCodeMapper.selectById(1L)).thenReturn(record);
+        when(passwordResetCodeMapper.consumeValidCode(anyLong(), anyString(), anyString(), anyLong(), anyInt()))
+                .thenReturn(1);
         when(passwordEncoder.encode("newpass123")).thenReturn("encoded-new");
 
         service.resetPassword("user@example.com", "123456", "newpass123");
@@ -177,7 +179,8 @@ class AuthServiceImplTest {
         verify(userMapper).updateById(argThat(user ->
                 "encoded-new".equals(user.getPassword())
                         && user.getPasswordChangedAt() != null));
-        verify(passwordResetCodeMapper).deleteById(1L);
+        verify(passwordResetCodeMapper).consumeValidCode(
+                eq(1L), eq("user@example.com"), anyString(), anyLong(), eq(5));
     }
 
     @Test

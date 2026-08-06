@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.dto.ConversationVO;
+import me.qscbm.projects.lostfound.dto.MessageBatchVO;
 import me.qscbm.projects.lostfound.dto.MessageRequest;
 import me.qscbm.projects.lostfound.dto.MessageVO;
 import me.qscbm.projects.lostfound.entity.Message;
@@ -96,6 +97,39 @@ public class MessageServiceImpl implements MessageService {
                 .map(message -> toVO(message, senders))
                 .toList());
         return result;
+    }
+
+    @Override
+    public MessageBatchVO getLatestMessages(Long userId, String conversationId, int size) {
+        return toBatch(userId, conversationId, size, null);
+    }
+
+    @Override
+    public MessageBatchVO getMessagesBefore(Long userId, String conversationId, Long beforeId, int size) {
+        if (beforeId == null) throw new BusinessException("消息游标不能为空");
+        return toBatch(userId, conversationId, size, beforeId);
+    }
+
+    private MessageBatchVO toBatch(Long userId, String conversationId, int size, Long beforeId) {
+        if (!isParticipant(userId, conversationId)) {
+            throw new BusinessException("无权访问该对话");
+        }
+        LambdaQueryWrapper<Message> qw = new LambdaQueryWrapper<Message>()
+                .eq(Message::getConversationId, conversationId);
+        if (beforeId != null) qw.lt(Message::getId, beforeId);
+        qw.orderByDesc(Message::getId).last("LIMIT " + Math.min(size, 100));
+        List<Message> records = messageMapper.selectList(qw);
+        Collections.reverse(records);
+        Set<Long> senderIds = records.stream().map(Message::getSenderId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, User> senders = senderIds.isEmpty() ? Collections.emptyMap()
+                : userMapper.selectBatchIds(senderIds).stream()
+                .collect(Collectors.toMap(User::getId, user -> user));
+        boolean hasMore = !records.isEmpty() && messageMapper.selectCount(
+                new LambdaQueryWrapper<Message>()
+                        .eq(Message::getConversationId, conversationId)
+                        .lt(Message::getId, records.get(0).getId())) > 0;
+        return new MessageBatchVO(records.stream().map(message -> toVO(message, senders)).toList(), hasMore);
     }
 
     @Override
@@ -222,6 +256,21 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public boolean isParticipant(Long userId, String conversationId) {
+        if (conversationId != null) {
+            String[] directUsers = conversationId.split("_", -1);
+            if (directUsers.length == 2) {
+                try {
+                    long firstUserId = Long.parseLong(directUsers[0]);
+                    long secondUserId = Long.parseLong(directUsers[1]);
+                    if (firstUserId != secondUserId
+                            && (userId.equals(firstUserId) || userId.equals(secondUserId))) {
+                        return true;
+                    }
+                } catch (NumberFormatException ignored) {
+                    // Claim conversations require an existing message participant.
+                }
+            }
+        }
         LambdaQueryWrapper<Message> qw = new LambdaQueryWrapper<>();
         qw.eq(Message::getConversationId, conversationId)
                 .and(w -> w.eq(Message::getSenderId, userId).or().eq(Message::getReceiverId, userId));

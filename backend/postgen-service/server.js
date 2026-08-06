@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFile, readFile, mkdir, unlink } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import React from 'react';
 import satori from 'satori';
@@ -17,6 +17,10 @@ const postgenDir = dirname(fileURLToPath(import.meta.url));
 
 const execFileAsync = promisify(execFile);
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
+const POSTGEN_TOKEN = process.env.POSTGEN_TOKEN || '';
+const MAX_CONCURRENT_RENDERS = Math.max(1, Number(process.env.MAX_CONCURRENT_RENDERS || 2));
+const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 const CLI = join(postgenDir, 'dist/cli.js');
 const FONT_REG = join(postgenDir, 'fonts/custom/LXGWWenKaiLite-Regular.ttf');
 const FONT_BOLD = join(postgenDir, 'fonts/custom/LXGWMarkerGothic-Regular.ttf');
@@ -27,6 +31,10 @@ const OUTPUT_WIDTH = 1280;
 const OUTPUT_HEIGHT = 720;
 const VISUAL_WIDTH = 760;
 const MAX_REQUEST_SIZE = 64 * 1024;
+let activeRenders = 0;
+if (!POSTGEN_TOKEN) {
+  throw new Error('POSTGEN_TOKEN is required');
+}
 const fontDataPromise = Promise.all([
   readFile(FONT_REG),
   readFile(FONT_BOLD),
@@ -467,6 +475,19 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const expected = Buffer.from(`Bearer ${POSTGEN_TOKEN}`);
+  const provided = Buffer.from(req.headers.authorization || '');
+  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+    res.writeHead(401, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Unauthorized' }));
+    return;
+  }
+  if (activeRenders >= MAX_CONCURRENT_RENDERS) {
+    res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '2' });
+    res.end(JSON.stringify({ error: 'Render service is busy' }));
+    return;
+  }
+
   let body = '';
   for await (const chunk of req) {
     body += chunk;
@@ -503,22 +524,22 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ error: 'unsupported template' }));
     return;
   }
-  await mkdir(WORK_DIR, { recursive: true });
+  activeRenders += 1;
   const id = randomUUID().replace(/-/g, '');
   const jsonPath = join(WORK_DIR, `${id}.json`);
   const pngPath = join(WORK_DIR, `${id}.png`);
 
-  const data = { title: await fitTitle(title, template) };
-  if (!data.title) {
-    res.writeHead(400, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: 'title required' }));
-    return;
-  }
-  const renderedContent = await fitContent(
-    content, computeContentLineBudget(data.title, template));
-  if (renderedContent) data.subtitle = renderedContent;
-
   try {
+    await mkdir(WORK_DIR, { recursive: true });
+    const data = { title: await fitTitle(title, template) };
+    if (!data.title) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'title required' }));
+      return;
+    }
+    const renderedContent = await fitContent(
+      content, computeContentLineBudget(data.title, template));
+    if (renderedContent) data.subtitle = renderedContent;
     await writeFile(jsonPath, JSON.stringify(data));
     await execFileAsync('node', [
       CLI, 'render',
@@ -537,19 +558,24 @@ const server = http.createServer(async (req, res) => {
       { category, location, date },
       template,
     );
+    if (png.length > MAX_RESPONSE_SIZE) {
+      throw new Error('rendered image is too large');
+    }
     res.writeHead(200, { 'content-type': 'image/png' });
     res.end(png);
   } catch (err) {
-    console.error('render failed:', err.message);
+    const errorId = randomUUID();
+    console.error(`render failed [${errorId}]:`, err);
     res.writeHead(500, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: 'render failed', detail: err.message }));
+    res.end(JSON.stringify({ error: 'render failed', errorId }));
   } finally {
+    activeRenders -= 1;
     try { await unlink(jsonPath); } catch {}
     try { await unlink(pngPath); } catch {}
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`postgen server listening on :${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`postgen server listening on ${HOST}:${PORT}`);
   console.log(`postgen2 dir: ${postgenDir}`);
 });

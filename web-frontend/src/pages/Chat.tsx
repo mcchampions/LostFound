@@ -3,7 +3,7 @@ import { Alert, Box, Snackbar } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { useChatSocket } from '../store/ChatSocketContext';
-import { getConversations, getMessages, markConversationRead, sendMessage } from '../api/chat';
+import { getConversations, getLatestMessages, getMessagesBefore, markConversationRead, sendMessage } from '../api/chat';
 import type { ConversationVO, MessageVO } from '../api/chat';
 import { getApiErrorMessage } from '../api/errors';
 import ConversationList from '../components/chat/ConversationList';
@@ -35,7 +35,7 @@ export default function Chat() {
   const [loadingMore, setLoadingMore] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedConvRef = useRef<string | null>(null);
-  const currentPageRef = useRef(1);
+  const oldestMessageIdRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const loadConversations = useCallback(async () => {
@@ -48,26 +48,22 @@ export default function Chat() {
   }, []);
 
   const loadLatestMessages = useCallback(async (conversationId: string) => {
-    const first = await getMessages(conversationId, 1, 1);
-    const total = first?.total ?? 0;
-    const lastPage = total === 0 ? 1 : Math.ceil(total / PAGE_SIZE);
-    const data = await getMessages(conversationId, lastPage, PAGE_SIZE);
-    currentPageRef.current = lastPage;
-    setHasMore(lastPage > 1);
-    return data?.records || [];
+    const data = await getLatestMessages(conversationId, PAGE_SIZE, abortRef.current?.signal);
+    oldestMessageIdRef.current = data.records[0]?.id ?? null;
+    setHasMore(data.hasMore);
+    return data.records;
   }, []);
 
   const loadEarlier = async () => {
     const conversationId = selectedConv;
-    if (!conversationId || loadingMore || currentPageRef.current <= 1) return;
+    if (!conversationId || loadingMore || oldestMessageIdRef.current == null) return;
     setLoadingMore(true);
     try {
-      const page = currentPageRef.current - 1;
-      const data = await getMessages(conversationId, page, PAGE_SIZE);
+      const data = await getMessagesBefore(conversationId, oldestMessageIdRef.current, PAGE_SIZE, abortRef.current?.signal);
       if (selectedConvRef.current !== conversationId) return;
-      setMessages(previous => [...(data?.records || []), ...previous]);
-      currentPageRef.current = page;
-      setHasMore(page > 1);
+      setMessages(previous => [...data.records, ...previous]);
+      oldestMessageIdRef.current = data.records[0]?.id ?? oldestMessageIdRef.current;
+      setHasMore(data.hasMore);
     } catch (errorValue) { setSendError(getApiErrorMessage(errorValue, '加载更早消息失败，请重试')); }
     finally { setLoadingMore(false); }
   };

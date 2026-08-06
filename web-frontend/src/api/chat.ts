@@ -11,6 +11,11 @@ export interface MessageVO {
   createdAt: string;
 }
 
+export interface MessageBatchVO {
+  records: MessageVO[];
+  hasMore: boolean;
+}
+
 export interface ConversationVO {
   conversationId: string;
   otherUserId: number;
@@ -27,9 +32,17 @@ export const startConversation = (targetUserId: number) =>
 export const getConversations = () =>
   client.get('/chat/conversations').then(r => r.data.data as ConversationVO[]);
 
-export const getMessages = (conversationId: string, page = 1, size = 50) =>
-  client.get(`/chat/messages/${conversationId}`, { params: { page, size } })
+export const getMessages = (conversationId: string, page = 1, size = 50, signal?: AbortSignal) =>
+  client.get(`/chat/messages/${conversationId}`, { params: { page, size }, signal })
     .then(r => r.data.data);
+
+export const getLatestMessages = (conversationId: string, size = 50, signal?: AbortSignal) =>
+  client.get(`/chat/messages/${conversationId}/latest`, { params: { size }, signal })
+    .then(r => r.data.data as MessageBatchVO);
+
+export const getMessagesBefore = (conversationId: string, beforeId: number, size = 50, signal?: AbortSignal) =>
+  client.get(`/chat/messages/${conversationId}/before/${beforeId}`, { params: { size }, signal })
+    .then(r => r.data.data as MessageBatchVO);
 
 export const sendMessage = (conversationId: string, receiverId: number, content: string) =>
   client.post('/chat/send', { conversationId, receiverId, content })

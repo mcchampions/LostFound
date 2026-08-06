@@ -25,7 +25,14 @@ export default function MessagePanel({ userId, conversation, messages, input, ha
         <Link href={`/users/${conversation.otherUserId}`} color="inherit" underline="none" title="查看用户主页">{conversation.otherUserName}</Link>
       </Typography></Box>
       <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: 'grey.50' }}>
-        {hasMore && <Box sx={{ textAlign: 'center', mb: 1 }}><Button size="small" variant="text" onClick={onLoadEarlier} disabled={loadingMore}>{loadingMore ? '加载中...' : '查看更早消息'}</Button></Box>}
+        {hasMore && <Box sx={{ textAlign: 'center', mb: 1 }}>
+          <Typography component="span" role="button" tabIndex={0}
+            onClick={() => { if (!loadingMore) onLoadEarlier(); }}
+            onKeyDown={event => { if ((event.key === 'Enter' || event.key === ' ') && !loadingMore) onLoadEarlier(); }}
+            sx={{ color: 'primary.main', cursor: loadingMore ? 'wait' : 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            {loadingMore ? '正在加载之前五十条消息…' : '查看之前五十条消息'}
+          </Typography>
+        </Box>}
         {messages.map(message => <Box key={message.id} sx={{ alignSelf: message.senderId === userId ? 'flex-end' : 'flex-start', maxWidth: '70%', bgcolor: message.senderId === userId ? 'primary.main' : '#fff', color: message.senderId === userId ? '#fff' : 'text.primary', borderRadius: 2, px: 2, py: 1, boxShadow: message.senderId !== userId ? 1 : 0 }}>
           <Typography variant="body2">{message.content}</Typography>
           <Typography variant="caption" sx={{ color: message.senderId === userId ? 'rgba(255,255,255,0.7)' : 'text.disabled', display: 'block', textAlign: 'right', mt: 0.5 }}>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</Typography>

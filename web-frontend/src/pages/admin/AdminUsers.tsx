@@ -38,11 +38,15 @@ const statusColors: Record<string, 'success' | 'warning' | 'error'> = {
 
 const roleLabels: Record<string, string> = {
   ADMIN: '管理员',
+  STUDENT: '学生',
+  TEACHER: '教师',
   USER: '普通用户',
 };
 
 const roleColors: Record<string, 'primary' | 'default'> = {
   ADMIN: 'primary',
+  STUDENT: 'default',
+  TEACHER: 'default',
   USER: 'default',
 };
 

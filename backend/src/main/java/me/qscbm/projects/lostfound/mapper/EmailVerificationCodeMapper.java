@@ -39,6 +39,20 @@ public interface EmailVerificationCodeMapper extends BaseMapper<EmailVerificatio
     @Delete("""
             DELETE FROM email_verification_code
             WHERE user_id = #{userId}
+              AND email = #{email}
+              AND code_hash = #{codeHash}
+              AND expires_at > #{now}
+              AND attempts < #{maxAttempts}
+            """)
+    int consumeValidCode(@Param("userId") Long userId,
+                         @Param("email") String email,
+                         @Param("codeHash") String codeHash,
+                         @Param("now") long now,
+                         @Param("maxAttempts") int maxAttempts);
+
+    @Delete("""
+            DELETE FROM email_verification_code
+            WHERE user_id = #{userId}
               AND code_hash = #{codeHash}
             """)
     int deleteMatching(@Param("userId") Long userId,

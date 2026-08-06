@@ -2,6 +2,9 @@ package me.qscbm.projects.lostfound.service.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import me.qscbm.projects.lostfound.common.AppHome;
+import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.entity.MediaFile;
+import me.qscbm.projects.lostfound.mapper.MediaFileMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,6 +25,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Collections;
 
 /**
  * 上传图片生命周期管理：
@@ -41,13 +45,62 @@ public class ImageStorageService {
     static final int MONTH_MAX_LONG_SIDE = 540;
 
     private final Path uploadRoot;
+    private final MediaFileMapper mediaFileMapper;
 
     public ImageStorageService(@Value("${app.upload.path:./uploads}") String uploadPath) {
+        this(uploadPath, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public ImageStorageService(@Value("${app.upload.path:./uploads}") String uploadPath,
+                               MediaFileMapper mediaFileMapper) {
         File dir = new File(uploadPath);
         if (!dir.isAbsolute()) {
             dir = new File(AppHome.dir(), uploadPath);
         }
         this.uploadRoot = dir.toPath().toAbsolutePath().normalize();
+        this.mediaFileMapper = mediaFileMapper;
+    }
+
+    public void registerOwnedUrl(Long ownerId, String url) {
+        if (ownerId == null || url == null || url.isBlank()) {
+            throw new BusinessException("图片资源无效");
+        }
+        requireUploadUrl(url);
+        if (mediaFileMapper == null) return;
+        MediaFile media = new MediaFile();
+        media.setUrl(url);
+        media.setOwnerId(ownerId);
+        mediaFileMapper.insert(media);
+    }
+
+    public void validateOwnedUrls(Long ownerId, List<String> urls) {
+        if (urls == null) return;
+        for (String url : urls) validateOwnedUrl(ownerId, url);
+    }
+
+    public void validateOwnedUrl(Long ownerId, String url) {
+        if (url == null || url.isBlank()) return;
+        requireUploadUrl(url);
+        if (mediaFileMapper == null) return;
+        MediaFile media = mediaFileMapper.selectById(url);
+        if (media == null || !ownerId.equals(media.getOwnerId())) {
+            throw new BusinessException("图片资源不存在或不属于当前用户");
+        }
+    }
+
+    private void requireUploadUrl(String url) {
+        if (!url.startsWith("/uploads/") || url.length() <= "/uploads/".length()
+                || url.indexOf('%') >= 0 || url.indexOf('\\') >= 0 || url.indexOf('\0') >= 0) {
+            throw new BusinessException("图片地址仅支持站内上传资源");
+        }
+        String relative = url.substring("/uploads/".length());
+        for (String segment : relative.split("/", -1)) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)
+                    || !segment.matches("[A-Za-z0-9._-]+")) {
+                throw new BusinessException("图片地址格式无效");
+            }
+        }
     }
 
     /** 上传后压缩：最长边超过 1080 时缩放（小图原样返回）。 */
