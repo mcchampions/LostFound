@@ -13,8 +13,8 @@ import me.qscbm.projects.lostfound.mapper.NotificationMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.MailNotificationService;
 import me.qscbm.projects.lostfound.service.MessageService;
+import me.qscbm.projects.lostfound.service.SseConnectionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ class ClaimServiceImplTest {
     private NotificationMapper notificationMapper;
     private MessageService messageService;
     private MailNotificationService mailNotificationService;
-    private SimpMessagingTemplate messagingTemplate;
+    private SseConnectionService sseConnectionService;
     private ClaimServiceImpl service;
 
     @BeforeEach
@@ -44,7 +44,7 @@ class ClaimServiceImplTest {
         notificationMapper = mock(NotificationMapper.class);
         messageService = mock(MessageService.class);
         mailNotificationService = mock(MailNotificationService.class);
-        messagingTemplate = mock(SimpMessagingTemplate.class);
+        sseConnectionService = mock(SseConnectionService.class);
         OperationLogRecorder operationLogRecorder = mock(OperationLogRecorder.class);
         ObjectMapper objectMapper = new ObjectMapper();
         ImageStorageService imageStorageService = mock(ImageStorageService.class);
@@ -59,7 +59,7 @@ class ClaimServiceImplTest {
                 operationLogRecorder,
                 objectMapper,
                 imageStorageService,
-                messagingTemplate
+                sseConnectionService
         );
     }
 
@@ -122,12 +122,12 @@ class ClaimServiceImplTest {
                 contains("已通过"),
                 contains("认领申请"),
                 eq("claim_result"));
-        verify(messagingTemplate).convertAndSendToUser(
-                eq("2"), eq("/queue/notifications"), any(Notification.class));
+        verify(sseConnectionService).sendToUser(
+                eq(2L), eq(SseConnectionService.NOTIFICATION_EVENT), any(Notification.class));
     }
 
     @Test
-    void applyingCreatesNotificationAndPushesViaWebSocket() {
+    void applyingCreatesNotificationAndPushesViaSse() {
         when(claimMapper.selectCount(any())).thenReturn(0L);
         FoundItem item = new FoundItem();
         item.setId(5L);
@@ -151,8 +151,8 @@ class ClaimServiceImplTest {
         verify(notificationMapper).insert(argThat(notification ->
                 notification.getUserId().equals(1L)
                         && notification.getTitle().contains("新的认领申请")));
-        verify(messagingTemplate).convertAndSendToUser(
-                eq("1"), eq("/queue/notifications"), any(Notification.class));
+        verify(sseConnectionService).sendToUser(
+                eq(1L), eq(SseConnectionService.NOTIFICATION_EVENT), any(Notification.class));
     }
 
     @Test

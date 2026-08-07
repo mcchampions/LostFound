@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFile, readFile, mkdir, unlink } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import React from 'react';
 import satori from 'satori';
@@ -17,8 +17,9 @@ const postgenDir = dirname(fileURLToPath(import.meta.url));
 
 const execFileAsync = promisify(execFile);
 const PORT = process.env.PORT || 3000;
+// 监听地址由部署环境决定；修改前确认防火墙、反向代理和网络隔离策略。
+// 默认仅监听本机，若改为 0.0.0.0 或内网地址，必须自行保护 POST /render。
 const HOST = process.env.HOST || '127.0.0.1';
-const POSTGEN_TOKEN = process.env.POSTGEN_TOKEN || '';
 const MAX_CONCURRENT_RENDERS = Math.max(1, Number(process.env.MAX_CONCURRENT_RENDERS || 2));
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 const CLI = join(postgenDir, 'dist/cli.js');
@@ -32,9 +33,6 @@ const OUTPUT_HEIGHT = 720;
 const VISUAL_WIDTH = 760;
 const MAX_REQUEST_SIZE = 64 * 1024;
 let activeRenders = 0;
-if (!POSTGEN_TOKEN) {
-  throw new Error('POSTGEN_TOKEN is required');
-}
 const fontDataPromise = Promise.all([
   readFile(FONT_REG),
   readFile(FONT_BOLD),
@@ -475,31 +473,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const expected = Buffer.from(`Bearer ${POSTGEN_TOKEN}`);
-  const provided = Buffer.from(req.headers.authorization || '');
-  if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
-    res.writeHead(401, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Unauthorized' }));
-    return;
-  }
   if (activeRenders >= MAX_CONCURRENT_RENDERS) {
     res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '2' });
     res.end(JSON.stringify({ error: 'Render service is busy' }));
     return;
   }
 
-  let body = '';
+  const bodyChunks = [];
+  let bodySize = 0;
   for await (const chunk of req) {
-    body += chunk;
-    if (Buffer.byteLength(body) > MAX_REQUEST_SIZE) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bodySize += buffer.length;
+    if (bodySize > MAX_REQUEST_SIZE) {
       res.writeHead(413, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: 'Request body too large' }));
       return;
     }
+    bodyChunks.push(buffer);
   }
-
+  const body = Buffer.concat(bodyChunks);
   let params;
-  try { params = JSON.parse(body); }
+  try { params = JSON.parse(body.toString('utf8')); }
   catch {
     res.writeHead(400, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: 'Invalid JSON' }));

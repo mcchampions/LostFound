@@ -26,7 +26,7 @@ import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.ClaimService;
 import me.qscbm.projects.lostfound.service.MailNotificationService;
 import me.qscbm.projects.lostfound.service.MessageService;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import me.qscbm.projects.lostfound.service.SseConnectionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.DuplicateKeyException;
@@ -55,7 +55,7 @@ public class ClaimServiceImpl implements ClaimService {
     private final OperationLogRecorder operationLogRecorder;
     private final ObjectMapper objectMapper;
     private final ImageStorageService imageStorageService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final SseConnectionService sseConnectionService;
 
     @Override
     @Transactional
@@ -435,19 +435,19 @@ public class ClaimServiceImpl implements ClaimService {
         }
     }
 
-    /** 事务提交后再推送 WS 通知，避免事务回滚后客户端收到不存在的通知。 */
+    /** 事务提交后再推送 SSE 通知，避免事务回滚后客户端收到不存在的通知。 */
     private void pushNotificationAfterCommit(Long userId, Notification notification) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    messagingTemplate.convertAndSendToUser(
-                            userId.toString(), "/queue/notifications", notification);
+                    sseConnectionService.sendToUser(
+                            userId, SseConnectionService.NOTIFICATION_EVENT, notification);
                 }
             });
             return;
         }
-        messagingTemplate.convertAndSendToUser(
-                userId.toString(), "/queue/notifications", notification);
+        sseConnectionService.sendToUser(
+                userId, SseConnectionService.NOTIFICATION_EVENT, notification);
     }
 }

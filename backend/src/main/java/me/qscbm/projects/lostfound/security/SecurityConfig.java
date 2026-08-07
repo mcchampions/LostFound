@@ -61,7 +61,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/lost-items", "/api/v1/lost-items/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/found-items", "/api/v1/found-items/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/*/public-profile", "/api/v1/users/*/items").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 );

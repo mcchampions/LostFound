@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => ({
         manualChunks: (id) => {
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'react';
           if (id.includes('node_modules/@mui') || id.includes('node_modules/@emotion')) return 'mui';
-          if (id.includes('node_modules/axios') || id.includes('node_modules/@stomp') || id.includes('node_modules/sockjs')) return 'network';
+          if (id.includes('node_modules/axios')) return 'network';
           return undefined;
         },
       },

@@ -8,10 +8,9 @@ import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
-import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
+import me.qscbm.projects.lostfound.service.SseConnectionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,8 +26,7 @@ class MessageServiceImplTest {
     private MessageMapper messageMapper;
     private UserMapper userMapper;
     private UserEmailPreferenceMapper emailPreferenceMapper;
-    private SimpMessagingTemplate messagingTemplate;
-    private WebSocketPresenceService presenceService;
+    private SseConnectionService sseConnectionService;
     private OfflineMessageEmailTracker offlineEmailTracker;
     private MessageServiceImpl service;
 
@@ -37,12 +35,11 @@ class MessageServiceImplTest {
         messageMapper = mock(MessageMapper.class);
         userMapper = mock(UserMapper.class);
         emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
-        messagingTemplate = mock(SimpMessagingTemplate.class);
-        presenceService = mock(WebSocketPresenceService.class);
+        sseConnectionService = mock(SseConnectionService.class);
         offlineEmailTracker = mock(OfflineMessageEmailTracker.class);
         service = new MessageServiceImpl(
-                messageMapper, userMapper, emailPreferenceMapper, messagingTemplate,
-                presenceService, offlineEmailTracker);
+                messageMapper, userMapper, emailPreferenceMapper, sseConnectionService,
+                offlineEmailTracker);
     }
 
     @Test
@@ -63,7 +60,7 @@ class MessageServiceImplTest {
 
         assertThat(result.getConversationId()).isEqualTo("1_2");
         assertThat(result.getContent()).isEqualTo("hello");
-        verify(messagingTemplate).convertAndSendToUser("2", "/queue/messages", result);
+        verify(sseConnectionService).sendToUser(2L, SseConnectionService.MESSAGE_EVENT, result);
     }
 
     @Test
@@ -71,7 +68,7 @@ class MessageServiceImplTest {
         User receiver = user(2L, "Receiver");
         when(userMapper.selectById(2L)).thenReturn(receiver);
         when(userMapper.selectById(1L)).thenReturn(user(1L, "Sender"));
-        when(presenceService.isOnline(2L)).thenReturn(false);
+        when(sseConnectionService.isOnline(2L)).thenReturn(false);
         doAnswer(invocation -> {
             Message message = invocation.getArgument(0);
             message.setId(20L);
@@ -89,7 +86,7 @@ class MessageServiceImplTest {
         User receiver = user(2L, "Receiver");
         when(userMapper.selectById(2L)).thenReturn(receiver);
         when(userMapper.selectById(1L)).thenReturn(user(1L, "Sender"));
-        when(presenceService.isOnline(2L)).thenReturn(true);
+        when(sseConnectionService.isOnline(2L)).thenReturn(true);
         doAnswer(invocation -> {
             Message message = invocation.getArgument(0);
             message.setId(21L);
@@ -143,7 +140,8 @@ class MessageServiceImplTest {
         service.systemMessage("claim_9", 2L, 1L, "approved");
 
         verify(messageMapper).insert(argThat(message -> "1_2".equals(message.getConversationId())));
-        verify(messagingTemplate).convertAndSendToUser(eq("1"), eq("/queue/messages"), any(MessageVO.class));
+        verify(sseConnectionService).sendToUser(
+                eq(1L), eq(SseConnectionService.MESSAGE_EVENT), any(MessageVO.class));
     }
 
     @Test

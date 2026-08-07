@@ -7,7 +7,7 @@ import me.qscbm.projects.lostfound.entity.Message;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
-import me.qscbm.projects.lostfound.service.WebSocketPresenceService;
+import me.qscbm.projects.lostfound.service.SseConnectionService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,7 +34,7 @@ public class MessageDigestMailTask {
     private final UserMapper userMapper;
     private final MessageMapper messageMapper;
     private final JavaMailSender mailSender;
-    private final WebSocketPresenceService presenceService;
+    private final SseConnectionService sseConnectionService;
     private final EmailContentBuilder emailContentBuilder;
     private final EmailRetryQueue emailRetryQueue;
 
@@ -64,7 +64,7 @@ public class MessageDigestMailTask {
                 return;
             }
             // 用户当前在线：不发邮件，保留状态等待下一轮
-            if (presenceService.isOnline(userId)) {
+            if (sseConnectionService.isOnline(userId)) {
                 log.debug("离线邮件:userId={} 当前在线,跳过摘要发送", userId);
                 return;
             }

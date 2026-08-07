@@ -2,7 +2,7 @@ import { RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider } from './store/AuthContext';
-import { ChatSocketProvider } from './store/ChatSocketContext';
+import { ChatSseProvider } from './store/ChatSseContext';
 import theme from './theme';
 import router from './router';
 import './i18n';
@@ -12,9 +12,9 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <ChatSocketProvider>
+        <ChatSseProvider>
           <RouterProvider router={router} />
-        </ChatSocketProvider>
+        </ChatSseProvider>
       </AuthProvider>
     </ThemeProvider>
   );

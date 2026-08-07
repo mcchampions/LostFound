@@ -11,7 +11,7 @@
 ```bash
 npm install           # 安装依赖并自动构建 dist/（prepare 钩子）
 npm run build         # 若跳过 prepare，可手动构建
-POSTGEN_TOKEN=... node server.js        # 默认仅监听 127.0.0.1:3000
+node server.js        # 默认监听 127.0.0.1:3000；HOST 可按部署环境配置
 ```
 
 环境变量:
@@ -20,8 +20,7 @@ POSTGEN_TOKEN=... node server.js        # 默认仅监听 127.0.0.1:3000
 |---|---|---|
 | `PORT` | `3000` | HTTP 端口 |
 | `WORK_DIR` | `/tmp/postgen-work` | 临时渲染目录 |
-| `HOST` | `127.0.0.1` | 监听地址，跨主机部署时应使用内网地址并配合防火墙 |
-| `POSTGEN_TOKEN` | 无 | 后端调用令牌，必须与后端 `POSTGEN_TOKEN` 一致 |
+| `HOST` | `127.0.0.1` | 监听地址。除非确认防火墙/反向代理已保护 `/render`，否则不要修改 |
 | `MAX_CONCURRENT_RENDERS` | `2` | 最大并发渲染数 |
 
 ### 随后端启动（jar 部署）
@@ -70,8 +69,11 @@ example JSON 一并维护在本目录中。
 
 ## 与后端集成
 
-后端 `app.postgen.enabled` / `base-url` / `token` / `rate-limit-per-minute` 控制开关、
-地址与限流;jar 直跑模式需自行启动本服务,否则封面生成会报错。
+后端 `app.postgen.enabled` / `base-url` / `rate-limit-per-minute` 控制开关、地址与
+按用户限流。浏览器只向后端发送自己的登录 Cookie，后端完成鉴权后调用本机 postgen。
+postgen 仅负责渲染，不做用户鉴权。`HOST` 是部署配置，不由程序强制修改；默认值为
+`127.0.0.1`。只有在确认主机防火墙、反向代理或其他网络隔离已保护 `/render` 时，
+才将其改为其他地址。
 
 ## 排版说明
 

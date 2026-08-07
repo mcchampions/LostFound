@@ -8,7 +8,7 @@
 - JWT：24 小时有效；登录后仅通过 HttpOnly `AUTH_TOKEN` Cookie 传输，每次请求回查数据库（角色/状态以库为准）；
 - Cookie 会话的非幂等请求校验 `Origin`/`Referer`，仅允许 `APP_CORS_ALLOWED_ORIGINS` 中的来源，避免跨站请求伪造；
 - **改密后旧 token 立即失效**：用户表 `password_changed_at` 与 token 签发时间
-  比对（HTTP 与 WebSocket 均校验）。
+  比对（所有 HTTP 请求及 SSE 建连均校验）。
 
 ## 登录防爆破
 
@@ -24,11 +24,11 @@
 - 注册不可自封 ADMIN；TEACHER 默认待审核；
 - 资源归属校验：物品/申请/通知仅发布者或相关方可操作。
 
-## WebSocket 安全
+## SSE 安全
 
-- CONNECT 必须携带有效 JWT Cookie（或兼容的 Authorization 头），且校验用户状态与改密时间；
-- 订阅白名单：仅 `/user/queue/messages` 与 `/user/queue/notifications`；
-- 禁止客户端向 broker 直接发送消息。
+- `GET /api/v1/chat/stream` 必须携带有效 HttpOnly JWT Cookie，并校验用户状态与改密时间；
+- SSE 仅由服务端下发 `message`、`notification`、`heartbeat` 事件；发送消息仍使用鉴权 REST 接口；
+- 连接关闭、超时或发送失败时服务端移除连接，前端卸载时主动调用 `EventSource.close()`。
 
 ## 上传安全
 

@@ -81,7 +81,7 @@ start_postgen() {
   echo "[postgen] starting http://localhost:$POSTGEN_PORT ..."
   (
     cd "$POSTGEN_DIR"
-    PORT="$POSTGEN_PORT" WORK_DIR="$POSTGEN_WORK_DIR" POSTGEN_TOKEN="${POSTGEN_TOKEN:?POSTGEN_TOKEN is required}" \
+    PORT="$POSTGEN_PORT" WORK_DIR="$POSTGEN_WORK_DIR" \
       nohup node server.js >>"$POSTGEN_WORK_DIR/postgen.log" 2>&1 &
     echo $! > "$POSTGEN_PID_FILE"
   )

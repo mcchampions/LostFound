@@ -5,7 +5,7 @@
 ## 技术栈
 
 - React 19 + TypeScript · Vite 8 · MUI 9
-- axios · react-router-dom 7 · i18next · @stomp/stompjs + SockJS
+- axios · react-router-dom 7 · i18next · 原生 EventSource
 - 代码检查:oxlint;构建:`tsc -b && vite build`
 
 ## 目录结构
@@ -17,10 +17,10 @@ web-frontend/src/
 ├── components/   # Layout/ProtectedRoute/ImageCropDialog/ItemImageUpload/
 │                 # TextCoverDialog/DateTimeRangePicker/PhoneInput
 ├── pages/        # 21 个页面(含 admin/ 子目录)
-├── store/        # AuthContext / ChatSocketContext
+├── store/        # AuthContext / ChatSseContext
 ├── i18n/         # zh-CN 本地化
 ├── router.tsx    # 路由表(懒加载分包)
-└── config.ts     # 后端地址/WS 地址/资源地址
+└── config.ts     # 后端地址/SSE 地址/资源地址
 ```
 
 ## 开发
@@ -39,11 +39,11 @@ yarn dev          # http://localhost:5173
 yarn build        # 产物在 dist/,路由按页面分包
 ```
 
-构建默认使用同源模式:浏览器访问前端主机,托管服务器将 `/api`、`/uploads`、`/ws`
+构建默认使用同源模式:浏览器访问前端主机,托管服务器将 `/api`、`/uploads`
 反代至后端机(实体部署,不使用 Docker)。
 
 1. 将 `dist/` 内容复制到任意静态 Web 服务器站点目录;
-2. 默认同源模式:托管服务器将 `/api`、`/uploads`、`/ws` 反代至后端机
+2. 默认同源模式:托管服务器将 `/api`、`/uploads` 反代至后端机
    (Nginx、Apache、Caddy、Node 静态服务器等均可,具体要求见
    `docs/deployment.md`);
 3. 分机部署时反代目标为后端机地址,如 `http://192.168.1.10:8080`;
@@ -52,7 +52,7 @@ yarn build        # 产物在 dist/,路由按页面分包
 
 ## 关键能力
 
-- **全局 WebSocket**:登录后即建立连接(`/ws`,STOMP),任意页面实时接收消息与
+- **全局 SSE**:登录后即连接 `/api/v1/chat/stream`,任意页面实时接收消息与
   通知;侧边栏「对话」红点、顶栏铃铛角标实时更新;
 - **聊天**:默认加载最近 50 条,「查看更早消息」向前翻页;当前会话消息实时
   追加并自动已读;

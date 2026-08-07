@@ -2,8 +2,8 @@
 
 ## 技术栈与构建
 
-React 19 + TypeScript + Vite 8 + MUI 9 + axios + i18next + @stomp/stompjs +
-SockJS。构建：`yarn build`（`tsc -b && vite build`），路由按页面懒加载分包。
+React 19 + TypeScript + Vite 8 + MUI 9 + axios + i18next + 原生 EventSource。
+构建：`yarn build`（`tsc -b && vite build`），路由按页面懒加载分包。
 
 ## 目录结构
 
@@ -14,11 +14,11 @@ web-frontend/src/
 ├── components/   # Layout/ProtectedRoute/ImageCropDialog/ItemImageUpload/
 │                 # TextCoverDialog/DateTimeRangePicker/PhoneInput
 ├── pages/        # 21 个页面（含 admin/ 子目录）
-├── store/        # AuthContext / ChatSocketContext
+├── store/        # AuthContext / ChatSseContext
 ├── i18n/         # 中文本地化（zh-CN）
 ├── App.tsx       # Provider 组装
 ├── router.tsx    # 路由表（懒加载）
-└── config.ts     # 后端地址/WS 地址/资源地址
+└── config.ts     # 后端地址/SSE 地址/资源地址
 ```
 
 ## 路由（21 页）
@@ -37,8 +37,8 @@ web-frontend/src/
 ## 全局状态
 
 - `AuthContext`：登录态、HttpOnly Cookie 会话、401 自动登出；JWT 不写入 `localStorage`；
-- `ChatSocketContext`：登录即建立 WebSocket（SockJS + STOMP），订阅消息与
-  通知队列；维护 `unreadTotal`（对话未读）与 `notificationUnread`（通知未读），
+- `ChatSseContext`：登录即建立 EventSource，接收 `message` 与 `notification`
+  事件；维护 `unreadTotal`（对话未读）与 `notificationUnread`（通知未读），
   驱动侧边栏「对话」红点与顶栏铃铛角标；登出时归零。
 
 ## 关键交互
@@ -53,6 +53,6 @@ web-frontend/src/
 
 ## 通知与角标
 
-- 通知通过 WebSocket 实时推送（`/user/queue/notifications`），铃铛角标即时
+- 通知通过 SSE `notification` 事件实时推送，铃铛角标即时
   +1；回到前台时兜底刷新未读数；
 - 已读/全部已读后立即刷新角标。

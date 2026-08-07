@@ -38,7 +38,6 @@ public class CoverGenServiceImpl implements CoverGenService {
     private final String postgenBaseUrl;
     private final int rateLimitPerMinute;
     private final boolean enabled;
-    private final String postgenToken;
     private final ImageStorageService imageStorageService;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -53,17 +52,12 @@ public class CoverGenServiceImpl implements CoverGenService {
             @Value("${app.postgen.base-url:http://localhost:3000}") String baseUrl,
             @Value("${app.postgen.rate-limit-per-minute:10}") int rateLimit,
             @Value("${app.upload.path:./uploads}") String uploadPath,
-            @Value("${app.postgen.token:}") String postgenToken,
             ImageStorageService imageStorageService) {
         this.enabled = enabled;
         this.postgenBaseUrl = baseUrl.endsWith("/")
                 ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
         this.rateLimitPerMinute = rateLimit;
-        this.postgenToken = postgenToken;
         this.imageStorageService = imageStorageService;
-        if (enabled && (postgenToken == null || postgenToken.isBlank())) {
-            throw new IllegalStateException("POSTGEN_TOKEN 未配置，不能启用封面生成服务");
-        }
         File dir = new File(uploadPath);
         if (!dir.isAbsolute()) {
             dir = new File(AppHome.dir(), uploadPath);
@@ -101,7 +95,6 @@ public class CoverGenServiceImpl implements CoverGenService {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(postgenBaseUrl + "/render"))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + postgenToken)
                     .timeout(Duration.ofSeconds(30))
                     .POST(HttpRequest.BodyPublishers.ofString(json))
                     .build();

@@ -82,6 +82,9 @@
 | POST | `/chat/send` | 发送消息（在线推送，离线收集摘要） |
 | GET | `/chat/conversations` | 会话列表（按人合并未读） |
 | GET | `/chat/messages/{conversationId}` | 消息分页（前端默认取最近 50 条，可翻页） |
+| GET | `/chat/messages/{conversationId}/latest` | 最近一批消息（默认 50 条） |
+| GET | `/chat/messages/{conversationId}/before/{beforeId}` | 按游标加载更早消息 |
+| GET | `/chat/stream` | SSE 实时消息与通知流 |
 | PUT | `/chat/messages/{id}/read` | 单条已读 |
 | PUT | `/chat/conversations/{conversationId}/read` | 会话已读 |
 
@@ -96,10 +99,9 @@
 | GET | `/admin/export/lost-items` `/found-items` `/users` | Excel 导出（公式注入防护） |
 | GET | `/admin/logs` | 操作日志（action/userId 筛选） |
 
-## WebSocket
+## SSE
 
-- 端点：`/ws`（SockJS），服务端从登录 Cookie 完成握手鉴权（仍兼容 STOMP `Authorization` 头）；
-- 可订阅目标：
-  - `/user/queue/messages`：新消息（`MessageVO`）
-  - `/user/queue/notifications`：新通知（`Notification`）
-- 发送消息仍走 REST `/chat/send`（服务端通过 `/user/queue/messages` 推送）。
+- 端点：`GET /api/v1/chat/stream`，响应类型 `text/event-stream`，通过登录 Cookie 鉴权；
+- 事件：`message`（`MessageVO`）、`notification`（`Notification`）、`heartbeat`（保活时间戳）；
+- 浏览器使用原生 `EventSource` 自动重连，页面卸载或登出时主动关闭连接；
+- 发送消息仍走 REST `/chat/send`，SSE 仅承担服务端到客户端推送。

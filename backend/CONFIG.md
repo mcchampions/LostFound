@@ -31,13 +31,13 @@
 | `APP_UPLOAD_PATH` | `./uploads` | 上传目录（相对 app 目录） | .env |
 | `POSTGEN_ENABLED` | `true` | 文字封面生成开关（jar 模式需自行启动 postgen-service，否则请改 false） | .env |
 | `POSTGEN_BASE_URL` | `http://localhost:3000` | postgen 服务地址（postgen 在其他机器/端口时必改；`start-app*.bat/sh` 默认自动启动本机 postgen） | .env |
-| `POSTGEN_TOKEN` | 无 | 后端与 postgen 的共享认证令牌（必须修改） | .env |
 | `POSTGEN_PORT` | `3000` | postgen 监听端口（`start-app*.bat/sh` 自动启动 postgen 时使用，须与 `POSTGEN_BASE_URL` 端口一致） | .env |
 | `FORWARD_HEADERS_STRATEGY` | `native` | 代理头解析策略。jar 直连保持默认即可；默认 native + 空信任列表 = 不解析 XFF，行为等同于不信任任何代理 | .env |
 | `FORWARDED_TRUSTED_PROXIES` | 空 | 可信代理 IP/网段（逗号分隔）。jar 直连留空；分拆部署（前端机反向代理）时填前端机 IP | .env |
 | `JWT_EXPIRATION_MS` | `86400000` | token 有效期（毫秒） | 默认即可 |
 | `MAX_FILE_SIZE` | `5MB` | 单文件上传上限 | 默认即可 |
 | `MAX_REQUEST_SIZE` | `25MB` | 请求体上限 | 默认即可 |
+| `SSE_HEARTBEAT_INTERVAL_MS` | `20000` | SSE 连接心跳间隔 | 默认即可 |
 | `MAIL_DIGEST_INTERVAL_MS` | `180000` | 离线未读摘要发送间隔 | 默认即可 |
 | `MAIL_STATE_CLEAR_INTERVAL_MS` | `86400000` | 已提醒状态清空间隔 | 默认即可 |
 | `MAIL_RETRY_MAX_ATTEMPTS` | `5` | 邮件失败重试上限 | 默认即可 |

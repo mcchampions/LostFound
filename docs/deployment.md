@@ -11,7 +11,7 @@
 - 后端机：MySQL 8、后端 jar、postgen 服务（Node，文字封面生成）；
 - 前端机：任意静态 Web 服务器、前端构建产物（`dist/`）。
 
-浏览器访问前端机。前端机可将 `/api`、`/uploads`、`/ws` 反向代理至后端机，
+浏览器访问前端机。前端机可将 `/api`、`/uploads` 反向代理至后端机，
 也可由前端直连后端（见 3.1）。后端 8080 端口默认仅对前端机开放。
 
 ### 1.2 前置条件
@@ -106,7 +106,7 @@ yarn build
 前后端连接方式二选一：
 
 - 方式一（同源反代，推荐默认）：构建时不设置 `VITE_SERVER_BASE`（生产构建
-  默认同源）。浏览器只访问前端地址，由托管服务器将 `/api`、`/uploads`、`/ws`
+  默认同源）。浏览器只访问前端地址，由托管服务器将 `/api`、`/uploads`
   转发到后端机。后端无需对客户端开放。
 - 方式二（前端直连后端）：构建时设置
   `VITE_SERVER_BASE=http://<后端机IP>:8080`。任意静态服务器或 CDN 均可托管，
@@ -121,8 +121,7 @@ Nginx、Apache、Caddy、Node.js 静态服务器、对象存储/CDN。
 采用方式一（同源反代）时，托管服务器需满足以下要求：
 
 - SPA 路由回退：未命中文件的路由返回 `index.html`；
-- `/api`、`/uploads` 反向代理至后端机；
-- `/ws` 支持 WebSocket 升级转发（SockJS）；
+- `/api`、`/uploads` 反向代理至后端机；`/api/v1/chat/stream` 必须允许长连接；
 - 请求体上限不低于 25MB（与后端 `MAX_REQUEST_SIZE` 一致）；
 - 透传 `X-Real-IP`、`X-Forwarded-For`、`X-Forwarded-Proto`。
 
@@ -142,6 +141,8 @@ server {
     }
     location /api/ {
         proxy_pass http://<后端机IP>:8080;
+        proxy_buffering off;
+        proxy_read_timeout 1h;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -151,16 +152,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    location /ws {
-        proxy_pass http://<后端机IP>:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_buffering off;
-        proxy_read_timeout 300s;
     }
 }
 ```
@@ -174,7 +165,6 @@ http://<前端机IP> {
     file_server
     reverse_proxy /api/* http://<后端机IP>:8080
     reverse_proxy /uploads/* http://<后端机IP>:8080
-    reverse_proxy /ws/* http://<后端机IP>:8080
     request_body {
         max_size 25MB
     }

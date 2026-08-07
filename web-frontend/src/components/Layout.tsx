@@ -12,7 +12,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
-import { useChatSocket } from '../store/ChatSocketContext';
+import { useChatSse } from '../store/ChatSseContext';
 import { assetUrl } from '../config';
 import NotificationPopover from './NotificationPopover';
 
@@ -36,7 +36,7 @@ function pageTitle(pathname: string) {
 
 function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
   const { isAdmin } = useAuth();
-  const { unreadTotal } = useChatSocket();
+  const { unreadTotal } = useChatSse();
   const location = useLocation();
   const menuItems = [
     { text: '首页', icon: <HomeIcon />, path: '/' },
@@ -68,7 +68,7 @@ function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
 
 export default function Layout() {
   const { user, logout } = useAuth();
-  const { notificationUnread, refreshNotificationUnread } = useChatSocket();
+  const { notificationUnread, refreshNotificationUnread } = useChatSse();
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);

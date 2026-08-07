@@ -60,12 +60,14 @@ app:
   cors:
     # 常用变量：允许的前端来源，逗号分隔（部署时通过 backend/app/.env 覆盖）
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  sse:
+    # 非常用变量：实时消息连接的心跳间隔
+    heartbeat-interval-ms: ${SSE_HEARTBEAT_INTERVAL_MS:20000}
   postgen:
     # 常用变量：文字封面生成服务（部署时通过 backend/app/.env 覆盖）
     enabled: ${POSTGEN_ENABLED:true}
     base-url: ${POSTGEN_BASE_URL:http://localhost:3000}
     rate-limit-per-minute: ${POSTGEN_RATE_LIMIT:10}
-    token: ${POSTGEN_TOKEN:}
   mail:
     # 非常用变量：离线未读摘要邮件发送间隔 / 已提醒状态清空间隔
     digest-interval-ms: ${MAIL_DIGEST_INTERVAL_MS:180000}

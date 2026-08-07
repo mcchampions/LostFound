@@ -9,8 +9,8 @@
 | `mapper` | MyBatis-Plus 数据访问（含少量原生 SQL） |
 | `entity` / `dto` | 数据库实体与请求/响应对象 |
 | `common` | `Result`/`PageResult`/`BusinessException`/全局异常处理/工具类 |
-| `config` | 安全、WebSocket、MyBatis-Plus、异步、数据库初始化 |
-| `security` | JWT 工具与过滤器、WebSocket 鉴权拦截器 |
+| `config` | 安全、MyBatis-Plus、异步、数据库初始化 |
+| `security` | JWT 工具与 HTTP 安全过滤器 |
 
 ## 启动流程
 
@@ -32,7 +32,7 @@
 | 失物/招领 | `Lost/FoundItemServiceImpl` | 发布/编辑/删除/状态与解决信息 |
 | 认领 | `ClaimServiceImpl` | 申请、处理（通过级联拒绝+自动会话+压缩图片） |
 | 通知 | `NotificationServiceImpl` | 站内通知 CRUD、未读计数 |
-| 聊天 | `MessageServiceImpl` | 会话、消息、已读；配合 WebSocket 推送 |
+| 聊天 | `MessageServiceImpl` | 会话、消息、已读；配合 SSE 推送 |
 | 管理端 | `AdminController` | 用户/分类/统计/趋势/导出/操作日志 |
 | 封面生成 | `CoverGenServiceImpl` | 调用 postgen 服务，限流+模板白名单 |
 | 文件 | `UploadController` / `FileController` | 上传校验压缩、静态文件与占位图 |
@@ -48,7 +48,7 @@
 | `ImageStorageService` | 图片压缩与删除生命周期 |
 | `OperationLogRecorder` | 关键业务操作审计落库 |
 | `LoginAttemptService` | 登录防爆破（用户名+IP 组合锁定、IP 限流） |
-| `WebSocketPresenceService` | 在线状态（单机内存） |
+| `SseConnectionService` | SSE 多连接管理、实时推送、在线状态与心跳 |
 | `CodeHasher` | 验证码 SHA-256+盐哈希 |
 
 ## 后台定时任务
@@ -62,6 +62,7 @@
 | `EmailRetryQueue.retryDue` | 5 分钟 | 邮件重试 |
 | `LoginAttemptService.cleanupStaleEntries` | 1 小时 | 登录防爆破记录清理 |
 | `CoverGenServiceImpl.cleanupExpiredWindows` | 1 小时 | 封面限流窗口清理 |
+| `SseConnectionService.heartbeat` | 20 秒 | SSE 保活并清理失效连接 |
 
 ## 配置体系
 

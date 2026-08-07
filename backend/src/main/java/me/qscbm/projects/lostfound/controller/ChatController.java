@@ -8,9 +8,13 @@ import me.qscbm.projects.lostfound.common.PageResult;
 import me.qscbm.projects.lostfound.common.Result;
 import me.qscbm.projects.lostfound.dto.*;
 import me.qscbm.projects.lostfound.service.MessageService;
+import me.qscbm.projects.lostfound.service.SseConnectionService;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
@@ -22,6 +26,14 @@ import java.util.Map;
 public class ChatController {
 
     private final MessageService messageService;
+    private final SseConnectionService sseConnectionService;
+
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream(@AuthenticationPrincipal Long userId, HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("X-Accel-Buffering", "no");
+        return sseConnectionService.connect(userId);
+    }
 
     @PostMapping("/start/{targetUserId}")
     public Result<Map<String, String>> startConversation(

@@ -12,7 +12,7 @@ import {
   TaskAlt as ClaimResultIcon
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
-import { useChatSocket } from '../store/ChatSocketContext';
+import { useChatSse } from '../store/ChatSseContext';
 import { getNotifications, markRead, markAllRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
@@ -41,7 +41,7 @@ const typeColors: Record<string, 'warning' | 'info' | 'primary' | 'success'> = {
 
 export default function Notifications() {
   const { user } = useAuth();
-  const { refreshNotificationUnread } = useChatSocket();
+  const { refreshNotificationUnread } = useChatSse();
 
   const [notifications, setNotifications] = useState<NotificationVO[]>([]);
   const [total, setTotal] = useState(0);

@@ -160,7 +160,7 @@ export default function TextCoverDialog({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="输入封面标题"
-          helperText="可用回车手动换行；超长标题会自动截断（最多 3 行，末尾加省略号），不会溢出封面"
+          helperText="可用回车手动换行"
           multiline maxRows={3}
         />
         <TextField
@@ -169,7 +169,7 @@ export default function TextCoverDialog({
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="输入需要显示在封面上的正文"
-          helperText="正文会按封面空间自动折行，超长内容由后端截断"
+          helperText="正文会按封面空间自动折行"
           multiline
           minRows={3}
           maxRows={5}

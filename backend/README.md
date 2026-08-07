@@ -1,12 +1,12 @@
 # 校园失物招领 - 后端
 
-Spring Boot 后端服务,提供 REST API 与 WebSocket,面向高中校园失物招领业务。
+Spring Boot 后端服务,提供 REST API 与 SSE 实时推送,面向高中校园失物招领业务。
 前端仓库见 `web-frontend/`,文字封面生成服务见 `backend/postgen-service/`。
 
 ## 技术栈
 
 - Java 21 · Spring Boot 3.3.5 · MyBatis-Plus 3.5.5 · MySQL 8
-- Spring Security + JWT · STOMP WebSocket · Spring Mail · Apache POI
+- Spring Security + JWT · Server-Sent Events · Spring Mail · Apache POI
 - 构建:Maven(Java) / Node(postgen-service)
 
 ## 目录结构

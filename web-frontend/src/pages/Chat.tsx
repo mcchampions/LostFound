@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Snackbar } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
-import { useChatSocket } from '../store/ChatSocketContext';
+import { useChatSse } from '../store/ChatSseContext';
 import { getConversations, getLatestMessages, getMessagesBefore, markConversationRead, sendMessage } from '../api/chat';
 import type { ConversationVO, MessageVO } from '../api/chat';
 import { getApiErrorMessage } from '../api/errors';
@@ -21,7 +21,7 @@ function decodeQueryValue(value: string) {
 
 export default function Chat() {
   const { user } = useAuth();
-  const { subscribe, setActiveConversation, refreshUnread } = useChatSocket();
+  const { subscribe, setActiveConversation, refreshUnread } = useChatSse();
   const [searchParams] = useSearchParams();
   const targetUserId = Number(searchParams.get('to')) || null;
   const targetName = searchParams.get('name');

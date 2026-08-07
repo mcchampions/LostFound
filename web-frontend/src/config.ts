@@ -6,8 +6,7 @@ export const SERVER_BASE = import.meta.env.VITE_SERVER_BASE ?? (import.meta.env.
 const API_PREFIX = '/api/v1';
 
 export const API_BASE = SERVER_BASE + API_PREFIX;
-export const SOCKJS_ENDPOINT = SERVER_BASE + '/ws';
-export const WS_ENDPOINT = SOCKJS_ENDPOINT;
+export const SSE_ENDPOINT = API_BASE + '/chat/stream';
 
 export function assetUrl(path: string): string {
   if (!path) return '';

@@ -9,7 +9,7 @@
 |---|---|
 | [architecture.md](architecture.md) | 总体架构、技术栈、模块划分、关键数据流 |
 | [backend.md](backend.md) | 后端包结构、启动流程、核心业务与后台任务 |
-| [api.md](api.md) | REST API 全量参考与 WebSocket 协议 |
+| [api.md](api.md) | REST API 全量参考与 SSE 事件协议 |
 | [database.md](database.md) | 数据模型、状态枚举、迁移机制 |
 | [security.md](security.md) | 认证、授权、防爆破、上传与审计安全设计 |
 | [frontend.md](frontend.md) | 前端目录、路由、全局状态、关键组件 |

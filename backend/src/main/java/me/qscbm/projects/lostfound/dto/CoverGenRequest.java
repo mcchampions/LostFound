@@ -10,7 +10,7 @@ public class CoverGenRequest {
     @Size(max = 200, message = "标题过长")
     private String title;
 
-    @Size(max = 10000, message = "正文过长")
+    @Size(max = 800, message = "正文过长")
     private String content;
 
     @Size(max = 100, message = "类别过长")

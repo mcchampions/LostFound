@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SERVER_BASE, API_BASE, SOCKJS_ENDPOINT, WS_ENDPOINT, assetUrl } from './config';
+import { SERVER_BASE, API_BASE, SSE_ENDPOINT, assetUrl } from './config';
 
 describe('Config', () => {
   describe('SERVER_BASE', () => {
@@ -14,13 +14,9 @@ describe('Config', () => {
     });
   });
 
-  describe('SOCKJS_ENDPOINT 和 WS_ENDPOINT', () => {
-    it('应该相等', () => {
-      expect(SOCKJS_ENDPOINT).toBe(WS_ENDPOINT);
-    });
-
-    it('应该包含 /ws 路径', () => {
-      expect(SOCKJS_ENDPOINT).toContain('/ws');
+  describe('SSE_ENDPOINT', () => {
+    it('应该使用聊天流接口', () => {
+      expect(SSE_ENDPOINT).toContain('/api/v1/chat/stream');
     });
   });
 

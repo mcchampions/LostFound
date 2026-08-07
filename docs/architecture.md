@@ -9,8 +9,8 @@
 
 | 层 | 选型 |
 |---|---|
-| 后端 | Spring Boot 3.3.5 · Java 21 · MyBatis-Plus 3.5.5 · MySQL 8 · Spring Security + JWT · STOMP WebSocket · Spring Mail · Apache POI |
-| 前端 | React 19 + TypeScript · Vite 8 · MUI 9 · axios · i18next · STOMP/SockJS |
+| 后端 | Spring Boot 3.3.5 · Java 21 · MyBatis-Plus 3.5.5 · MySQL 8 · Spring Security + JWT · SSE · Spring Mail · Apache POI |
+| 前端 | React 19 + TypeScript · Vite 8 · MUI 9 · axios · i18next · EventSource |
 | 附加服务 | `backend/postgen-service/`：Node 边车服务，用 satori + resvg 生成文字封面图 |
 
 ## 部署原则
@@ -32,7 +32,7 @@
 │   │   ├── entity/ dto/         # 实体与传输对象
 │   │   ├── common/              # 统一响应/异常/工具
 │   │   ├── config/              # 配置与数据库初始化
-│   │   └── security/            # JWT/安全过滤/WS 鉴权
+│   │   └── security/            # JWT 与 HTTP 安全过滤
 │   ├── src/main/resources/
 │   │   ├── application.yml      # 配置（全量环境变量化）
 │   │   ├── logback-spring.xml   # 控制台 + 文件日志
@@ -58,8 +58,8 @@ flowchart LR
     C --> S[Service]
     S --> M[Mapper]
     M --> DB[(MySQL)]
-    FE <-->|STOMP /ws| WS[WebSocket]
-    S --> WS
+    FE <-->|SSE /api/v1/chat/stream| PUSH[SSE]
+    S --> PUSH
     S -->|异步| MAIL[邮件/重试队列]
     S -->|事务后| NOTI[通知推送]
 ```
@@ -83,5 +83,5 @@ flowchart LR
 
 ### 通知实时推送
 
-通知落库后在事务提交后通过 `/user/queue/notifications` 推送；前端全局
-WebSocket 连接接收并更新铃铛角标。
+通知落库后在事务提交后通过 SSE `notification` 事件推送；前端全局
+EventSource 连接接收并更新铃铛角标。
