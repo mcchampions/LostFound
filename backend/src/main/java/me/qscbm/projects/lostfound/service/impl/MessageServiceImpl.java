@@ -12,10 +12,14 @@ import me.qscbm.projects.lostfound.dto.MessageBatchVO;
 import me.qscbm.projects.lostfound.dto.MessageRequest;
 import me.qscbm.projects.lostfound.dto.MessageVO;
 import me.qscbm.projects.lostfound.entity.Message;
+import me.qscbm.projects.lostfound.entity.ClaimApplication;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.ClaimStatus;
+import me.qscbm.projects.lostfound.entity.enums.MessageType;
 import me.qscbm.projects.lostfound.entity.enums.UserStatus;
 import me.qscbm.projects.lostfound.entity.UserEmailPreference;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
+import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.service.MessageService;
@@ -37,10 +41,12 @@ import java.util.stream.Collectors;
 public class MessageServiceImpl implements MessageService {
 
     private final MessageMapper messageMapper;
+    private final ClaimApplicationMapper claimApplicationMapper;
     private final UserMapper userMapper;
     private final UserEmailPreferenceMapper emailPreferenceMapper;
     private final SseConnectionService sseConnectionService;
     private final OfflineMessageEmailTracker offlineEmailTracker;
+    private final Object[] sendLocks = createSendLocks();
 
     @Override
     public MessageVO send(Long senderId, MessageRequest req) {
@@ -60,8 +66,12 @@ public class MessageServiceImpl implements MessageService {
         msg.setSenderId(senderId);
         msg.setReceiverId(req.getReceiverId());
         msg.setContent(req.getContent().trim());
+        msg.setMessageType(MessageType.USER.getValue());
         msg.setIsRead(false);
-        messageMapper.insert(msg);
+        synchronized (sendLock(senderId, req.getReceiverId())) {
+            validateInitialMessageLimit(senderId, req.getReceiverId());
+            messageMapper.insert(msg);
+        }
 
         MessageVO vo = toVO(msg);
         sseConnectionService.sendToUser(req.getReceiverId(), SseConnectionService.MESSAGE_EVENT, vo);
@@ -231,6 +241,7 @@ public class MessageServiceImpl implements MessageService {
         msg.setSenderId(senderId);
         msg.setReceiverId(receiverId);
         msg.setContent(content);
+        msg.setMessageType(MessageType.NARRATION.getValue());
         msg.setIsRead(false);
         messageMapper.insert(msg);
         sseConnectionService.sendToUser(receiverId, SseConnectionService.MESSAGE_EVENT, toVO(msg));
@@ -304,6 +315,8 @@ public class MessageServiceImpl implements MessageService {
                 .senderName(sender != null ? displayName(sender) : "系统")
                 .receiverId(msg.getReceiverId())
                 .content(msg.getContent())
+                .messageType(msg.getMessageType() == null
+                        ? MessageType.USER.getValue() : msg.getMessageType())
                 .isRead(msg.getIsRead())
                 .createdAt(msg.getCreatedAt())
                 .build();
@@ -336,5 +349,48 @@ public class MessageServiceImpl implements MessageService {
     private String displayName(User user) {
         if (user == null) return "未知用户";
         return user.getRealName() != null ? user.getRealName() : user.getUsername();
+    }
+
+    private void validateInitialMessageLimit(Long senderId, Long receiverId) {
+        if (hasApprovedClaimRelation(senderId, receiverId)) return;
+        Long sentCount = messageMapper.selectCount(new LambdaQueryWrapper<Message>()
+                .eq(Message::getSenderId, senderId)
+                .eq(Message::getReceiverId, receiverId)
+                .eq(Message::getMessageType, MessageType.USER.getValue()));
+        if (sentCount == null || sentCount == 0) return;
+        Long replyCount = messageMapper.selectCount(new LambdaQueryWrapper<Message>()
+                .eq(Message::getSenderId, receiverId)
+                .eq(Message::getReceiverId, senderId)
+                .eq(Message::getMessageType, MessageType.USER.getValue()));
+        if (replyCount == null || replyCount == 0) {
+            throw new BusinessException("对方回复前只能发送一条消息");
+        }
+    }
+
+    private boolean hasApprovedClaimRelation(Long firstUserId, Long secondUserId) {
+        Long count = claimApplicationMapper.selectCount(new LambdaQueryWrapper<ClaimApplication>()
+                .eq(ClaimApplication::getStatus, ClaimStatus.APPROVED.getValue())
+                .and(wrapper -> wrapper
+                        .nested(pair -> pair
+                                .eq(ClaimApplication::getApplicantId, firstUserId)
+                                .eq(ClaimApplication::getPublisherId, secondUserId))
+                        .or()
+                        .nested(pair -> pair
+                                .eq(ClaimApplication::getApplicantId, secondUserId)
+                                .eq(ClaimApplication::getPublisherId, firstUserId))));
+        return count != null && count > 0;
+    }
+
+    private Object sendLock(Long firstUserId, Long secondUserId) {
+        long lowerUserId = Math.min(firstUserId, secondUserId);
+        long higherUserId = Math.max(firstUserId, secondUserId);
+        int hash = Long.hashCode(lowerUserId) * 31 + Long.hashCode(higherUserId);
+        return sendLocks[(hash & Integer.MAX_VALUE) % sendLocks.length];
+    }
+
+    private static Object[] createSendLocks() {
+        Object[] locks = new Object[256];
+        java.util.Arrays.setAll(locks, ignored -> new Object());
+        return locks;
     }
 }

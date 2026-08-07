@@ -13,6 +13,7 @@ public class MessageVO {
     private String senderName;
     private Long receiverId;
     private String content;
+    private String messageType;
     private Boolean isRead;
     private LocalDateTime createdAt;
 }

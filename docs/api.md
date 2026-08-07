@@ -79,7 +79,7 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/chat/start/{targetUserId}` | 获取/创建会话 ID |
-| POST | `/chat/send` | 发送消息（在线推送，离线收集摘要） |
+| POST | `/chat/send` | 发送消息（在线推送，离线收集摘要；陌生双方在对方回复前只能发送一条） |
 | GET | `/chat/conversations` | 会话列表（按人合并未读） |
 | GET | `/chat/messages/{conversationId}` | 消息分页（前端默认取最近 50 条，可翻页） |
 | GET | `/chat/messages/{conversationId}/latest` | 最近一批消息（默认 50 条） |
@@ -103,5 +103,7 @@
 
 - 端点：`GET /api/v1/chat/stream`，响应类型 `text/event-stream`，通过登录 Cookie 鉴权；
 - 事件：`message`（`MessageVO`）、`notification`（`Notification`）、`heartbeat`（保活时间戳）；
+- `MessageVO.messageType` 为 `USER` 或 `NARRATION`；认领通过提示使用旁白类型；
+- 双方存在已通过认领关系，或双方均发送过用户消息后，不再限制连续发送；
 - 浏览器使用原生 `EventSource` 自动重连，页面卸载或登出时主动关闭连接；
 - 发送消息仍走 REST `/chat/send`，SSE 仅承担服务端到客户端推送。

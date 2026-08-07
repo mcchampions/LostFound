@@ -5,6 +5,8 @@ import me.qscbm.projects.lostfound.dto.MessageRequest;
 import me.qscbm.projects.lostfound.dto.MessageVO;
 import me.qscbm.projects.lostfound.entity.Message;
 import me.qscbm.projects.lostfound.entity.User;
+import me.qscbm.projects.lostfound.entity.enums.MessageType;
+import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
 import me.qscbm.projects.lostfound.mapper.MessageMapper;
 import me.qscbm.projects.lostfound.mapper.UserEmailPreferenceMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
@@ -24,6 +26,7 @@ import static org.mockito.Mockito.*;
 class MessageServiceImplTest {
 
     private MessageMapper messageMapper;
+    private ClaimApplicationMapper claimApplicationMapper;
     private UserMapper userMapper;
     private UserEmailPreferenceMapper emailPreferenceMapper;
     private SseConnectionService sseConnectionService;
@@ -33,12 +36,13 @@ class MessageServiceImplTest {
     @BeforeEach
     void setUp() {
         messageMapper = mock(MessageMapper.class);
+        claimApplicationMapper = mock(ClaimApplicationMapper.class);
         userMapper = mock(UserMapper.class);
         emailPreferenceMapper = mock(UserEmailPreferenceMapper.class);
         sseConnectionService = mock(SseConnectionService.class);
         offlineEmailTracker = mock(OfflineMessageEmailTracker.class);
         service = new MessageServiceImpl(
-                messageMapper, userMapper, emailPreferenceMapper, sseConnectionService,
+                messageMapper, claimApplicationMapper, userMapper, emailPreferenceMapper, sseConnectionService,
                 offlineEmailTracker);
     }
 
@@ -60,6 +64,7 @@ class MessageServiceImplTest {
 
         assertThat(result.getConversationId()).isEqualTo("1_2");
         assertThat(result.getContent()).isEqualTo("hello");
+        assertThat(result.getMessageType()).isEqualTo(MessageType.USER.getValue());
         verify(sseConnectionService).sendToUser(2L, SseConnectionService.MESSAGE_EVENT, result);
     }
 
@@ -115,6 +120,7 @@ class MessageServiceImplTest {
         when(userMapper.selectById(2L)).thenReturn(user(2L, "Receiver"));
         when(userMapper.selectById(1L)).thenReturn(user(1L, "Sender"));
         when(messageMapper.selectCount(any())).thenReturn(1L);
+        when(claimApplicationMapper.selectCount(any())).thenReturn(1L);
         doAnswer(invocation -> {
             Message message = invocation.getArgument(0);
             message.setId(11L);
@@ -129,6 +135,43 @@ class MessageServiceImplTest {
     }
 
     @Test
+    void rejectsSecondMessageBeforeReceiverReplies() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "Receiver"));
+        when(messageMapper.selectCount(any())).thenReturn(1L, 0L);
+
+        assertThatThrownBy(() -> service.send(1L, request("1_2", 2L, "second")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("对方回复前只能发送一条消息");
+        verify(messageMapper, never()).insert(any());
+    }
+
+    @Test
+    void allowsMoreMessagesAfterReceiverReplies() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "Receiver"));
+        when(userMapper.selectById(1L)).thenReturn(user(1L, "Sender"));
+        when(messageMapper.selectCount(any())).thenReturn(1L, 1L);
+        assignInsertedMessage(30L);
+
+        MessageVO result = service.send(1L, request("1_2", 2L, "follow-up"));
+
+        assertThat(result.getContent()).isEqualTo("follow-up");
+        verify(messageMapper).insert(any(Message.class));
+    }
+
+    @Test
+    void approvedClaimRelationBypassesInitialMessageLimit() {
+        when(userMapper.selectById(2L)).thenReturn(user(2L, "Receiver"));
+        when(userMapper.selectById(1L)).thenReturn(user(1L, "Sender"));
+        when(claimApplicationMapper.selectCount(any())).thenReturn(1L);
+        assignInsertedMessage(31L);
+
+        service.send(1L, request("1_2", 2L, "unrestricted"));
+
+        verify(messageMapper, never()).selectCount(any());
+        verify(messageMapper).insert(any(Message.class));
+    }
+
+    @Test
     void systemMessageUsesTheStableDirectConversationId() {
         doAnswer(invocation -> {
             Message message = invocation.getArgument(0);
@@ -139,7 +182,9 @@ class MessageServiceImplTest {
 
         service.systemMessage("claim_9", 2L, 1L, "approved");
 
-        verify(messageMapper).insert(argThat(message -> "1_2".equals(message.getConversationId())));
+        verify(messageMapper).insert(argThat(message ->
+                "1_2".equals(message.getConversationId())
+                        && MessageType.NARRATION.getValue().equals(message.getMessageType())));
         verify(sseConnectionService).sendToUser(
                 eq(1L), eq(SseConnectionService.MESSAGE_EVENT), any(MessageVO.class));
     }
@@ -186,8 +231,18 @@ class MessageServiceImplTest {
         message.setSenderId(senderId);
         message.setReceiverId(receiverId);
         message.setContent("message");
+        message.setMessageType(MessageType.USER.getValue());
         message.setIsRead(false);
         message.setCreatedAt(createdAt);
         return message;
+    }
+
+    private void assignInsertedMessage(Long id) {
+        doAnswer(invocation -> {
+            Message message = invocation.getArgument(0);
+            message.setId(id);
+            message.setCreatedAt(LocalDateTime.now());
+            return 1;
+        }).when(messageMapper).insert(any(Message.class));
     }
 }

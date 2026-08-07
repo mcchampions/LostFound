@@ -3,12 +3,16 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Box, Typography, Paper, Avatar, CircularProgress, Alert,
   Grid, Tabs, Tab, Card, CardMedia, CardContent, CardActionArea, Chip,
-  Button, Pagination
+  Button, Pagination, Snackbar
 } from '@mui/material';
-import { ArrowBack as BackIcon, ImageOutlined as ImageIcon } from '@mui/icons-material';
+import {
+  ArrowBack as BackIcon, Chat as ChatIcon, ImageOutlined as ImageIcon
+} from '@mui/icons-material';
 import client from '../api/client';
+import { startConversation } from '../api/chat';
 import { assetUrl } from '../config';
 import { getApiErrorMessage } from '../api/errors';
+import { useAuth } from '../store/AuthContext';
 
 interface PublicProfile {
   id: number;
@@ -44,6 +48,7 @@ interface UserItem {
 export default function UserProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [items, setItems] = useState<UserItem[]>([]);
@@ -52,6 +57,8 @@ export default function UserProfile() {
   const [tab, setTab] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [chatStarting, setChatStarting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -108,6 +115,22 @@ export default function UserProfile() {
 
   const displayName = profile.realName || profile.username;
 
+  const handleStartChat = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    setChatStarting(true);
+    try {
+      const data = await startConversation(profile.id);
+      navigate(`/chat?conv=${data.conversationId}&to=${profile.id}&name=${encodeURIComponent(displayName)}`);
+    } catch (errorValue) {
+      setActionError(getApiErrorMessage(errorValue, '发起对话失败'));
+    } finally {
+      setChatStarting(false);
+    }
+  };
+
   const getStatusChip = (item: UserItem) => {
     if (item.itemType === 'LOST') {
       return item.status === 'LOST'
@@ -149,6 +172,12 @@ export default function UserProfile() {
               </Typography>
             )}
           </Box>
+          {user?.id !== profile.id && (
+            <Button variant="contained" startIcon={<ChatIcon />} onClick={handleStartChat}
+              disabled={chatStarting}>
+              发起聊天
+            </Button>
+          )}
         </Box>
 
         {/* Stats */}
@@ -256,6 +285,8 @@ export default function UserProfile() {
           <Pagination count={totalPages} page={page} onChange={(_, p) => setPage(p)} color="primary" />
         </Box>
       )}
+      <Snackbar open={Boolean(actionError)} autoHideDuration={3000}
+        onClose={() => setActionError('')} message={actionError} />
     </Box>
   );
 }

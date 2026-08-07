@@ -16,7 +16,7 @@
 | `announcement` | 公告 |
 | `operation_log` | 操作审计（动作/目标/IP/描述） |
 | `system_config` | 站点配置 |
-| `message` | 聊天消息（会话/未读） |
+| `message` | 聊天消息（会话/未读/`USER` 或 `NARRATION` 类型） |
 | `user_email_preference` | 邮件偏好（按类型开关 + 摘要状态） |
 | `password_reset_code` | 重置密码验证码（哈希存储） |
 | `schema_migration` | 已应用 SQL 脚本记录（运行时由 `DatabaseInitializer` 维护） |

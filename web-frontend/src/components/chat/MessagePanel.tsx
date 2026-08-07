@@ -1,5 +1,5 @@
 import { Box, Button, Link, Paper, TextField, Typography } from '@mui/material';
-import { Send as SendIcon } from '@mui/icons-material';
+import SendIcon from '@mui/icons-material/Send';
 import type { ConversationVO, MessageVO } from '../../api/chat';
 
 interface MessagePanelProps {
@@ -33,10 +33,16 @@ export default function MessagePanel({ userId, conversation, messages, input, ha
             {loadingMore ? '正在加载之前五十条消息…' : '查看之前五十条消息'}
           </Typography>
         </Box>}
-        {messages.map(message => <Box key={message.id} sx={{ alignSelf: message.senderId === userId ? 'flex-end' : 'flex-start', maxWidth: '70%', bgcolor: message.senderId === userId ? 'primary.main' : '#fff', color: message.senderId === userId ? '#fff' : 'text.primary', borderRadius: 2, px: 2, py: 1, boxShadow: message.senderId !== userId ? 1 : 0 }}>
-          <Typography variant="body2">{message.content}</Typography>
-          <Typography variant="caption" sx={{ color: message.senderId === userId ? 'rgba(255,255,255,0.7)' : 'text.disabled', display: 'block', textAlign: 'right', mt: 0.5 }}>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</Typography>
-        </Box>)}
+        {messages.map(message => message.messageType === 'NARRATION' ? (
+          <Box key={message.id} sx={{ alignSelf: 'center', px: 2, py: 0.5, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary">{message.content}</Typography>
+          </Box>
+        ) : (
+          <Box key={message.id} sx={{ alignSelf: message.senderId === userId ? 'flex-end' : 'flex-start', maxWidth: '70%', bgcolor: message.senderId === userId ? 'primary.main' : '#fff', color: message.senderId === userId ? '#fff' : 'text.primary', borderRadius: 2, px: 2, py: 1, boxShadow: message.senderId !== userId ? 1 : 0 }}>
+            <Typography variant="body2">{message.content}</Typography>
+            <Typography variant="caption" sx={{ color: message.senderId === userId ? 'rgba(255,255,255,0.7)' : 'text.disabled', display: 'block', textAlign: 'right', mt: 0.5 }}>{new Date(message.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</Typography>
+          </Box>
+        ))}
         <div ref={endRef} />
       </Box>
       <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>

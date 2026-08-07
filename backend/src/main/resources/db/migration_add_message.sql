@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS `message` (
     `sender_id` BIGINT NOT NULL,
     `receiver_id` BIGINT NOT NULL,
     `content` TEXT NOT NULL,
+    `message_type` VARCHAR(20) NOT NULL DEFAULT 'USER',
     `is_read` TINYINT DEFAULT 0,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
