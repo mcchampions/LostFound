@@ -9,6 +9,7 @@ import {
 import { uploadImage } from '../api/upload';
 import { assetUrl } from '../config';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   images: string[];
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function ItemImageUpload({ images, onChange }: Props) {
+  const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
@@ -42,8 +44,8 @@ export default function ItemImageUpload({ images, onChange }: Props) {
         setUploadProgress(prev => { const next = [...prev]; next[i] = 100; return next; });
       } catch (errorValue) {
         setUploadError(previous => previous
-          ? `${previous}；${getApiErrorMessage(errorValue, `第${i + 1}张图片上传失败`)}`
-          : getApiErrorMessage(errorValue, `第${i + 1}张图片上传失败`));
+          ? `${previous}；${getApiErrorMessage(errorValue, t('upload.imageFailed', { index: i + 1 }))}`
+          : getApiErrorMessage(errorValue, t('upload.imageFailed', { index: i + 1 })));
         setUploadProgress(prev => { const next = [...prev]; next[i] = -1; return next; });
       }
     }
@@ -100,7 +102,7 @@ export default function ItemImageUpload({ images, onChange }: Props) {
             disabled={uploading}
           >
             <AddPhotoIcon />
-            <Typography variant="caption">上传图片</Typography>
+            <Typography variant="caption">{t('upload.uploadImage')}</Typography>
             <input type="file" accept="image/*" multiple hidden onChange={handleFileSelect} />
           </Button>
         )}
@@ -109,7 +111,7 @@ export default function ItemImageUpload({ images, onChange }: Props) {
       {uploading && uploadProgress.map((p, i) => (
         <Box key={i} sx={{ mb: 0.5 }}>
           <Typography variant="caption">
-            上传图片 {i + 1}{p === -1 ? ' 失败' : p === 100 ? ' 完成' : ` ${p}%`}
+            {t('upload.uploading', { index: i + 1 })}{p === -1 ? ` ${t('upload.failed')}` : p === 100 ? ` ${t('upload.done')}` : ` ${p}%`}
           </Typography>
           <LinearProgress
             variant="determinate" value={p === -1 ? 100 : p}

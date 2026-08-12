@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Box, TextField, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 interface DateTimeRangePickerProps {
   label: string;
@@ -28,8 +29,8 @@ export const formatLocalDateTime = (d: Date) =>
  */
 export default function DateTimeRangePicker({
   label,
-  startLabel = '开始',
-  endLabel = '结束',
+  startLabel,
+  endLabel,
   startValue,
   endValue,
   onStartChange,
@@ -39,6 +40,9 @@ export default function DateTimeRangePicker({
   helperText,
   disabled = false,
 }: DateTimeRangePickerProps) {
+  const { t } = useTranslation();
+  const resolvedStartLabel = startLabel ?? t('common.start');
+  const resolvedEndLabel = endLabel ?? t('common.end');
   const [focused, setFocused] = useState(false);
 
   const nowLocal = formatLocalDateTime(new Date());
@@ -50,9 +54,9 @@ export default function DateTimeRangePicker({
   );
   const showError = error || invalidRange || futureInvalid;
   const shownHelper = invalidRange
-    ? '结束时间不能早于开始时间'
+    ? t('items.timeRangeInvalid')
     : futureInvalid
-      ? '时间不能晚于当前时间'
+      ? t('items.timeInFuture')
       : helperText;
   // 开始时间的可选上限：取「结束时间」与「当前时间」中更早的那个
   const startMax = endValue && endValue < nowLocal ? endValue : nowLocal;
@@ -102,7 +106,7 @@ export default function DateTimeRangePicker({
       >
         <TextField
           type="datetime-local"
-          label={startLabel}
+          label={resolvedStartLabel}
           size="small"
           variant="standard"
           value={startValue}
@@ -116,11 +120,11 @@ export default function DateTimeRangePicker({
           sx={{ flex: 1 }}
         />
         <Typography color="text.secondary" sx={{ flexShrink: 0 }}>
-          至
+          {t('common.to')}
         </Typography>
         <TextField
           type="datetime-local"
-          label={endLabel}
+          label={resolvedEndLabel}
           size="small"
           variant="standard"
           value={endValue}

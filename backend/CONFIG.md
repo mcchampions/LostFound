@@ -56,6 +56,13 @@
 | `LOG_LEVEL_APP` | `info` | 业务包日志级别 | 默认即可 |
 | `LOG_LEVEL_SQL` | `off` | SQL 日志级别（本地调试可 `debug`） | 默认即可 |
 
+> 时间基准：业务时间戳统一使用 `Asia/Shanghai`（与 JDBC 的
+> `serverTimezone` 一致）。如需修改，通过 JVM 系统属性
+> `-Dapp.timezone=<zone>` 覆盖，但必须与数据库时区保持一致。
+
+> postgen 端口占用：启动脚本检测到 `POSTGEN_PORT` 已被占用时会交互询问
+> 是否结束占用进程；选择否将跳过 postgen 直接启动后端，不再自动强杀。
+
 ## 本机 jar 启动脚本（backend/ 或 backend/app/）
 
 | 脚本 | 行为 |

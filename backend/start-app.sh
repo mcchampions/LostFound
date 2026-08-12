@@ -71,11 +71,27 @@ start_postgen() {
     echo "[postgen] node not found"
     exit 1
   fi
-  # Kill any stale postgen process still holding the port (old code instance)
+  # If the port is already in use, ask the user before stopping anything.
+  PORT_PIDS=""
   if command -v lsof >/dev/null 2>&1; then
-    lsof -ti tcp:"$POSTGEN_PORT" | xargs -r kill -9 2>/dev/null || true
+    PORT_PIDS=$(lsof -ti tcp:"$POSTGEN_PORT" 2>/dev/null || true)
   elif command -v fuser >/dev/null 2>&1; then
-    fuser -k "$POSTGEN_PORT"/tcp 2>/dev/null || true
+    PORT_PIDS=$(fuser "$POSTGEN_PORT"/tcp 2>/dev/null | tr -s ' ' | sed 's/^ *//;s/ *$//' || true)
+  fi
+  if [ -n "$PORT_PIDS" ]; then
+    echo "[postgen] Port $POSTGEN_PORT is already in use by PID(s): $PORT_PIDS"
+    printf 'Kill process(es) and start postgen? [y/N]: '
+    read -r POSTGEN_KILL_ANSWER || POSTGEN_KILL_ANSWER=""
+    case "$POSTGEN_KILL_ANSWER" in
+      y|Y)
+        echo "$PORT_PIDS" | xargs -r kill -9 2>/dev/null || true
+        echo "[postgen] Stopped PID(s): $PORT_PIDS"
+        ;;
+      *)
+        echo "[postgen] Port $POSTGEN_PORT is in use. Skipping postgen."
+        return 0
+        ;;
+    esac
   fi
   mkdir -p "$POSTGEN_WORK_DIR"
   echo "[postgen] starting http://localhost:$POSTGEN_PORT ..."

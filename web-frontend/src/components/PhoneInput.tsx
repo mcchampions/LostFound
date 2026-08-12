@@ -1,6 +1,7 @@
 import {
   Box, FormControl, InputLabel, MenuItem, Select, TextField, Typography
 } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 interface CountryOption {
   id: string;
@@ -73,20 +74,22 @@ interface PhoneInputProps {
 export default function PhoneInput({
   value,
   onChange,
-  label = '手机号',
+  label,
   required = false,
   error = false,
   helperText,
   disabled = false,
   size = 'medium',
 }: PhoneInputProps) {
+  const { t } = useTranslation();
+  const resolvedLabel = label ?? t('phone.label');
   const parsed = parsePhone(value);
   const country = COUNTRIES.find(c => c.code === parsed.code) ?? COUNTRIES[0];
   const number = parsed.number;
 
   const invalidNumber = number.length > 0 && (number.length < 5 || number.length > 15);
   const showError = error || invalidNumber;
-  const shownHelper = invalidNumber ? '手机号需为 5-15 位纯数字' : helperText;
+  const shownHelper = invalidNumber ? t('phone.invalid') : helperText;
 
   const emit = (code: string, digits: string) => {
     onChange(digits ? `+${code} ${digits}` : '');
@@ -96,10 +99,10 @@ export default function PhoneInput({
     <Box>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
         <FormControl size={size} sx={{ minWidth: 190 }}>
-          <InputLabel>{label}</InputLabel>
+          <InputLabel>{resolvedLabel}</InputLabel>
           <Select
             value={country.id}
-            label={label}
+            label={resolvedLabel}
             disabled={disabled}
             onChange={(e) => {
               const option = COUNTRIES.find(c => c.id === e.target.value) ?? COUNTRIES[0];
@@ -134,7 +137,7 @@ export default function PhoneInput({
         <TextField
           fullWidth
           size={size}
-          label="号码"
+          label={t('phone.number')}
           value={number}
           disabled={disabled}
           onChange={(e) => emit(country.code, e.target.value.replace(/\D/g, ''))}
@@ -147,7 +150,7 @@ export default function PhoneInput({
       </Box>
       {required && !number && (
         <Typography variant="caption" color="error.main" sx={{ ml: 1.5, mt: 0.5, display: 'block' }}>
-          请输入手机号
+          {t('phone.required')}
         </Typography>
       )}
     </Box>

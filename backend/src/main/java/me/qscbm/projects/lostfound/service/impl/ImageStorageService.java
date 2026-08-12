@@ -1,9 +1,17 @@
 package me.qscbm.projects.lostfound.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.extern.slf4j.Slf4j;
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.common.AppHome;
 import me.qscbm.projects.lostfound.common.BusinessException;
+import me.qscbm.projects.lostfound.entity.ClaimApplication;
+import me.qscbm.projects.lostfound.entity.FoundItem;
+import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.MediaFile;
+import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
+import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
+import me.qscbm.projects.lostfound.mapper.LostItemMapper;
 import me.qscbm.projects.lostfound.mapper.MediaFileMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -46,20 +54,29 @@ public class ImageStorageService {
 
     private final Path uploadRoot;
     private final MediaFileMapper mediaFileMapper;
+    private final LostItemMapper lostItemMapper;
+    private final FoundItemMapper foundItemMapper;
+    private final ClaimApplicationMapper claimApplicationMapper;
 
     public ImageStorageService(@Value("${app.upload.path:./uploads}") String uploadPath) {
-        this(uploadPath, null);
+        this(uploadPath, null, null, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public ImageStorageService(@Value("${app.upload.path:./uploads}") String uploadPath,
-                               MediaFileMapper mediaFileMapper) {
+                               MediaFileMapper mediaFileMapper,
+                               LostItemMapper lostItemMapper,
+                               FoundItemMapper foundItemMapper,
+                               ClaimApplicationMapper claimApplicationMapper) {
         File dir = new File(uploadPath);
         if (!dir.isAbsolute()) {
             dir = new File(AppHome.dir(), uploadPath);
         }
         this.uploadRoot = dir.toPath().toAbsolutePath().normalize();
         this.mediaFileMapper = mediaFileMapper;
+        this.lostItemMapper = lostItemMapper;
+        this.foundItemMapper = foundItemMapper;
+        this.claimApplicationMapper = claimApplicationMapper;
     }
 
     public void registerOwnedUrl(Long ownerId, String url) {
@@ -123,6 +140,7 @@ public class ImageStorageService {
         for (String url : urls) {
             Path file = resolveUrl(url);
             if (file == null) {
+                deleteMediaRecordIfUnreferenced(url);
                 continue;
             }
             try {
@@ -131,13 +149,49 @@ public class ImageStorageService {
             } catch (IOException e) {
                 log.warn("图片清理失败: {}", file, e);
             }
+            deleteMediaRecordIfUnreferenced(url);
         }
+    }
+
+    /**
+     * 删除 media_file 中已无任何业务引用的记录。
+     * 图片可能同时被多个物品/认领申请引用，只有全部解除后才允许清理，
+     * 否则会导致其他页面图片失效。
+     */
+    private void deleteMediaRecordIfUnreferenced(String url) {
+        if (mediaFileMapper == null || url == null || url.isBlank()) {
+            return;
+        }
+        if (isReferenced(url)) {
+            return;
+        }
+        int deleted = mediaFileMapper.deleteById(url);
+        if (deleted > 0) {
+            log.info("媒体记录清理: 已删除无引用记录 {}", url);
+        }
+    }
+
+    private boolean isReferenced(String url) {
+        Long lostReferences = lostItemMapper == null ? 0L
+                : lostItemMapper.selectCount(new QueryWrapper<LostItem>()
+                        .and(wrapper -> wrapper.eq("cover_image", url)
+                                .or().like("image_urls", url)));
+        Long foundReferences = foundItemMapper == null ? 0L
+                : foundItemMapper.selectCount(new QueryWrapper<FoundItem>()
+                        .and(wrapper -> wrapper.eq("cover_image", url)
+                                .or().like("image_urls", url)));
+        Long claimReferences = claimApplicationMapper == null ? 0L
+                : claimApplicationMapper.selectCount(new QueryWrapper<ClaimApplication>()
+                        .like("image_urls", url));
+        return (lostReferences != null && lostReferences > 0)
+                || (foundReferences != null && foundReferences > 0)
+                || (claimReferences != null && claimReferences > 0);
     }
 
     /** 每日 03:30 按上传日期压缩：7 天以上 -> 720P，30 天以上 -> 540P。 */
     @Scheduled(cron = "0 30 3 * * *")
     public void compressByAge() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = AppTime.today();
         try (var stream = Files.walk(uploadRoot, 3)) {
             stream.filter(Files::isDirectory)
                     .filter(this::isDateDir)

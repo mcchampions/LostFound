@@ -13,6 +13,8 @@ public class Announcement {
     private String title;
     @TableField("content")
     private String content;
+    private Boolean isPinned;
+    private Boolean isActive;
     private Long publisherId;
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

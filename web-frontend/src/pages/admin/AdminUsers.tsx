@@ -2,16 +2,18 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Chip, IconButton, TextField,
-  Pagination, CircularProgress, Alert, Tooltip
+  Pagination, CircularProgress, Alert, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
 } from '@mui/material';
 import {
   Check as CheckIcon, Close as CloseIcon,
-  Block as BlockIcon, Search as SearchIcon
+  Block as BlockIcon, Search as SearchIcon, Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../store/AuthContext';
-import { getUsers, updateUserStatus } from '../../api/admin';
+import { getUsers, updateUserStatus, deleteUser } from '../../api/admin';
 import type { AdminUserPageParams } from '../../types';
 import { getApiErrorMessage } from '../../api/errors';
+import { useTranslation } from 'react-i18next';
 
 interface UserVO {
   id: number;
@@ -24,23 +26,10 @@ interface UserVO {
   createdAt: string;
 }
 
-const statusLabels: Record<string, string> = {
-  ACTIVE: '正常',
-  PENDING: '待审核',
-  INACTIVE: '已禁用',
-};
-
 const statusColors: Record<string, 'success' | 'warning' | 'error'> = {
   ACTIVE: 'success',
   PENDING: 'warning',
   INACTIVE: 'error',
-};
-
-const roleLabels: Record<string, string> = {
-  ADMIN: '管理员',
-  STUDENT: '学生',
-  TEACHER: '教师',
-  USER: '普通用户',
 };
 
 const roleColors: Record<string, 'primary' | 'default'> = {
@@ -51,7 +40,19 @@ const roleColors: Record<string, 'primary' | 'default'> = {
 };
 
 export default function AdminUsers() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
+  const statusLabels: Record<string, string> = {
+    ACTIVE: t('admin.statusActive'),
+    PENDING: t('admin.statusPending'),
+    INACTIVE: t('admin.statusInactive'),
+  };
+  const roleLabels: Record<string, string> = {
+    ADMIN: t('admin.roleAdmin'),
+    STUDENT: t('admin.roleStudent'),
+    TEACHER: t('admin.roleTeacher'),
+    USER: t('admin.roleUser'),
+  };
 
   const [users, setUsers] = useState<UserVO[]>([]);
   const [total, setTotal] = useState(0);
@@ -62,6 +63,9 @@ export default function AdminUsers() {
   const [keyword, setKeyword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserVO | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const pageSize = 10;
 
@@ -76,11 +80,11 @@ export default function AdminUsers() {
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '加载用户列表失败'));
+      setError(getApiErrorMessage(errorValue, t('admin.loadUsersFailed')));
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm]);
+  }, [page, searchTerm, t]);
 
   useEffect(() => {
     fetchUsers();
@@ -103,28 +107,43 @@ export default function AdminUsers() {
         prev.map(u => (u.id === id ? { ...u, status } : u))
       );
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '更新用户状态失败'));
+      setError(getApiErrorMessage(errorValue, t('admin.updateStatusFailed')));
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteUser(deleteTarget.id);
+      setUsers(prev => prev.filter(u => u.id !== deleteTarget.id));
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, t('admin.deleteUserFailed')));
+    } finally {
+      setDeleting(false);
     }
   };
 
   if (!isAdmin) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography variant="h6" color="text.secondary">无权限访问</Typography>
+        <Typography variant="h6" color="text.secondary">{t('admin.noPermission')}</Typography>
       </Box>
     );
   }
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>用户管理</Typography>
+      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>{t('admin.usersTitle')}</Typography>
 
       <Box sx={{ mb: 3 }}>
         <TextField
           size="small"
-          placeholder="搜索用户名或真实姓名"
+          placeholder={t('admin.searchUsersPlaceholder')}
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           slotProps={{
@@ -144,7 +163,7 @@ export default function AdminUsers() {
         </Box>
       ) : users.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6" color="text.secondary">暂无用户</Typography>
+          <Typography variant="h6" color="text.secondary">{t('admin.noUsers')}</Typography>
         </Box>
       ) : (
         <>
@@ -153,13 +172,13 @@ export default function AdminUsers() {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell>用户名</TableCell>
-                  <TableCell>真实姓名</TableCell>
-                  <TableCell>角色</TableCell>
-                  <TableCell>邮箱</TableCell>
-                  <TableCell>状态</TableCell>
-                  <TableCell>注册时间</TableCell>
-                  <TableCell>操作</TableCell>
+                  <TableCell>{t('admin.username')}</TableCell>
+                  <TableCell>{t('admin.realName')}</TableCell>
+                  <TableCell>{t('admin.role')}</TableCell>
+                  <TableCell>{t('admin.email')}</TableCell>
+                  <TableCell>{t('admin.status')}</TableCell>
+                  <TableCell>{t('admin.createdAt')}</TableCell>
+                  <TableCell>{t('admin.actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -194,7 +213,7 @@ export default function AdminUsers() {
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         {u.status === 'PENDING' && (
                           <>
-                            <Tooltip title="通过">
+                            <Tooltip title={t('admin.approve')}>
                               <IconButton
                                 color="success"
                                 size="small"
@@ -204,7 +223,7 @@ export default function AdminUsers() {
                                 <CheckIcon />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="拒绝">
+                            <Tooltip title={t('admin.reject')}>
                               <IconButton
                                 color="error"
                                 size="small"
@@ -217,7 +236,7 @@ export default function AdminUsers() {
                           </>
                         )}
                         {u.status === 'ACTIVE' && (
-                          <Tooltip title="禁用">
+                          <Tooltip title={t('admin.disable')}>
                             <IconButton
                               color="warning"
                               size="small"
@@ -229,7 +248,7 @@ export default function AdminUsers() {
                           </Tooltip>
                         )}
                         {u.status === 'INACTIVE' && (
-                          <Tooltip title="启用">
+                          <Tooltip title={t('admin.enable')}>
                             <IconButton
                               color="success"
                               size="small"
@@ -237,6 +256,21 @@ export default function AdminUsers() {
                               onClick={() => handleStatusChange(u.id, 'ACTIVE')}
                             >
                               <CheckIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {u.role !== 'ADMIN' && (
+                          <Tooltip title={t('admin.deleteUser')}>
+                            <IconButton
+                              color="error"
+                              size="small"
+                              disabled={actionLoading === u.id}
+                              onClick={() => {
+                                setDeleteTarget(u);
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              <DeleteIcon />
                             </IconButton>
                           </Tooltip>
                         )}
@@ -260,10 +294,24 @@ export default function AdminUsers() {
           )}
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-            共 {total} 个用户
+            {t('common.totalUsers', { total })}
           </Typography>
         </>
       )}
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+        <DialogTitle>{t('common.confirmDeleteTitle')}</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {t('admin.confirmDeleteUser', { name: deleteTarget?.realName || deleteTarget?.username })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}>
+            {deleting ? t('common.deleting') : t('admin.deleteUser')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

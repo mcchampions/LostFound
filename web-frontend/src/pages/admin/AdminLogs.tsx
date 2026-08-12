@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Paper, Pagination, CircularProgress, Alert, TextField, Button
+  TableHead, TableRow, Paper, Pagination, CircularProgress, Alert, TextField, Button, Snackbar
 } from '@mui/material';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import { useAuth } from '../../store/AuthContext';
-import { getLogs } from '../../api/admin';
+import { getLogs, exportLogs } from '../../api/admin';
 import { getApiErrorMessage } from '../../api/errors';
+import { useTranslation } from 'react-i18next';
 
 interface LogVO {
   id: number;
@@ -19,6 +21,7 @@ interface LogVO {
 }
 
 export default function AdminLogs() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
 
   const [logs, setLogs] = useState<LogVO[]>([]);
@@ -31,6 +34,8 @@ export default function AdminLogs() {
   const [userIdFilter, setUserIdFilter] = useState('');
   const [queryAction, setQueryAction] = useState('');
   const [queryUserId, setQueryUserId] = useState<number | undefined>(undefined);
+  const [exporting, setExporting] = useState(false);
+  const [exported, setExported] = useState(false);
 
   const pageSize = 15;
 
@@ -48,11 +53,11 @@ export default function AdminLogs() {
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '加载操作日志失败'));
+      setError(getApiErrorMessage(errorValue, t('admin.loadLogsFailed')));
     } finally {
       setLoading(false);
     }
-  }, [page, queryAction, queryUserId]);
+  }, [page, queryAction, queryUserId, t]);
 
   const resetFilters = () => {
     setActionFilter('');
@@ -68,6 +73,19 @@ export default function AdminLogs() {
     setPage(1);
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    setError('');
+    try {
+      await exportLogs();
+      setExported(true);
+    } catch (errorValue) {
+      setError(getApiErrorMessage(errorValue, t('admin.exportLogsFailed')));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
@@ -75,34 +93,44 @@ export default function AdminLogs() {
   if (!isAdmin) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography variant="h6" color="text.secondary">无权限访问</Typography>
+        <Typography variant="h6" color="text.secondary">{t('admin.noPermission')}</Typography>
       </Box>
     );
   }
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>操作日志</Typography>
+      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>{t('admin.logsTitle')}</Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <TextField
           size="small"
-          label="操作类型"
-          placeholder="如 LOGIN、LOST_ITEM_CREATE"
+          label={t('admin.actionType')}
+          placeholder={t('admin.actionPlaceholder')}
           value={actionFilter}
           onChange={e => setActionFilter(e.target.value)}
         />
         <TextField
           size="small"
-          label="用户ID"
+          label={t('admin.userId')}
           value={userIdFilter}
           onChange={e => setUserIdFilter(e.target.value.replace(/\D/g, ''))}
           sx={{ width: 140 }}
         />
-        <Button variant="contained" size="small" onClick={applyFilters}>查询</Button>
-        <Button variant="outlined" size="small" onClick={resetFilters}>重置</Button>
+        <Button variant="contained" size="small" onClick={applyFilters}>{t('admin.query')}</Button>
+        <Button variant="outlined" size="small" onClick={resetFilters}>{t('common.reset')}</Button>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<DownloadIcon />}
+          onClick={handleExport}
+          disabled={exporting}
+          sx={{ ml: 'auto' }}
+        >
+          {t('admin.exportLogs')}
+        </Button>
       </Paper>
 
       {loading ? (
@@ -111,7 +139,7 @@ export default function AdminLogs() {
         </Box>
       ) : logs.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6" color="text.secondary">暂无操作日志</Typography>
+          <Typography variant="h6" color="text.secondary">{t('admin.noLogs')}</Typography>
         </Box>
       ) : (
         <>
@@ -120,13 +148,13 @@ export default function AdminLogs() {
               <TableHead>
                 <TableRow>
                   <TableCell>ID</TableCell>
-                  <TableCell>用户ID</TableCell>
-                  <TableCell>操作</TableCell>
-                  <TableCell>目标类型</TableCell>
-                  <TableCell>目标ID</TableCell>
-                  <TableCell>描述</TableCell>
+                  <TableCell>{t('admin.userId')}</TableCell>
+                  <TableCell>{t('admin.action')}</TableCell>
+                  <TableCell>{t('admin.targetType')}</TableCell>
+                  <TableCell>{t('admin.targetId')}</TableCell>
+                  <TableCell>{t('admin.description')}</TableCell>
                   <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>IP</TableCell>
-                  <TableCell>时间</TableCell>
+                  <TableCell>{t('admin.time')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -174,10 +202,16 @@ export default function AdminLogs() {
           )}
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-            共 {total} 条记录
+            {t('common.records', { total })}
           </Typography>
         </>
       )}
+      <Snackbar
+        open={exported}
+        autoHideDuration={3000}
+        onClose={() => setExported(false)}
+        message={t('admin.exportLogsSuccess')}
+      />
     </Box>
   );
 }

@@ -1,4 +1,5 @@
 import { Alert, Box, Button, Paper, TextField, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 
 interface ProfilePasswordFormProps {
   oldPassword: string;
@@ -20,18 +21,19 @@ export default function ProfilePasswordForm({
   onOldPasswordChange, onNewPasswordChange, onConfirmPasswordChange,
   onSubmit, onClearError, onClearSuccess,
 }: ProfilePasswordFormProps) {
+  const { t } = useTranslation();
   return (
     <Paper sx={{ p: 3, maxWidth: 600, mb: 4 }}>
-      <Typography variant="h6" gutterBottom>修改密码</Typography>
+      <Typography variant="h6" gutterBottom>{t('profile.changePassword')}</Typography>
       <Box component="form" onSubmit={onSubmit} sx={{ mt: 2 }}>
-        <TextField fullWidth type="password" label="原密码" value={oldPassword}
+        <TextField fullWidth type="password" label={t('profile.oldPassword')} value={oldPassword}
           onChange={event => onOldPasswordChange(event.target.value)} margin="normal" />
-        <TextField fullWidth type="password" label="新密码" value={newPassword}
+        <TextField fullWidth type="password" label={t('profile.newPassword')} value={newPassword}
           onChange={event => onNewPasswordChange(event.target.value)} margin="normal" />
-        <TextField fullWidth type="password" label="确认新密码" value={confirmPassword}
+        <TextField fullWidth type="password" label={t('profile.confirmPassword')} value={confirmPassword}
           onChange={event => onConfirmPasswordChange(event.target.value)} margin="normal" />
         <Button type="submit" variant="contained" disabled={loading} sx={{ mt: 2 }}>
-          {loading ? '修改中...' : '修改密码'}
+          {loading ? t('profile.changing') : t('profile.changePassword')}
         </Button>
         {error && <Alert severity="error" sx={{ mt: 2 }} onClose={onClearError}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mt: 2 }} onClose={onClearSuccess}>{success}</Alert>}

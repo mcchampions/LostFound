@@ -49,7 +49,9 @@ public class DatabaseInitializer implements ApplicationRunner {
             "db/migration_password_reset.sql",
             "db/migration_security_hardening.sql",
             "db/migration_media_file.sql",
-            "db/migration_message_type.sql"
+            "db/migration_message_type.sql",
+            "db/migration_announcement_admin.sql",
+            "db/migration_recycle_bin.sql"
     };
 
     private final JdbcTemplate jdbcTemplate;

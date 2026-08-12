@@ -33,7 +33,7 @@ Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
 
 ## 数据模型与状态
 
-13 张表：`user`、`email_verification_code`、`category`、`lost_item`、`found_item`、`claim_application`、`notification`、`announcement`、`operation_log`、`system_config`、`message`、`user_email_preference`、`password_reset_code`。
+14 张表：`user`、`email_verification_code`、`category`、`lost_item`、`found_item`、`claim_application`、`notification`、`announcement`、`operation_log`、`system_config`、`message`、`user_email_preference`、`password_reset_code`、`media_file`。
 
 物品状态枚举（`ItemStatus`）：
 
@@ -79,3 +79,4 @@ Maven 包名 `me.qscbm.projects.lostfound`，artifactId `lost-found`。
 ## 开发进度
 
 已实现：认证（注册/登录/邮箱验证/忘记密码）、登录防爆破（用户名+IP 组合锁定 + IP 限流，改密后旧 token 立即失效）、用户、失物、招领、认领申请、通知（SSE 实时推送 + 角标）、公告、分类、上传（最长边压缩 1080P，7 天 720P / 30 天 540P，已解决 540P，删除联动清理）、即时聊天（默认最近 50 条，可加载更早消息）、离线未读摘要邮件（每轮离线仅提醒一次，上线或 24 小时后可再次提醒；邮件含快速跳转链接与偏好管理入口，失败自动重试）、登录后全局 SSE（任意页面实时收消息/通知）、数据统计（含近 7/30 天趋势）、操作日志（可筛选，关键业务操作落库）、Excel 导出（公式注入防护，含用户导出）、管理后台；配置支持 jar 外 config/ 外部化 + 按「日期-启动序号」写本地日志文件；前端 21 个页面（路由懒加载分包）+ i18n 中文化。
+管理后台增强：公告置顶/上线管理、数据看板（认领转化率/平均解决时长/今日新增）、操作日志导出、回收站（失物/招领/用户软删除、恢复与彻底删除）。

@@ -9,6 +9,7 @@ import { getNotifications, markRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 
 interface NotificationPopoverProps {
   unread: number;
@@ -16,6 +17,7 @@ interface NotificationPopoverProps {
 }
 
 export default function NotificationPopover({ unread, refreshUnread }: NotificationPopoverProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [items, setItems] = useState<NotificationVO[]>([]);
@@ -30,7 +32,7 @@ export default function NotificationPopover({ unread, refreshUnread }: Notificat
       .then(data => setItems(data.records || []))
       .catch(errorValue => {
         setItems([]);
-        setError(getApiErrorMessage(errorValue, '加载通知失败'));
+        setError(getApiErrorMessage(errorValue, t('notifications.loadFailed')));
       })
       .finally(() => setLoading(false));
   };
@@ -50,7 +52,7 @@ export default function NotificationPopover({ unread, refreshUnread }: Notificat
         refreshUnread();
       })
       : Promise.resolve();
-    mark.catch(errorValue => setError(getApiErrorMessage(errorValue, '标记通知已读失败')))
+    mark.catch(errorValue => setError(getApiErrorMessage(errorValue, t('notifications.markReadFailed'))))
       .finally(() => { close(); navigate('/notifications'); });
   };
 
@@ -66,7 +68,7 @@ export default function NotificationPopover({ unread, refreshUnread }: Notificat
       refreshUnread();
       close();
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '处理认领申请失败'));
+      setError(getApiErrorMessage(errorValue, t('notifications.processClaimFailed')));
     } finally { setProcessingId(null); }
   };
 
@@ -82,12 +84,12 @@ export default function NotificationPopover({ unread, refreshUnread }: Notificat
         <Paper>
           <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex',
             justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="subtitle2">通知</Typography>
-            <Button size="small" onClick={() => { close(); navigate('/notifications'); }}>查看全部</Button>
+            <Typography variant="subtitle2">{t('notifications.title')}</Typography>
+            <Button size="small" onClick={() => { close(); navigate('/notifications'); }}>{t('notifications.viewAll')}</Button>
           </Box>
           {error && <Alert severity="error" sx={{ m: 1.5 }}>{error}</Alert>}
           {loading ? <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>
-            : items.length === 0 ? <Box sx={{ p: 3, textAlign: 'center' }}><Typography color="text.secondary" variant="body2">暂无通知</Typography></Box>
+            : items.length === 0 ? <Box sx={{ p: 3, textAlign: 'center' }}><Typography color="text.secondary" variant="body2">{t('notifications.noNotifications')}</Typography></Box>
               : <Stack divider={<Divider />}>{items.map(item => (
                 <Box key={item.id} onClick={() => handleClick(item)} sx={{ p: 1.5, cursor: 'pointer',
                   bgcolor: !item.isRead ? 'action.hover' : 'transparent', '&:hover': { bgcolor: 'action.selected' } }}>
@@ -101,10 +103,10 @@ export default function NotificationPopover({ unread, refreshUnread }: Notificat
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.content}</Typography>
                       <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: 'block' }}>{new Date(item.createdAt).toLocaleString('zh-CN')}</Typography>
                     </Box>
-                    {item.type === 'CLAIM' && item.relatedType === 'CLAIM_APPLICATION' && <Tooltip title="确认已被该用户认领/找到">
+                    {item.type === 'CLAIM' && item.relatedType === 'CLAIM_APPLICATION' && <Tooltip title={t('notifications.confirmClaim')}>
                       <Button size="small" variant="contained" disabled={processingId === item.id}
                         onClick={event => quickApprove(event, item)} sx={{ flexShrink: 0, fontSize: '0.7rem', px: 1, py: 0.3, minWidth: 'auto' }}>
-                        {processingId === item.id ? '...' : '确认'}
+                        {processingId === item.id ? '...' : t('common.confirm')}
                       </Button>
                     </Tooltip>}
                   </Box>

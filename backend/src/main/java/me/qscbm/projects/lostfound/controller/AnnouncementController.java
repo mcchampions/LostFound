@@ -33,7 +33,15 @@ public class AnnouncementController {
     public Result<Announcement> create(
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody AnnouncementRequest req) {
-        return Result.success(announcementService.create(userId, req.getTitle(), req.getContent()));
+        return Result.success(announcementService.create(userId, req));
+    }
+
+    @GetMapping("/api/v1/admin/announcements")
+    public Result<PageResult<Announcement>> adminList(
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        IPage<Announcement> p = announcementService.adminList(page, size);
+        return Result.success(PageResult.of(p));
     }
 
     @PutMapping("/api/v1/admin/announcements/{id}")
@@ -41,7 +49,7 @@ public class AnnouncementController {
             @AuthenticationPrincipal Long userId,
             @PathVariable Long id,
             @Valid @RequestBody AnnouncementRequest req) {
-        return Result.success(announcementService.update(id, userId, req.getTitle(), req.getContent()));
+        return Result.success(announcementService.update(id, userId, req));
     }
 
     @DeleteMapping("/api/v1/admin/announcements/{id}")

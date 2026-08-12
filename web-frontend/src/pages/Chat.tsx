@@ -6,6 +6,7 @@ import { useChatSse } from '../store/ChatSseContext';
 import { getConversations, getLatestMessages, getMessagesBefore, markConversationRead, sendMessage } from '../api/chat';
 import type { ConversationVO, MessageVO } from '../api/chat';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 import ConversationList from '../components/chat/ConversationList';
 import MessagePanel from '../components/chat/MessagePanel';
 
@@ -20,6 +21,7 @@ function decodeQueryValue(value: string) {
 }
 
 export default function Chat() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { subscribe, setActiveConversation, refreshUnread } = useChatSse();
   const [searchParams] = useSearchParams();
@@ -43,9 +45,9 @@ export default function Chat() {
       setConversations(await getConversations());
     } catch (errorValue) {
       setConversations([]);
-      setSendError(getApiErrorMessage(errorValue, '加载会话失败，请重试'));
+      setSendError(getApiErrorMessage(errorValue, t('chat.loadConversationsFailed')));
     }
-  }, []);
+  }, [t]);
 
   const loadLatestMessages = useCallback(async (conversationId: string) => {
     const data = await getLatestMessages(conversationId, PAGE_SIZE, abortRef.current?.signal);
@@ -64,7 +66,7 @@ export default function Chat() {
       setMessages(previous => [...data.records, ...previous]);
       oldestMessageIdRef.current = data.records[0]?.id ?? oldestMessageIdRef.current;
       setHasMore(data.hasMore);
-    } catch (errorValue) { setSendError(getApiErrorMessage(errorValue, '加载更早消息失败，请重试')); }
+    } catch (errorValue) { setSendError(getApiErrorMessage(errorValue, t('chat.loadEarlierFailed'))); }
     finally { setLoadingMore(false); }
   };
 
@@ -81,9 +83,9 @@ export default function Chat() {
       setActiveConversation(selectedConv);
       markConversationRead(selectedConv).then(() => { void loadConversations(); refreshUnread(); }).catch(() => {});
       window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    }).catch(() => { if (!controller.signal.aborted) setSendError('加载消息失败，请重试'); });
+    }).catch(() => { if (!controller.signal.aborted) setSendError(t('chat.loadMessagesFailed')); });
     return () => controller.abort();
-  }, [selectedConv, loadLatestMessages, loadConversations, refreshUnread, setActiveConversation]);
+  }, [selectedConv, loadLatestMessages, loadConversations, refreshUnread, setActiveConversation, t]);
 
   useEffect(() => {
     const unsubscribe = subscribe(message => {
@@ -120,10 +122,10 @@ export default function Chat() {
       setMessages(previous => previous.some(message => message.id === sent.id) ? previous : [...previous, sent]);
       setInput(''); void loadConversations();
       window.setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch (errorValue) { setSendError(getApiErrorMessage(errorValue, '发送失败，请重试')); }
+    } catch (errorValue) { setSendError(getApiErrorMessage(errorValue, t('chat.sendFailed'))); }
   };
 
-  if (!user) return <Alert severity="warning">请先登录</Alert>;
+  if (!user) return <Alert severity="warning">{t('chat.pleaseLogin')}</Alert>;
   return <Box sx={{ display: 'flex', height: 'calc(100vh - 140px)', gap: 2 }}>
     <ConversationList conversations={displayConversations} selected={selectedConv} loading={loading} onSelect={setSelectedConv} />
     <MessagePanel userId={user.id} conversation={selectedUser} messages={messages} input={input}

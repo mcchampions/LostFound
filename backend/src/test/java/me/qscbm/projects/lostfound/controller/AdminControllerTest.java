@@ -3,6 +3,8 @@ package me.qscbm.projects.lostfound.controller;
 import me.qscbm.projects.lostfound.service.OperationLogService;
 import me.qscbm.projects.lostfound.service.StatsService;
 import me.qscbm.projects.lostfound.service.UserService;
+import me.qscbm.projects.lostfound.service.LostItemService;
+import me.qscbm.projects.lostfound.service.FoundItemService;
 import me.qscbm.projects.lostfound.service.impl.OperationLogRecorder;
 import me.qscbm.projects.lostfound.service.impl.AdminExportService;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,8 @@ class AdminControllerTest {
     void controllerCanBeConstructedWithDependencies() {
         AdminController controller = new AdminController(
                 mock(UserService.class),
+                mock(LostItemService.class),
+                mock(FoundItemService.class),
                 mock(StatsService.class),
                 mock(OperationLogService.class),
                 mock(OperationLogRecorder.class),

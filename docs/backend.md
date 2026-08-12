@@ -29,11 +29,12 @@
 |---|---|---|
 | 认证 | `AuthServiceImpl` | 注册/登录/管理员登录/刷新/忘记密码（邮箱验证码重置） |
 | 用户 | `UserServiceImpl` | 资料、改密、邮箱验证、邮件偏好、公开主页 |
-| 失物/招领 | `Lost/FoundItemServiceImpl` | 发布/编辑/删除/状态与解决信息 |
-| 认领 | `ClaimServiceImpl` | 申请、处理（通过级联拒绝+自动会话+压缩图片） |
+| 失物/招领 | `Lost/FoundItemServiceImpl` | 发布/编辑/软删除/状态与解决信息；回收站列表、恢复、彻底删除 |
+| 认领 | `ClaimServiceImpl` | 申请、处理（通过级联拒绝+通知申请人+自动会话+压缩图片） |
 | 通知 | `NotificationServiceImpl` | 站内通知 CRUD、未读计数 |
 | 聊天 | `MessageServiceImpl` | 会话、消息、已读；配合 SSE 推送 |
-| 管理端 | `AdminController` | 用户/分类/统计/趋势/导出/操作日志 |
+| 管理端 | `AdminController` | 用户/分类/统计/趋势/导出/操作日志/回收站/公告管理 |
+| 公告 | `AnnouncementServiceImpl` | 置顶与上线/下线管理、公开列表过滤 |
 | 封面生成 | `CoverGenServiceImpl` | 调用 postgen 服务，限流+模板白名单 |
 | 文件 | `UploadController` / `FileController` | 上传校验压缩、静态文件与占位图 |
 
@@ -50,6 +51,7 @@
 | `LoginAttemptService` | 登录防爆破（用户名+IP 组合锁定、IP 限流） |
 | `SseConnectionService` | SSE 多连接管理、实时推送、在线状态与心跳 |
 | `CodeHasher` | 验证码 SHA-256+盐哈希 |
+| `AppTime` | 统一时间基准（默认 Asia/Shanghai，可 `-Dapp.timezone` 覆盖） |
 
 ## 后台定时任务
 
@@ -71,3 +73,9 @@
   `backend/app/config/`）；
 - 部署环境变量：`backend/.env.example`（常用项）→ `backend/app/.env`；
   完整清单见 `backend/CONFIG.md`。
+
+## 时间基准
+
+所有业务时间戳（创建/更新、改密时间、上传目录、统计、日志清理、回收站
+删除时间）统一使用 `AppTime`，默认时区 `Asia/Shanghai`，与 JDBC
+`serverTimezone=Asia/Shanghai` 保持一致；如需修改必须同时调整 JDBC 时区。

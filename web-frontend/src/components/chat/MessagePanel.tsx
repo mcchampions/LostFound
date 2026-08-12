@@ -1,6 +1,7 @@
 import { Box, Button, Link, Paper, TextField, Typography } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import type { ConversationVO, MessageVO } from '../../api/chat';
+import { useTranslation } from 'react-i18next';
 
 interface MessagePanelProps {
   userId: number;
@@ -17,12 +18,13 @@ interface MessagePanelProps {
 
 export default function MessagePanel({ userId, conversation, messages, input, hasMore, loadingMore,
   onInputChange, onLoadEarlier, onSend, endRef }: MessagePanelProps) {
+  const { t } = useTranslation();
   return <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
     {!conversation ? <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Typography color="text.secondary">选择一个对话开始聊天</Typography>
+      <Typography color="text.secondary">{t('chat.selectConversation')}</Typography>
     </Box> : <>
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}><Typography variant="h6">
-        <Link href={`/users/${conversation.otherUserId}`} color="inherit" underline="none" title="查看用户主页">{conversation.otherUserName}</Link>
+        <Link href={`/users/${conversation.otherUserId}`} color="inherit" underline="none" title={t('chat.viewUserProfile')}>{conversation.otherUserName}</Link>
       </Typography></Box>
       <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1, bgcolor: 'grey.50' }}>
         {hasMore && <Box sx={{ textAlign: 'center', mb: 1 }}>
@@ -30,7 +32,7 @@ export default function MessagePanel({ userId, conversation, messages, input, ha
             onClick={() => { if (!loadingMore) onLoadEarlier(); }}
             onKeyDown={event => { if ((event.key === 'Enter' || event.key === ' ') && !loadingMore) onLoadEarlier(); }}
             sx={{ color: 'primary.main', cursor: loadingMore ? 'wait' : 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-            {loadingMore ? '正在加载之前五十条消息…' : '查看之前五十条消息'}
+            {loadingMore ? t('chat.loadingEarlier') : t('chat.loadEarlier')}
           </Typography>
         </Box>}
         {messages.map(message => message.messageType === 'NARRATION' ? (
@@ -46,11 +48,11 @@ export default function MessagePanel({ userId, conversation, messages, input, ha
         <div ref={endRef} />
       </Box>
       <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
-        <TextField fullWidth size="small" placeholder="输入消息..." value={input}
+        <TextField fullWidth size="small" placeholder={t('chat.inputPlaceholder')} value={input}
           onChange={event => onInputChange(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); onSend(); } }}
           slotProps={{ input: { sx: { borderRadius: 2 } } }} />
-        <Button variant="contained" endIcon={<SendIcon />} onClick={onSend}>发送</Button>
+        <Button variant="contained" endIcon={<SendIcon />} onClick={onSend}>{t('chat.send')}</Button>
       </Box>
     </>}
   </Paper>;

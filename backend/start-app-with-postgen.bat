@@ -68,8 +68,19 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-rem Kill any stale postgen process still holding the port (old code instance)
-powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort %POSTGEN_PORT% -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+rem If the port is already in use, ask the user before stopping anything.
+set "POSTGEN_PORT_PID="
+for /f "usebackq delims=" %%p in (`powershell -NoProfile -Command "$c = Get-NetTCPConnection -LocalPort %POSTGEN_PORT% -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if ($c) { $c.OwningProcess }"`) do set "POSTGEN_PORT_PID=%%p"
+if not defined POSTGEN_PORT_PID goto postgen_port_free
+echo [postgen] Port %POSTGEN_PORT% is already in use by PID %POSTGEN_PORT_PID%.
+set /p POSTGEN_KILL_ANSWER=Kill this process and start postgen? [y/N]: 
+if /i "%POSTGEN_KILL_ANSWER%"=="y" goto postgen_kill_port
+echo [postgen] Port %POSTGEN_PORT% is in use. Skipping postgen.
+goto skip_postgen
+:postgen_kill_port
+powershell -NoProfile -Command "Stop-Process -Id %POSTGEN_PORT_PID% -Force -ErrorAction SilentlyContinue"
+echo [postgen] Stopped PID %POSTGEN_PORT_PID%.
+:postgen_port_free
 if not exist "%POSTGEN_WORK_DIR%" mkdir "%POSTGEN_WORK_DIR%"
 echo [postgen] starting http://localhost:%POSTGEN_PORT% ...
 set "POSTGEN_PID_FILE=%TEMP%\lostfound-postgen.pid"

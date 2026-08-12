@@ -13,6 +13,7 @@ import { startConversation } from '../api/chat';
 import { assetUrl } from '../config';
 import { getApiErrorMessage } from '../api/errors';
 import { useAuth } from '../store/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface PublicProfile {
   id: number;
@@ -46,6 +47,7 @@ interface UserItem {
 }
 
 export default function UserProfile() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -65,9 +67,9 @@ export default function UserProfile() {
       const res = await client.get(`/users/${id}/public-profile`);
       setProfile(res.data.data);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '用户不存在或已不可用'));
+      setError(getApiErrorMessage(errorValue, t('userProfile.loadFailed')));
     }
-  }, [id]);
+  }, [id, t]);
 
   const fetchItems = useCallback(async () => {
     const scope = tab === 0 ? 'published' : 'helped';
@@ -80,9 +82,9 @@ export default function UserProfile() {
       setTotalPages(Math.ceil((data.total || 0) / (data.size || 12)) || 1);
     } catch (errorValue) {
       setItems([]);
-      setError(getApiErrorMessage(errorValue, '加载用户发布内容失败'));
+      setError(getApiErrorMessage(errorValue, t('userProfile.loadItemsFailed')));
     }
-  }, [id, tab, page]);
+  }, [id, tab, page, t]);
 
   useEffect(() => {
     setLoading(true);
@@ -106,9 +108,9 @@ export default function UserProfile() {
     return (
       <Box>
         <Button startIcon={<BackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
-          返回
+          {t('userProfile.back')}
         </Button>
-        <Alert severity="warning">{error || '用户不存在'}</Alert>
+        <Alert severity="warning">{error || t('userProfile.userNotFound')}</Alert>
       </Box>
     );
   }
@@ -125,7 +127,7 @@ export default function UserProfile() {
       const data = await startConversation(profile.id);
       navigate(`/chat?conv=${data.conversationId}&to=${profile.id}&name=${encodeURIComponent(displayName)}`);
     } catch (errorValue) {
-      setActionError(getApiErrorMessage(errorValue, '发起对话失败'));
+      setActionError(getApiErrorMessage(errorValue, t('userProfile.startChatFailed')));
     } finally {
       setChatStarting(false);
     }
@@ -134,12 +136,12 @@ export default function UserProfile() {
   const getStatusChip = (item: UserItem) => {
     if (item.itemType === 'LOST') {
       return item.status === 'LOST'
-        ? <Chip label="未找到" size="small" color="error" />
-        : <Chip label="已找到" size="small" color="success" />;
+        ? <Chip label={t('userProfile.notFound')} size="small" color="error" />
+        : <Chip label={t('userProfile.found')} size="small" color="success" />;
     }
     return item.status === 'UNCLAIMED'
-      ? <Chip label="待认领" size="small" color="warning" />
-      : <Chip label="已认领" size="small" color="success" />;
+      ? <Chip label={t('userProfile.unclaimed')} size="small" color="warning" />
+      : <Chip label={t('userProfile.claimed')} size="small" color="success" />;
   };
 
   const formatTimeRange = (start?: string, end?: string) => {
@@ -151,7 +153,7 @@ export default function UserProfile() {
   return (
     <Box>
       <Button startIcon={<BackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
-        返回
+        {t('userProfile.back')}
       </Button>
 
       {/* Profile header */}
@@ -168,14 +170,14 @@ export default function UserProfile() {
             <Typography variant="body2" color="text.secondary">@{profile.username}</Typography>
             {profile.createdAt && (
               <Typography variant="caption" color="text.secondary">
-                加入时间：{new Date(profile.createdAt).toLocaleDateString('zh-CN')}
+                {t('userProfile.joinDate', { date: new Date(profile.createdAt).toLocaleDateString('zh-CN') })}
               </Typography>
             )}
           </Box>
           {user?.id !== profile.id && (
             <Button variant="contained" startIcon={<ChatIcon />} onClick={handleStartChat}
               disabled={chatStarting}>
-              发起聊天
+              {t('userProfile.startChat')}
             </Button>
           )}
         </Box>
@@ -185,25 +187,25 @@ export default function UserProfile() {
           <Grid size={{ xs: 6, sm: 3 }}>
             <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h5" color="error.main">{profile.lostCount}</Typography>
-              <Typography variant="body2" color="text.secondary">发布失物</Typography>
+              <Typography variant="body2" color="text.secondary">{t('userProfile.publishedLost')}</Typography>
             </Paper>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
             <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h5" color="warning.main">{profile.foundCount}</Typography>
-              <Typography variant="body2" color="text.secondary">发布招领</Typography>
+              <Typography variant="body2" color="text.secondary">{t('userProfile.publishedFound')}</Typography>
             </Paper>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
             <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h5" color="success.main">{profile.helpedCount}</Typography>
-              <Typography variant="body2" color="text.secondary">帮助解决</Typography>
+              <Typography variant="body2" color="text.secondary">{t('userProfile.helped')}</Typography>
             </Paper>
           </Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
             <Paper variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
               <Typography variant="h5" color="info.main">{profile.pendingCount}</Typography>
-              <Typography variant="body2" color="text.secondary">处理中</Typography>
+              <Typography variant="body2" color="text.secondary">{t('userProfile.pending')}</Typography>
             </Paper>
           </Grid>
         </Grid>
@@ -212,14 +214,14 @@ export default function UserProfile() {
       {/* Tabs */}
       <Paper sx={{ mb: 2 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2 }}>
-          <Tab label="发布的内容" />
-          <Tab label="帮助解决" />
+          <Tab label={t('userProfile.publishedTab')} />
+          <Tab label={t('userProfile.helpedTab')} />
         </Tabs>
       </Paper>
 
       {/* Item list */}
       {items.length === 0 ? (
-        <Alert severity="info">暂无内容</Alert>
+        <Alert severity="info">{t('userProfile.noContent')}</Alert>
       ) : (
         <Grid container spacing={2}>
           {items.map(item => (
@@ -252,21 +254,21 @@ export default function UserProfile() {
                       {getStatusChip(item)}
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                      <Chip label={item.itemType === 'LOST' ? '失物' : '招领'} size="small" variant="outlined" />
+                      <Chip label={item.itemType === 'LOST' ? t('userProfile.lost') : t('userProfile.found')} size="small" variant="outlined" />
                     </Box>
                     {item.location && (
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        地点：{item.location}
+                        {t('userProfile.location', { value: item.location })}
                       </Typography>
                     )}
                     {item.eventTime && (
                       <Typography variant="body2" color="text.secondary">
-                        时间：{formatTimeRange(item.eventTime, item.eventTimeEnd)}
+                        {t('userProfile.time', { value: formatTimeRange(item.eventTime, item.eventTimeEnd) })}
                       </Typography>
                     )}
                     {tab === 1 && item.publisherName && (
                       <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
-                        发布者：
+                        {t('userProfile.publisher')}
                         <Link to={`/users/${item.userId}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>
                           {item.publisherName}
                         </Link>

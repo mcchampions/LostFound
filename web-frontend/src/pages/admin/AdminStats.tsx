@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../../store/AuthContext';
 import { getStats, getTrend } from '../../api/admin';
 import { getApiErrorMessage } from '../../api/errors';
+import { useTranslation } from 'react-i18next';
 
 interface StatsData {
   lostCount?: number;
@@ -21,20 +22,39 @@ interface StatsData {
   claimedCount?: number;
   foundLostCount?: number;
   pendingUserCount?: number;
+  todayLostCount?: number;
+  todayFoundCount?: number;
+  totalClaims?: number;
+  pendingClaims?: number;
+  claimConversionRate?: number;
+  avgResolveHours?: number | null;
   categoryStats?: Array<{ name: string; lostCount: number; foundCount: number }>;
 }
 
 
 export default function AdminStats() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const theme = useTheme();
 
-  const statCards = [
-    { key: 'lostCount' as const, label: '失物总数', icon: <LostIcon fontSize="large" />, color: theme.palette.primary.main },
-    { key: 'foundCount' as const, label: '招领总数', icon: <FoundIcon fontSize="large" />, color: theme.palette.success.main },
-    { key: 'claimedCount' as const, label: '已认领数', icon: <ClaimedIcon fontSize="large" />, color: theme.palette.warning.main },
-    { key: 'foundLostCount' as const, label: '已找回失物', icon: <FoundLostIcon fontSize="large" />, color: theme.palette.secondary.main },
-    { key: 'pendingUserCount' as const, label: '待审核用户', icon: <PendingIcon fontSize="large" />, color: theme.palette.primary.dark },
+  interface StatCard {
+    key: Exclude<keyof StatsData, 'categoryStats'>;
+    label: string;
+    icon: React.ReactElement;
+    color: string;
+    format?: (value: number | null | undefined) => string;
+  }
+
+  const statCards: StatCard[] = [
+    { key: 'lostCount' as const, label: t('admin.lostTotal'), icon: <LostIcon fontSize="large" />, color: theme.palette.primary.main },
+    { key: 'foundCount' as const, label: t('admin.foundTotal'), icon: <FoundIcon fontSize="large" />, color: theme.palette.success.main },
+    { key: 'claimedCount' as const, label: t('admin.claimedCount'), icon: <ClaimedIcon fontSize="large" />, color: theme.palette.warning.main },
+    { key: 'foundLostCount' as const, label: t('admin.foundLostCount'), icon: <FoundLostIcon fontSize="large" />, color: theme.palette.secondary.main },
+    { key: 'pendingUserCount' as const, label: t('admin.pendingUsers'), icon: <PendingIcon fontSize="large" />, color: theme.palette.primary.dark },
+    { key: 'totalClaims' as const, label: t('admin.totalClaims'), icon: <ClaimedIcon fontSize="large" />, color: theme.palette.info.main },
+    { key: 'pendingClaims' as const, label: t('admin.pendingClaims'), icon: <PendingIcon fontSize="large" />, color: theme.palette.warning.dark },
+    { key: 'claimConversionRate' as const, label: t('admin.claimConversionRate'), icon: <ClaimedIcon fontSize="large" />, color: theme.palette.success.dark, format: (value) => (value == null ? '0%' : `${value}%`) },
+    { key: 'avgResolveHours' as const, label: t('admin.avgResolveHours'), icon: <FoundLostIcon fontSize="large" />, color: theme.palette.secondary.dark, format: (value) => (value == null ? '—' : `${value}h`) },
   ];
 
   const chartColors = [
@@ -60,34 +80,34 @@ export default function AdminStats() {
         const data = await getStats();
         setStats(data);
       } catch (errorValue) {
-        setError(getApiErrorMessage(errorValue, '加载统计数据失败'));
+        setError(getApiErrorMessage(errorValue, t('admin.loadStatsFailed')));
       } finally {
         setLoading(false);
       }
     };
     fetchStats();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     getTrend(trendDays)
       .then(setTrend)
       .catch(errorValue => {
         setTrend([]);
-        setError(getApiErrorMessage(errorValue, '加载趋势数据失败'));
+        setError(getApiErrorMessage(errorValue, t('admin.loadTrendFailed')));
       });
-  }, [trendDays]);
+  }, [trendDays, t]);
 
   if (!isAdmin) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography variant="h6" color="text.secondary">无权限访问</Typography>
+        <Typography variant="h6" color="text.secondary">{t('admin.noPermission')}</Typography>
       </Box>
     );
   }
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>数据统计</Typography>
+      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>{t('admin.statsTitle')}</Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -97,7 +117,7 @@ export default function AdminStats() {
         </Box>
       ) : !stats ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6" color="text.secondary">暂无数据</Typography>
+          <Typography variant="h6" color="text.secondary">{t('admin.noData')}</Typography>
         </Box>
       ) : (
         <>
@@ -116,7 +136,7 @@ export default function AdminStats() {
                 >
                   <Box sx={{ color: card.color, mb: 1 }}>{card.icon}</Box>
                   <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                    {stats[card.key] ?? 0}
+                    {card.format ? card.format(stats[card.key]) : stats[card.key] ?? 0}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">{card.label}</Typography>
                 </Paper>
@@ -127,7 +147,7 @@ export default function AdminStats() {
           {/* Category Distribution */}
           {stats.categoryStats && stats.categoryStats.length > 0 && (
             <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>分类分布</Typography>
+              <Typography variant="h6" gutterBottom>{t('admin.categoryDistribution')}</Typography>
 
               {/* Horizontal bar chart */}
               <Box sx={{ mb: 3 }}>
@@ -172,10 +192,10 @@ export default function AdminStats() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>分类名称</TableCell>
-                      <TableCell align="right">失物</TableCell>
-                      <TableCell align="right">招领</TableCell>
-                      <TableCell align="right">合计</TableCell>
+                      <TableCell>{t('admin.categoryName')}</TableCell>
+                      <TableCell align="right">{t('admin.lost')}</TableCell>
+                      <TableCell align="right">{t('admin.found')}</TableCell>
+                      <TableCell align="right">{t('admin.total')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -196,16 +216,16 @@ export default function AdminStats() {
           {/* 近 7/30 天发布趋势 */}
           <Paper sx={{ p: 3, mt: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">发布趋势</Typography>
+              <Typography variant="h6">{t('admin.trend')}</Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button size="small" variant={trendDays === 7 ? 'contained' : 'outlined'}
-                  onClick={() => setTrendDays(7)}>近7天</Button>
+                  onClick={() => setTrendDays(7)}>{t('admin.last7Days')}</Button>
                 <Button size="small" variant={trendDays === 30 ? 'contained' : 'outlined'}
-                  onClick={() => setTrendDays(30)}>近30天</Button>
+                  onClick={() => setTrendDays(30)}>{t('admin.last30Days')}</Button>
               </Box>
             </Box>
             {trend.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">暂无趋势数据</Typography>
+              <Typography variant="body2" color="text.secondary">{t('admin.noTrend')}</Typography>
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 160, overflowX: 'auto' }}>
                 {trend.map(item => {
@@ -217,10 +237,10 @@ export default function AdminStats() {
                       display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 24, flex: 1,
                     }}>
                       <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 130 }}>
-                        <Tooltip title={`失物 ${item.lostCount}`}>
+                        <Tooltip title={`${t('admin.lost')} ${item.lostCount}`}>
                           <Box sx={{ width: 8, bgcolor: 'primary.main', borderRadius: '2px 2px 0 0', height: lostH }} />
                         </Tooltip>
-                        <Tooltip title={`招领 ${item.foundCount}`}>
+                        <Tooltip title={`${t('admin.found')} ${item.foundCount}`}>
                           <Box sx={{ width: 8, bgcolor: 'success.main', borderRadius: '2px 2px 0 0', height: foundH }} />
                         </Tooltip>
                       </Box>

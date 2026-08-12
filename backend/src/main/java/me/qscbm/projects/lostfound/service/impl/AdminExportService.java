@@ -7,9 +7,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import me.qscbm.projects.lostfound.entity.FoundItem;
 import me.qscbm.projects.lostfound.entity.LostItem;
+import me.qscbm.projects.lostfound.entity.OperationLog;
 import me.qscbm.projects.lostfound.entity.User;
 import me.qscbm.projects.lostfound.mapper.FoundItemMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
+import me.qscbm.projects.lostfound.mapper.OperationLogMapper;
 import me.qscbm.projects.lostfound.mapper.UserMapper;
 import me.qscbm.projects.lostfound.common.ExcelCellSanitizer;
 import org.apache.poi.ss.usermodel.Row;
@@ -28,6 +30,7 @@ public class AdminExportService {
     private final UserMapper userMapper;
     private final LostItemMapper lostItemMapper;
     private final FoundItemMapper foundItemMapper;
+    private final OperationLogMapper operationLogMapper;
 
     public void exportUsers(HttpServletResponse response) throws IOException {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(BATCH_SIZE)) {
@@ -36,7 +39,9 @@ public class AdminExportService {
             int rowNum = 1;
             for (long page = 1; ; page++) {
                 IPage<User> result = userMapper.selectPage(new Page<>(page, BATCH_SIZE),
-                        new LambdaQueryWrapper<User>().orderByAsc(User::getId));
+                        new LambdaQueryWrapper<User>()
+                                .isNull(User::getDeletedAt)
+                                .orderByAsc(User::getId));
                 for (User user : result.getRecords()) {
                     Row row = sheet.createRow(rowNum++);
                     text(row, 0, user.getUsername());
@@ -60,7 +65,9 @@ public class AdminExportService {
             int rowNum = 1;
             for (long page = 1; ; page++) {
                 IPage<LostItem> result = lostItemMapper.selectPage(new Page<>(page, BATCH_SIZE),
-                        new LambdaQueryWrapper<LostItem>().orderByAsc(LostItem::getId));
+                        new LambdaQueryWrapper<LostItem>()
+                                .isNull(LostItem::getDeletedAt)
+                                .orderByAsc(LostItem::getId));
                 for (LostItem item : result.getRecords()) {
                     Row row = sheet.createRow(rowNum++);
                     text(row, 0, item.getTitle()); text(row, 1, item.getDescription());
@@ -81,13 +88,40 @@ public class AdminExportService {
             int rowNum = 1;
             for (long page = 1; ; page++) {
                 IPage<FoundItem> result = foundItemMapper.selectPage(new Page<>(page, BATCH_SIZE),
-                        new LambdaQueryWrapper<FoundItem>().orderByAsc(FoundItem::getId));
+                        new LambdaQueryWrapper<FoundItem>()
+                                .isNull(FoundItem::getDeletedAt)
+                                .orderByAsc(FoundItem::getId));
                 for (FoundItem item : result.getRecords()) {
                     Row row = sheet.createRow(rowNum++);
                     text(row, 0, item.getTitle()); text(row, 1, item.getDescription());
                     text(row, 2, item.getCategoryId()); text(row, 3, item.getLocation());
                     text(row, 4, item.getFoundTime()); text(row, 5, item.getStatus());
                     text(row, 6, item.getCreatedAt());
+                }
+                if (result.getRecords().size() < BATCH_SIZE) break;
+            }
+            workbook.write(response.getOutputStream());
+        }
+    }
+
+    public void exportLogs(HttpServletResponse response) throws IOException {
+        try (SXSSFWorkbook workbook = new SXSSFWorkbook(BATCH_SIZE)) {
+            Sheet sheet = workbook.createSheet("操作日志");
+            header(sheet, "ID", "用户ID", "操作", "目标类型", "目标ID", "描述", "IP", "时间");
+            int rowNum = 1;
+            for (long page = 1; ; page++) {
+                IPage<OperationLog> result = operationLogMapper.selectPage(new Page<>(page, BATCH_SIZE),
+                        new LambdaQueryWrapper<OperationLog>().orderByAsc(OperationLog::getId));
+                for (OperationLog log : result.getRecords()) {
+                    Row row = sheet.createRow(rowNum++);
+                    text(row, 0, log.getId());
+                    text(row, 1, log.getUserId());
+                    text(row, 2, log.getAction());
+                    text(row, 3, log.getTargetType());
+                    text(row, 4, log.getTargetId());
+                    text(row, 5, log.getDescription());
+                    text(row, 6, log.getIp());
+                    text(row, 7, log.getCreatedAt());
                 }
                 if (result.getRecords().size() < BATCH_SIZE) break;
             }

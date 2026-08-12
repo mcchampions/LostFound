@@ -53,7 +53,7 @@ public class ItemVOMapper {
                 .resolvedBy(item.getResolvedBy())
                 .resolvedByName(displayName(users.get(item.getResolvedBy())))
                 .resolvedType(item.getResolvedType()).resolvedNote(item.getResolvedNote())
-                .createdAt(item.getCreatedAt()).build()).toList();
+                .createdAt(item.getCreatedAt()).deletedAt(item.getDeletedAt()).build()).toList();
     }
 
     public FoundItemVO found(FoundItem item) {
@@ -80,7 +80,7 @@ public class ItemVOMapper {
                 .resolvedBy(item.getResolvedBy())
                 .resolvedByName(displayName(users.get(item.getResolvedBy())))
                 .resolvedType(item.getResolvedType()).resolvedNote(item.getResolvedNote())
-                .createdAt(item.getCreatedAt()).build()).toList();
+                .createdAt(item.getCreatedAt()).deletedAt(item.getDeletedAt()).build()).toList();
     }
 
     private Map<Long, User> loadUsers(Set<Long> ids) {

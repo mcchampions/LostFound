@@ -2,7 +2,7 @@
 
 ## 表清单
 
-业务表 13 张（`backend/src/main/resources/db/`）+ 运行时记录表 1 张：
+业务表 14 张（`backend/src/main/resources/db/`）+ 运行时记录表 1 张：
 
 | 表 | 说明 |
 |---|---|
@@ -13,12 +13,13 @@
 | `found_item` | 招领（状态 UNCLAIMED/CLAIMED，同上） |
 | `claim_application` | 认领申请（PENDING/APPROVED/REJECTED，`pending_key` 防重复） |
 | `notification` | 站内通知（类型/关联对象） |
-| `announcement` | 公告 |
+| `announcement` | 公告（`is_pinned` 置顶、`is_active` 上线/下线） |
 | `operation_log` | 操作审计（动作/目标/IP/描述） |
 | `system_config` | 站点配置 |
 | `message` | 聊天消息（会话/未读/`USER` 或 `NARRATION` 类型） |
 | `user_email_preference` | 邮件偏好（按类型开关 + 摘要状态） |
 | `password_reset_code` | 重置密码验证码（哈希存储） |
+| `media_file` | 上传文件所有权（URL 主键，删除时引用计数清理） |
 | `schema_migration` | 已应用 SQL 脚本记录（运行时由 `DatabaseInitializer` 维护） |
 
 ## 状态枚举
@@ -33,12 +34,18 @@
 
 物品解决信息：`resolved_type`（SELF/USER/OTHER）、`resolved_by`、`resolved_note`。
 
+软删除（回收站）：`lost_item`、`found_item`、`user` 均含 `deleted_at`，
+为 NULL 表示正常数据；非 NULL 表示在回收站中。列表/详情/认领/统计/导出
+均只统计未删除数据，恢复即置 NULL。
+
 ## 约束与索引要点
 
 - 唯一键：`user.username`、`user.email`、`category.name`、
   `claim_application.pending_key`（生成列，仅 PENDING 时非空）、
   `system_config.config_key`；
 - 外键：用户/分类/解决者/公告发布者等关联，用户删除时通知与偏好级联；
+- 公告索引 `idx_announcement_active_pinned`（上线+置顶+时间）；
+- 软删除索引 `idx_lost_deleted`/`idx_found_deleted`/`idx_user_deleted`；
 - 索引：物品过滤（status/category/created_at）、认领收发、通知未读、
   消息会话与未读、日志时间等；
 - `notification.related_id`、`claim_application.item_id` 为多态引用，无外键。
@@ -49,7 +56,8 @@
 - 执行前剥离整行注释（`stripCommentLines`），避免注释与语句合并；
 - `ALTER` 通过 `information_schema` 探测幂等；`CREATE IF NOT EXISTS`/`INSERT
   IGNORE` 天然幂等；
-- 脚本成功执行后写入 `schema_migration`，后续启动跳过；失败不记录、下次重试；
+- 脚本成功执行后写入 `schema_migration`，后续启动跳过；失败不记录、下次重试，
+  且**迁移失败时应用拒绝启动**；
 - 如需重跑某个脚本：删除 `schema_migration` 对应记录后重启。
 
 ## 初始化数据

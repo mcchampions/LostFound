@@ -3,6 +3,8 @@ package me.qscbm.projects.lostfound.dto;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 public class UserVO {
@@ -14,4 +16,5 @@ public class UserVO {
     private String phone;
     private String avatar;
     private String status;
+    private LocalDateTime deletedAt;
 }

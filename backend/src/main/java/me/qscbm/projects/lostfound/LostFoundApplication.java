@@ -1,5 +1,6 @@
 package me.qscbm.projects.lostfound;
 
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.common.AppHome;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -9,7 +10,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.time.LocalDate;
 import java.util.Map;
 
 @SpringBootApplication
@@ -73,7 +73,7 @@ public class LostFoundApplication {
         try {
             File logsDir = new File(home, "logs");
             Files.createDirectories(logsDir.toPath());
-            String today = LocalDate.now().toString();
+            String today = AppTime.today().toString();
             int sequence;
             try (var stream = Files.list(logsDir.toPath())) {
                 sequence = (int) stream

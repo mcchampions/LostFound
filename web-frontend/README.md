@@ -33,6 +33,20 @@ yarn dev          # http://localhost:5173
 后端地址默认 `http://localhost:8080`(见 `src/config.ts`),可用环境变量
 `VITE_SERVER_BASE` 覆盖。
 
+## 文本配置化
+
+前端绝大部分界面文案集中在 `src/i18n/zh-CN.json`(i18next 资源文件)中,
+修改该文件即可调整站点文案,无需改动组件代码。站点名称还支持构建时用
+`VITE_SITE_NAME` 覆盖:
+
+```bash
+VITE_SITE_NAME="My Campus Lost & Found" yarn build
+```
+
+所有使用 `useTranslation()` 的组件会随配置即时生效;如需新增语言,在
+`src/i18n/index.ts` 的 `resources` 中增加语言包并在 `lng`/`fallbackLng`
+中声明即可。
+
 ## 构建与部署
 
 ```bash

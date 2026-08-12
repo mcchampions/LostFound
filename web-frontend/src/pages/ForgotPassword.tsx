@@ -6,8 +6,10 @@ import {
 import { LockReset as LockResetIcon } from '@mui/icons-material';
 import { forgotPassword, resetPassword } from '../api/auth';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 
 export default function ForgotPassword() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -21,7 +23,7 @@ export default function ForgotPassword() {
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      setError('请输入注册邮箱');
+      setError(t('auth.emailRequired'));
       return;
     }
     setError('');
@@ -29,10 +31,10 @@ export default function ForgotPassword() {
     setLoading(true);
     try {
       await forgotPassword(email.trim());
-      setNotice('如果该邮箱已注册，验证码已发送，请查收邮件（5分钟内有效）');
+      setNotice(t('auth.codeSent'));
       setStep(2);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '发送失败，请稍后重试'));
+      setError(getApiErrorMessage(err, t('auth.sendFailed')));
     } finally {
       setLoading(false);
     }
@@ -41,25 +43,25 @@ export default function ForgotPassword() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim()) {
-      setError('请输入验证码');
+      setError(t('auth.enterCode'));
       return;
     }
     if (newPassword.length < 6) {
-      setError('新密码至少6位');
+      setError(t('auth.newPasswordTooShort'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError('两次输入的密码不一致');
+      setError(t('auth.passwordMismatch'));
       return;
     }
     setError('');
     setLoading(true);
     try {
       await resetPassword({ email: email.trim(), code: code.trim(), newPassword });
-      setNotice('密码重置成功，请使用新密码登录');
+      setNotice(t('auth.passwordResetSuccess'));
       setTimeout(() => navigate('/login'), 1200);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '重置失败，请重试'));
+      setError(getApiErrorMessage(err, t('auth.resetFailed')));
     } finally {
       setLoading(false);
     }
@@ -78,7 +80,7 @@ export default function ForgotPassword() {
       <Card sx={{ width: 400, maxWidth: '90vw', p: 2 }}>
         <CardContent>
           <Typography variant="h5" align="center" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-            <LockResetIcon /> 找回密码
+            <LockResetIcon /> {t('auth.resetTitle')}
           </Typography>
 
           {error && (
@@ -97,55 +99,55 @@ export default function ForgotPassword() {
               <TextField
                 fullWidth margin="normal"
                 type="email"
-                label="注册邮箱"
+                label={t('auth.registeredEmail')}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                helperText="重置验证码将发送到该邮箱"
+                helperText={t('auth.emailHelper')}
               />
               <Button type="submit" fullWidth variant="contained" sx={{ mt: 2 }} disabled={loading}>
-                {loading ? '发送中...' : '发送验证码'}
+                {loading ? t('auth.sending') : t('auth.sendCode')}
               </Button>
             </Box>
           ) : (
             <Box component="form" onSubmit={handleReset}>
               <TextField
                 fullWidth margin="normal"
-                label="邮箱"
+                label={t('auth.email')}
                 value={email}
                 disabled
               />
               <TextField
                 fullWidth margin="normal"
-                label="验证码"
+                label={t('auth.code')}
                 value={code}
                 onChange={e => setCode(e.target.value)}
-                helperText="5分钟内有效"
+                helperText={t('auth.codeHelper')}
               />
               <TextField
                 fullWidth margin="normal"
                 type="password"
-                label="新密码"
+                label={t('auth.newPassword')}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
-                helperText="至少6位"
+                helperText={t('auth.newPasswordHelper')}
               />
               <TextField
                 fullWidth margin="normal"
                 type="password"
-                label="确认新密码"
+                label={t('auth.confirmNewPassword')}
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
               />
               <Button type="submit" fullWidth variant="contained" sx={{ mt: 2 }} disabled={loading}>
-                {loading ? '提交中...' : '重置密码'}
+                {loading ? t('auth.resetting') : t('auth.resetPassword')}
               </Button>
             </Box>
           )}
 
           <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-            想起来了？
+            {t('auth.remembered')}
             <Link component={RouterLink} to="/login">
-              返回登录
+              {t('auth.backToLogin')}
             </Link>
           </Typography>
         </CardContent>

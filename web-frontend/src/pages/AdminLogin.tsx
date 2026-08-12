@@ -11,8 +11,10 @@ import {
 import { useAuth } from '../store/AuthContext';
 import { adminLogin as adminLoginApi } from '../api/auth';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminLogin() {
+  const { t } = useTranslation();
   const { user, isAdmin, login } = useAuth();
   const navigate = useNavigate();
 
@@ -27,7 +29,7 @@ export default function AdminLogin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError('请输入用户名和密码');
+      setError(t('auth.enterCredentials'));
       return;
     }
     setError('');
@@ -37,7 +39,7 @@ export default function AdminLogin() {
       login(data.user);
       navigate('/admin/users', { replace: true });
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '登录失败，请检查账号权限'));
+      setError(getApiErrorMessage(err, t('auth.adminLoginFailed')));
     } finally {
       setLoading(false);
     }
@@ -59,10 +61,10 @@ export default function AdminLogin() {
             <AdminPanelSettingsIcon sx={{ fontSize: 48, color: 'primary.main' }} />
           </Box>
           <Typography variant="h5" align="center" gutterBottom>
-            管理员登录
+            {t('auth.adminLoginTitle')}
           </Typography>
           <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 2 }}>
-            仅限系统管理员使用
+            {t('auth.adminOnly')}
           </Typography>
 
           {error && (
@@ -75,7 +77,7 @@ export default function AdminLogin() {
             <TextField
               fullWidth
               margin="normal"
-              label="用户名"
+              label={t('auth.username')}
               value={username}
               onChange={e => setUsername(e.target.value)}
               slotProps={{
@@ -90,7 +92,7 @@ export default function AdminLogin() {
               fullWidth
               margin="normal"
               type="password"
-              label="密码"
+              label={t('auth.password')}
               value={password}
               onChange={e => setPassword(e.target.value)}
               slotProps={{
@@ -108,13 +110,13 @@ export default function AdminLogin() {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? '登录中...' : '管理员登录'}
+              {loading ? t('auth.loginLoading') : t('auth.adminLogin')}
             </Button>
           </Box>
 
           <Typography variant="body2" align="center">
             <Link component={RouterLink} to="/login">
-              普通用户登录
+              {t('auth.login')}
             </Link>
           </Typography>
         </CardContent>

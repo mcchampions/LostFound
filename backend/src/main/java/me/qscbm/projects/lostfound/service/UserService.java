@@ -24,4 +24,10 @@ public interface UserService {
     void updateEmailPreferences(Long userId, Map<String, Object> values);
     PublicProfileVO getPublicProfile(Long userId);
     IPage<UserItemVO> getUserItems(Long userId, String scope, String type, int page, int size);
+    /** 回收站：分页查询已删除的用户。 */
+    IPage<UserVO> trashPage(int page, int size, String keyword);
+    /** 软删除用户（置为 INACTIVE 并标记删除时间）。 */
+    void softDelete(Long id, Long operatorId);
+    /** 恢复回收站中的用户。 */
+    void restoreUser(Long id, Long operatorId);
 }

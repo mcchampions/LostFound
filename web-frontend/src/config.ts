@@ -7,6 +7,8 @@ const API_PREFIX = '/api/v1';
 
 export const API_BASE = SERVER_BASE + API_PREFIX;
 export const SSE_ENDPOINT = API_BASE + '/chat/stream';
+// 站点名称：可在构建时用 VITE_SITE_NAME 覆盖，否则使用 i18n 配置
+export const SITE_NAME = import.meta.env.VITE_SITE_NAME ?? '';
 
 export function assetUrl(path: string): string {
   if (!path) return '';

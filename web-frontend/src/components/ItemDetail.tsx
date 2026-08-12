@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 import { ArrowBack as BackIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
+import { useTranslation } from 'react-i18next';
 import { startConversation } from '../api/chat';
 import client from '../api/client';
 import { assetUrl } from '../config';
@@ -78,6 +79,7 @@ export interface ItemDetailConfig<TItem extends ItemDetailItem> {
 }
 
 export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { config: ItemDetailConfig<TItem> }) {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -109,11 +111,11 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
     try {
       setItem(await config.fetchItem(Number(id)));
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, `加载${config.infoName}失败`));
+      setError(getApiErrorMessage(errorValue, t('items.loadFailed', { name: config.infoName })));
     } finally {
       setLoading(false);
     }
-  }, [config, id]);
+  }, [config, id, t]);
 
   useEffect(() => {
     fetchItem();
@@ -125,7 +127,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       await config.deleteItem(Number(id));
       navigate(config.listPath);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '删除失败'));
+      setError(getApiErrorMessage(err, t('items.deleteFailed')));
       setDeleteOpen(false);
     } finally {
       setDeleting(false);
@@ -138,7 +140,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       const name = encodeURIComponent(item?.userName || '');
       navigate(`/chat?conv=${data.conversationId}&to=${targetUserId}&name=${name}`);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '发起对话失败'));
+      setError(getApiErrorMessage(errorValue, t('items.startChatFailed')));
     }
   };
 
@@ -164,12 +166,12 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       } catch (errorValue) {
         if (requestId === userSearchRequestRef.current) {
           setUserResults([]);
-          setError(getApiErrorMessage(errorValue, '搜索用户失败，请重试'));
+          setError(getApiErrorMessage(errorValue, t('items.searchUsersFailed')));
         }
       }
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [userSearch]);
+  }, [userSearch, t]);
 
   const handleResolve = async () => {
     if (resolveType === 'USER' && !selectedUser) return;
@@ -184,7 +186,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       setResolveOpen(false);
       await fetchItem();
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '操作失败'));
+      setError(getApiErrorMessage(err, t('items.operationFailed')));
     } finally {
       setResolving(false);
     }
@@ -209,7 +211,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
       setClaimImages([]);
       setClaimSuccess(true);
     } catch (err: unknown) {
-      setClaimError(getApiErrorMessage(err, '提交失败'));
+      setClaimError(getApiErrorMessage(err, t('items.submitFailed')));
     } finally {
       setClaimSubmitting(false);
     }
@@ -219,14 +221,14 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
   }
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!item) return <Alert severity="warning">{config.infoName}不存在</Alert>;
+  if (!item) return <Alert severity="warning">{t('items.notExists', { name: config.infoName })}</Alert>;
 
   const isOwner = user && user.id === item.userId;
   const isActive = item.status === config.activeStatus;
 
   return (
     <Box>
-      <Button startIcon={<BackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>返回</Button>
+      <Button startIcon={<BackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>{t('common.back')}</Button>
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Typography variant="h4">{item.title}</Typography>
@@ -243,36 +245,36 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
           {config.getTimeEnd(item) && ` ~ ${new Date(config.getTimeEnd(item) as string).toLocaleString('zh-CN')}`}
         </Typography>
         <Typography variant="body1" color="text.secondary" gutterBottom>
-          发布者：<Link to={`/users/${item.userId}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>{item.userName}</Link>
+          {t('items.publisher')}<Link to={`/users/${item.userId}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>{item.userName}</Link>
         </Typography>
-        <Typography variant="body1" color="text.secondary" gutterBottom>发布时间：{new Date(item.createdAt).toLocaleString('zh-CN')}</Typography>
+        <Typography variant="body1" color="text.secondary" gutterBottom>{t('items.publishTime')}{new Date(item.createdAt).toLocaleString('zh-CN')}</Typography>
         <Divider sx={{ my: 2 }} />
 
         {item.coverImage && (
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>封面图片</Typography>
+            <Typography variant="h6" gutterBottom>{t('common.coverImage')}</Typography>
             <Box component="img" src={assetUrl(item.coverImage)} sx={{ width: '100%', maxHeight: 600, objectFit: 'contain', borderRadius: 1, bgcolor: 'grey.100' }} />
           </Box>
         )}
-        <Typography variant="h6" gutterBottom>详细描述</Typography>
-        <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 3 }}>{item.description || '暂无描述'}</Typography>
+        <Typography variant="h6" gutterBottom>{t('common.description')}</Typography>
+        <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 3 }}>{item.description || t('items.noDescription')}</Typography>
 
         {item.status === config.resolvedStatus && (
           <Box sx={{ mb: 3, p: 2, border: '1px solid', borderColor: 'success.light', borderRadius: 1, bgcolor: 'action.hover' }}>
             <Typography variant="subtitle1" color="success.main" gutterBottom>{config.resolvedHeading}</Typography>
             <Typography variant="body2">
               {item.resolvedType === 'SELF' && config.resolvedSelfText}
-              {item.resolvedType === 'USER' && <>{config.resolvedUserPrefix} <Link to={`/users/${item.resolvedBy}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>{item.resolvedByName || '未知用户'}</Link>{config.resolvedUserSuffix}</>}
+              {item.resolvedType === 'USER' && <>{config.resolvedUserPrefix} <Link to={`/users/${item.resolvedBy}`} style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>{item.resolvedByName || t('common.unknownUser')}</Link>{config.resolvedUserSuffix}</>}
               {item.resolvedType === 'OTHER' && config.resolvedOtherText}
               {!item.resolvedType && config.resolvedFallbackText}
             </Typography>
-            {item.resolvedNote && <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>补充说明：{item.resolvedNote}</Typography>}
+            {item.resolvedNote && <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>{t('common.note', { value: item.resolvedNote })}</Typography>}
           </Box>
         )}
 
         {item.imageUrls && item.imageUrls.length > 0 && (
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>物品图片</Typography>
+            <Typography variant="h6" gutterBottom>{t('common.images')}</Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {item.imageUrls.map((url, index) => (
                 <Box key={url} component="img" src={assetUrl(url)} alt={`image-${index}`}
@@ -288,8 +290,8 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {isOwner ? <>
               {isActive && <Button variant="contained" color="success" onClick={openResolveDialog}>{config.ownerResolveButton}</Button>}
-              <Button variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`${config.editPath}/${item.id}/edit`, { state: { item } })}>编辑</Button>
-              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>删除</Button>
+              <Button variant="outlined" startIcon={<EditIcon />} onClick={() => navigate(`${config.editPath}/${item.id}/edit`, { state: { item } })}>{t('common.edit')}</Button>
+              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>{t('common.delete')}</Button>
             </> : isActive && <>
               <Button variant="contained" onClick={() => setClaimOpen(true)}>{config.claimButton}</Button>
               <Button variant="outlined" onClick={() => handleStartChat(item.userId)}>{config.chatButton}</Button>
@@ -302,30 +304,30 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
         <DialogTitle>{config.claimDialogTitle}</DialogTitle>
         <DialogContent>
           {claimError && <Alert severity="error" sx={{ mb: 2 }}>{claimError}</Alert>}
-          <Typography variant="body2" color="text.secondary" gutterBottom>物品：{item.title}</Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>{t('items.item', { title: item.title })}</Typography>
           <TextField autoFocus fullWidth multiline rows={4} label={config.claimFieldLabel} placeholder={config.claimPlaceholder}
             value={claimMessage} onChange={event => setClaimMessage(event.target.value)} sx={{ mt: 1 }} />
           <ItemImageUpload images={claimImages} onChange={setClaimImages} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setClaimOpen(false); setClaimImages([]); }}>取消</Button>
-          <Button variant="contained" onClick={handleClaim} disabled={claimSubmitting}>{claimSubmitting ? '提交中...' : config.claimSubmitButton}</Button>
+          <Button onClick={() => { setClaimOpen(false); setClaimImages([]); }}>{t('common.cancel')}</Button>
+          <Button variant="contained" onClick={handleClaim} disabled={claimSubmitting}>{claimSubmitting ? t('common.submitting') : config.claimSubmitButton}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
-        <DialogTitle>确认删除</DialogTitle>
-        <DialogContent><Typography>确定要删除此{config.infoName}吗？此操作不可撤销。</Typography></DialogContent>
+        <DialogTitle>{t('common.confirmDeleteTitle')}</DialogTitle>
+        <DialogContent><Typography>{t('common.confirmDeleteBody', { name: config.infoName })}</Typography></DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteOpen(false)}>取消</Button>
-          <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}>{deleting ? '删除中...' : '确认删除'}</Button>
+          <Button onClick={() => setDeleteOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="error" onClick={handleDelete} disabled={deleting}>{deleting ? t('common.deleting') : t('common.confirmDeleteTitle')}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={resolveOpen} onClose={() => setResolveOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{config.resolveDialogTitle}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" gutterBottom>物品「{item.title}」{config.resolveQuestion}</Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>{t('items.resolveItem', { title: item.title, question: config.resolveQuestion })}</Typography>
           <RadioGroup value={resolveType} onChange={event => setResolveType(event.target.value as 'SELF' | 'USER' | 'OTHER')}>
             <FormControlLabel value="SELF" control={<Radio />} label={config.resolveSelfLabel} />
             <FormControlLabel value="USER" control={<Radio />} label={config.resolveUserLabel} />
@@ -334,7 +336,7 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
           {resolveType === 'USER' && (
             <Box sx={{ mt: 1 }}>
               {selectedUser ? <Chip label={selectedUser.realName} onDelete={() => setSelectedUser(null)} color="primary" /> : <>
-                <TextField fullWidth size="small" placeholder="搜索用户名或真实姓名..." value={userSearch} onChange={event => setUserSearch(event.target.value)} />
+                <TextField fullWidth size="small" placeholder={t('items.searchUserPlaceholder')} value={userSearch} onChange={event => setUserSearch(event.target.value)} />
                 {userResults.length > 0 && (
                   <Paper variant="outlined" sx={{ maxHeight: 150, overflow: 'auto', mt: 0.5 }}>
                     {userResults.map(result => (
@@ -347,12 +349,12 @@ export default function ItemDetail<TItem extends ItemDetailItem>({ config }: { c
               </>}
             </Box>
           )}
-          <TextField fullWidth multiline rows={2} label="补充说明（可选）" value={resolveNote} onChange={event => setResolveNote(event.target.value)} sx={{ mt: 2 }} />
+          <TextField fullWidth multiline rows={2} label={t('items.resolveNoteLabel')} value={resolveNote} onChange={event => setResolveNote(event.target.value)} sx={{ mt: 2 }} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setResolveOpen(false)}>取消</Button>
+          <Button onClick={() => setResolveOpen(false)}>{t('common.cancel')}</Button>
           <Button variant="contained" color="success" onClick={handleResolve} disabled={resolving || (resolveType === 'USER' && !selectedUser)}>
-            {resolving ? '提交中...' : config.resolveSubmitButton}
+            {resolving ? t('common.submitting') : config.resolveSubmitButton}
           </Button>
         </DialogActions>
       </Dialog>

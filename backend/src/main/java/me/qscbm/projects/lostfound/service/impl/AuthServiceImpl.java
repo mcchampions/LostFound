@@ -2,6 +2,7 @@ package me.qscbm.projects.lostfound.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
@@ -28,7 +29,6 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
-import java.time.LocalDateTime;
 import java.security.SecureRandom;
 import java.util.Objects;
 
@@ -73,6 +73,9 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(email);
         user.setPhone(req.getPhone());
 
+        if (req.getRole() == null || req.getRole().isBlank()) {
+            throw new BusinessException("角色不能为空");
+        }
         UserRole role;
         try {
             role = UserRole.valueOf(req.getRole().toUpperCase());
@@ -266,7 +269,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
-        user.setPasswordChangedAt(LocalDateTime.now());
+        user.setPasswordChangedAt(AppTime.now());
         userMapper.updateById(user);
         log.info("密码重置: userId={} 重置密码成功", user.getId());
         operationLogRecorder.log(user.getId(), "RESET_PASSWORD", "USER",

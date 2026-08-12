@@ -2,6 +2,7 @@ package me.qscbm.projects.lostfound.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -15,6 +16,7 @@ public class RegisterRequest {
     @NotBlank @Size(min = 1, max = 50)
     private String realName;
     @NotBlank
+    @NotNull
     @Pattern(regexp = "STUDENT|TEACHER", message = "角色只能是 STUDENT 或 TEACHER")
     private String role;
     @Email

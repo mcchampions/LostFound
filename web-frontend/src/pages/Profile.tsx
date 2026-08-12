@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import client from '../api/client';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 import ProfilePersonalInfo from '../components/profile/ProfilePersonalInfo';
 import ProfileEmailSettings, { type EmailPreferences } from '../components/profile/ProfileEmailSettings';
 import ProfilePasswordForm from '../components/profile/ProfilePasswordForm';
@@ -18,6 +19,7 @@ const defaultPreferences: EmailPreferences = {
 };
 
 export default function Profile() {
+  const { t } = useTranslation();
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -60,14 +62,14 @@ export default function Profile() {
           system_message: true,
         });
       })
-      .catch(errorValue => { if (active) setError(getApiErrorMessage(errorValue, '加载邮件设置失败')); });
+      .catch(errorValue => { if (active) setError(getApiErrorMessage(errorValue, t('profile.loadEmailSettingsFailed'))); });
     return () => { active = false; };
-  }, [user]);
+  }, [user, t]);
 
   if (!user) {
     return <Box sx={{ textAlign: 'center', py: 6 }}>
-      <Typography variant="h6" color="text.secondary">请先登录</Typography>
-      <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/login')}>去登录</Button>
+      <Typography variant="h6" color="text.secondary">{t('profile.pleaseLogin')}</Typography>
+      <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/login')}>{t('profile.goLogin')}</Button>
     </Box>;
   }
 
@@ -75,7 +77,7 @@ export default function Profile() {
     setError('');
     setSuccess('');
     if (phone && !/^\+\d{1,4} \d{5,15}$/.test(phone)) {
-      setError('手机号需为 5-15 位纯数字');
+      setError(t('profile.phoneInvalid'));
       return;
     }
     setLoading(true);
@@ -84,10 +86,10 @@ export default function Profile() {
         realName, email: email || undefined, phone: phone || undefined, avatar: avatarUrl || undefined,
       });
       login(response.data.data);
-      setSuccess('保存成功');
+      setSuccess(t('profile.saveSuccess'));
       setEditing(false);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '保存失败'));
+      setError(getApiErrorMessage(errorValue, t('profile.saveFailed')));
     } finally {
       setLoading(false);
     }
@@ -107,24 +109,24 @@ export default function Profile() {
     setPwError('');
     setPwSuccess('');
     if (!oldPassword || !newPassword || !confirmPassword) {
-      setPwError('请填写所有密码字段');
+      setPwError(t('profile.fillAllPasswordFields'));
       return;
     }
     if (newPassword.length < 6) {
-      setPwError('新密码至少6位');
+      setPwError(t('profile.newPasswordTooShort'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPwError('两次输入的新密码不一致');
+      setPwError(t('profile.passwordMismatch'));
       return;
     }
     setPwLoading(true);
     try {
       await client.put('/users/me/password', { oldPassword, newPassword });
-      setPwSuccess('密码修改成功');
+      setPwSuccess(t('profile.passwordChanged'));
       setOldPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch (errorValue) {
-      setPwError(getApiErrorMessage(errorValue, '修改失败'));
+      setPwError(getApiErrorMessage(errorValue, t('profile.changeFailed')));
     } finally {
       setPwLoading(false);
     }
@@ -134,20 +136,20 @@ export default function Profile() {
     setError(''); setSendingCode(true);
     try {
       await client.post('/users/me/send-verify-code');
-      setSuccess('验证码已发送到您的邮箱');
+      setSuccess(t('profile.codeSent'));
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '发送失败'));
+      setError(getApiErrorMessage(errorValue, t('profile.sendFailed')));
     } finally { setSendingCode(false); }
   };
 
   const handleVerifyEmail = async () => {
-    if (!verifyCode) { setError('请输入验证码'); return; }
+    if (!verifyCode) { setError(t('profile.enterCode')); return; }
     setVerifying(true);
     try {
       await client.post('/users/me/verify-email', { code: verifyCode });
-      setEmailVerified(true); setVerifyCode(''); setSuccess('邮箱验证成功');
+      setEmailVerified(true); setVerifyCode(''); setSuccess(t('profile.emailVerified'));
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '验证失败'));
+      setError(getApiErrorMessage(errorValue, t('profile.verifyFailed')));
     } finally { setVerifying(false); }
   };
 
@@ -157,14 +159,14 @@ export default function Profile() {
       await client.put('/users/me/email-preferences', { [key]: value });
     } catch (errorValue) {
       setEmailPrefs(previous => ({ ...previous, [key]: !value }));
-      setError(getApiErrorMessage(errorValue, '更新失败'));
+      setError(getApiErrorMessage(errorValue, t('profile.updateFailed')));
     }
   };
 
   return (
     <Box>
       <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2,
-        borderColor: 'primary.main', display: 'inline-block' }}>个人中心</Typography>
+        borderColor: 'primary.main', display: 'inline-block' }}>{t('profile.title')}</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
       <ProfilePersonalInfo user={user} editing={editing} loading={loading} realName={realName}
@@ -182,12 +184,12 @@ export default function Profile() {
         onConfirmPasswordChange={setConfirmPassword} onSubmit={handleChangePassword}
         onClearError={() => setPwError('')} onClearSuccess={() => setPwSuccess('')} />
       <Box sx={{ p: 3, maxWidth: 600 }}>
-        <Typography variant="h6" gutterBottom>我的申请</Typography>
+        <Typography variant="h6" gutterBottom>{t('profile.myClaims')}</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          查看您发出和收到的物品认领申请
+          {t('profile.myClaimsDesc')}
         </Typography>
         <Button variant="contained" startIcon={<ListIcon />} onClick={() => navigate('/claims')}>
-          查看申请记录
+          {t('profile.viewClaims')}
         </Button>
       </Box>
     </Box>

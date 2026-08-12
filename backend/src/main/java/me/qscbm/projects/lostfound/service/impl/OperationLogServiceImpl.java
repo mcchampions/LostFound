@@ -5,14 +5,13 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.entity.OperationLog;
 import me.qscbm.projects.lostfound.mapper.OperationLogMapper;
 import me.qscbm.projects.lostfound.service.OperationLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-
-import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -53,7 +52,7 @@ public class OperationLogServiceImpl implements OperationLogService {
     @Scheduled(cron = "0 0 4 * * *")
     public void cleanupExpiredLogs() {
         int deleted = operationLogMapper.delete(new LambdaQueryWrapper<OperationLog>()
-                .lt(OperationLog::getCreatedAt, LocalDateTime.now().minusDays(retentionDays)));
+                .lt(OperationLog::getCreatedAt, AppTime.now().minusDays(retentionDays)));
         if (deleted > 0) {
             log.info("操作日志清理: 删除 {} 条超过 {} 天的记录", deleted, retentionDays);
         }

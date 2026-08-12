@@ -9,48 +9,52 @@ import {
   Add as AddIcon, BarChart as BarChartIcon, Category as CategoryIcon, Chat as ChatIcon,
   Group as GroupIcon, History as HistoryIcon, Home as HomeIcon, Logout as LogoutIcon,
   Menu as MenuIcon, Notifications as NotificationsIcon, Person as PersonIcon,
-  Search as SearchIcon,
+  Search as SearchIcon, Campaign as CampaignIcon, DeleteSweep as TrashIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../store/AuthContext';
 import { useChatSse } from '../store/ChatSseContext';
-import { assetUrl } from '../config';
+import { useTranslation } from 'react-i18next';
+import { assetUrl, SITE_NAME } from '../config';
 import NotificationPopover from './NotificationPopover';
 
 const DRAWER_WIDTH = 240;
 
-function pageTitle(pathname: string) {
-  if (pathname === '/login') return '登录';
-  if (pathname === '/login/admin') return '管理员登录';
-  if (pathname === '/register') return '注册';
-  if (pathname === '/forgot-password') return '找回密码';
-  if (pathname.startsWith('/admin')) return '管理后台';
-  if (pathname.startsWith('/lost-items')) return '失物信息';
-  if (pathname.startsWith('/found-items')) return '招领信息';
-  if (pathname.startsWith('/chat')) return '对话';
-  if (pathname.startsWith('/profile')) return '个人中心';
-  if (pathname.startsWith('/notifications')) return '消息通知';
-  if (pathname === '/claims') return '认领申请';
-  if (pathname.startsWith('/users/')) return '用户主页';
-  return '首页';
+function pageTitle(pathname: string, t: (key: string) => string) {
+  if (pathname === '/login') return t('auth.loginTitle');
+  if (pathname === '/login/admin') return t('auth.adminLoginTitle');
+  if (pathname === '/register') return t('auth.registerTitle');
+  if (pathname === '/forgot-password') return t('auth.resetTitle');
+  if (pathname.startsWith('/admin')) return t('nav.admin');
+  if (pathname.startsWith('/lost-items')) return t('lostItem.listTitle');
+  if (pathname.startsWith('/found-items')) return t('foundItem.listTitle');
+  if (pathname.startsWith('/chat')) return t('nav.chat');
+  if (pathname.startsWith('/profile')) return t('nav.profile');
+  if (pathname.startsWith('/notifications')) return t('nav.notifications');
+  if (pathname === '/claims') return t('claims.title');
+  if (pathname.startsWith('/users/')) return t('userProfile.title');
+  return t('nav.home');
 }
 
 function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const { unreadTotal } = useChatSse();
   const location = useLocation();
   const menuItems = [
-    { text: '首页', icon: <HomeIcon />, path: '/' },
-    { text: '失物信息', icon: <SearchIcon />, path: '/lost-items' },
-    { text: '招领信息', icon: <AddIcon />, path: '/found-items' },
-    { text: '消息通知', icon: <NotificationsIcon />, path: '/notifications' },
-    { text: '对话', icon: <ChatIcon />, path: '/chat' },
-    { text: '个人中心', icon: <PersonIcon />, path: '/profile' },
+    { text: t('nav.home'), icon: <HomeIcon />, path: '/' },
+    { text: t('nav.lostItems'), icon: <SearchIcon />, path: '/lost-items' },
+    { text: t('nav.foundItems'), icon: <AddIcon />, path: '/found-items' },
+    { text: t('nav.notifications'), icon: <NotificationsIcon />, path: '/notifications' },
+    { text: t('nav.chat'), icon: <ChatIcon />, path: '/chat' },
+    { text: t('nav.profile'), icon: <PersonIcon />, path: '/profile' },
   ];
   const adminItems = [
-    { text: '用户管理', icon: <GroupIcon />, path: '/admin/users' },
-    { text: '分类管理', icon: <CategoryIcon />, path: '/admin/categories' },
-    { text: '数据统计', icon: <BarChartIcon />, path: '/admin/stats' },
-    { text: '操作日志', icon: <HistoryIcon />, path: '/admin/logs' },
+    { text: t('nav.users'), icon: <GroupIcon />, path: '/admin/users' },
+    { text: t('nav.categories'), icon: <CategoryIcon />, path: '/admin/categories' },
+    { text: t('nav.stats'), icon: <BarChartIcon />, path: '/admin/stats' },
+    { text: t('nav.logs'), icon: <HistoryIcon />, path: '/admin/logs' },
+    { text: t('nav.announcements'), icon: <CampaignIcon />, path: '/admin/announcements' },
+    { text: t('nav.trash'), icon: <TrashIcon />, path: '/admin/trash' },
   ];
   const renderItem = (item: typeof menuItems[number]) => (
     <ListItem key={item.path} disablePadding>
@@ -62,11 +66,12 @@ function NavItems({ onNavigate }: { onNavigate: (path: string) => void }) {
     </ListItem>
   );
   return <List>{menuItems.map(renderItem)}{isAdmin && <>
-    <Divider /><ListSubheader>管理后台</ListSubheader>{adminItems.map(renderItem)}
+    <Divider /><ListSubheader>{t('nav.admin')}</ListSubheader>{adminItems.map(renderItem)}
   </>}</List>;
 }
 
 export default function Layout() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { notificationUnread, refreshNotificationUnread } = useChatSse();
   const navigate = useNavigate();
@@ -77,8 +82,9 @@ export default function Layout() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
-    document.title = `${pageTitle(location.pathname)} - 校园失物招领系统`;
-  }, [location.pathname]);
+    const siteName = SITE_NAME || t('app.name');
+    document.title = `${pageTitle(location.pathname, t)} - ${siteName}`;
+  }, [location.pathname, t]);
 
   useEffect(() => {
     const refresh = () => { if (!document.hidden) refreshNotificationUnread(); };
@@ -96,14 +102,14 @@ export default function Layout() {
   return <Box sx={{ display: 'flex' }}>
     <AppBar position="fixed" sx={{ zIndex: 1201 }}><Toolbar>
       {isMobile && <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 1 }}><MenuIcon /></IconButton>}
-      <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>校园失物招领系统</Typography>
+      <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>{SITE_NAME || t('app.name')}</Typography>
       <NotificationPopover unread={notificationUnread} refreshUnread={refreshNotificationUnread} />
       {user ? <><IconButton onClick={event => setAnchorEl(event.currentTarget)}>
         <Avatar src={assetUrl(user.avatar || '') || undefined} sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>{user.realName?.charAt(0) || user.username.charAt(0)}</Avatar>
       </IconButton><Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
-        <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}><ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>个人中心</MenuItem>
-        <MenuItem onClick={logoutAndNavigate}><ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>退出登录</MenuItem>
-      </Menu></> : <Button color="inherit" onClick={() => navigate('/login')}>登录</Button>}
+        <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }}><ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>{t('nav.profile')}</MenuItem>
+        <MenuItem onClick={logoutAndNavigate}><ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>{t('nav.logout')}</MenuItem>
+      </Menu></> : <Button color="inherit" onClick={() => navigate('/login')}>{t('nav.login')}</Button>}
     </Toolbar></AppBar>
     {isMobile ? <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)} sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH } }}><Toolbar /><NavItems onNavigate={navigateTo} /></Drawer>
       : <Drawer variant="permanent" sx={{ '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' } }}><Toolbar /><NavItems onNavigate={navigateTo} /></Drawer>}

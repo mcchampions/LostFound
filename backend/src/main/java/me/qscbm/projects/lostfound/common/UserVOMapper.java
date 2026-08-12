@@ -13,6 +13,7 @@ public final class UserVOMapper {
                 .id(user.getId()).username(user.getUsername())
                 .realName(user.getRealName()).role(user.getRole())
                 .email(user.getEmail()).phone(user.getPhone())
-                .avatar(user.getAvatar()).status(user.getStatus()).build();
+                .avatar(user.getAvatar()).status(user.getStatus())
+                .deletedAt(user.getDeletedAt()).build();
     }
 }

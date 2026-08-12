@@ -18,6 +18,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -96,6 +98,14 @@ class ClaimServiceImplTest {
         when(foundItemMapper.selectById(5L)).thenReturn(item);
         when(claimMapper.update(isNull(), any())).thenReturn(1);
         when(foundItemMapper.update(isNull(), any())).thenReturn(1);
+        ClaimApplication otherPending = new ClaimApplication();
+        otherPending.setId(11L);
+        otherPending.setItemType("FOUND");
+        otherPending.setItemId(5L);
+        otherPending.setApplicantId(3L);
+        otherPending.setPublisherId(1L);
+        otherPending.setStatus("PENDING");
+        when(claimMapper.selectList(any())).thenReturn(List.of(otherPending));
         User publisher = new User();
         publisher.setId(1L);
         publisher.setRealName("Publisher");
@@ -124,6 +134,33 @@ class ClaimServiceImplTest {
                 eq("claim_result"));
         verify(sseConnectionService).sendToUser(
                 eq(2L), eq(SseConnectionService.NOTIFICATION_EVENT), any(Notification.class));
+    }
+
+    @Test
+    void rejectPendingClaimsForItemRejectsAndNotifiesEachApplicant() {
+        ClaimApplication first = pendingClaim();
+        first.setId(11L);
+        first.setApplicantId(3L);
+        ClaimApplication second = pendingClaim();
+        second.setId(12L);
+        second.setApplicantId(4L);
+        FoundItem item = new FoundItem();
+        item.setId(5L);
+        item.setTitle("Black Wallet");
+        when(claimMapper.selectList(any())).thenReturn(List.of(first, second));
+        when(claimMapper.update(isNull(), any())).thenReturn(1);
+        when(foundItemMapper.selectById(5L)).thenReturn(item);
+        when(notificationMapper.insert(any())).thenReturn(1);
+
+        service.rejectPendingClaimsForItem("FOUND", 5L, null, 1L);
+
+        verify(claimMapper, times(2)).update(isNull(), any());
+        verify(notificationMapper, times(2)).insert(argThat(notification ->
+                notification.getType().equals("CLAIM_RESULT")
+                        && "认领申请未通过".equals(notification.getTitle())
+                        && Boolean.FALSE.equals(notification.getIsRead())));
+        verify(mailNotificationService, times(2)).notifyUserAfterCommit(
+                anyLong(), contains("未通过"), contains("认领申请"), eq("claim_result"));
     }
 
     @Test

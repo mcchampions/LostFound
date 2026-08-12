@@ -13,8 +13,10 @@ import { getCategories } from '../../api/categories';
 import type { Category } from '../../api/categories';
 import { createCategory, updateCategory, deleteCategory } from '../../api/admin';
 import { getApiErrorMessage } from '../../api/errors';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminCategories() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -41,11 +43,11 @@ export default function AdminCategories() {
       const data = await getCategories();
       setCategories(data || []);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '加载分类列表失败'));
+      setError(getApiErrorMessage(errorValue, t('admin.loadCategoriesFailed')));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchData();
@@ -69,7 +71,7 @@ export default function AdminCategories() {
 
   const handleDialogSubmit = async () => {
     if (!dialogName.trim()) {
-      setDialogError('请输入分类名称');
+      setDialogError(t('admin.enterCategoryName'));
       return;
     }
     setDialogLoading(true);
@@ -83,7 +85,7 @@ export default function AdminCategories() {
       setDialogOpen(false);
       fetchData();
     } catch (err: unknown) {
-      setDialogError(getApiErrorMessage(err, '操作失败'));
+      setDialogError(getApiErrorMessage(err, t('items.operationFailed')));
     } finally {
       setDialogLoading(false);
     }
@@ -98,7 +100,7 @@ export default function AdminCategories() {
       setDeleteOpen(false);
       setDeleteTarget(null);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '删除失败'));
+      setError(getApiErrorMessage(err, t('items.deleteFailed')));
     } finally {
       setActionLoading(null);
     }
@@ -107,7 +109,7 @@ export default function AdminCategories() {
   if (!isAdmin) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography variant="h6" color="text.secondary">无权限访问</Typography>
+        <Typography variant="h6" color="text.secondary">{t('admin.noPermission')}</Typography>
       </Box>
     );
   }
@@ -115,9 +117,9 @@ export default function AdminCategories() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" sx={{ pb: 1, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>分类管理</Typography>
+        <Typography variant="h5" sx={{ pb: 1, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>{t('admin.categoriesTitle')}</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog}>
-          新增分类
+          {t('admin.addCategory')}
         </Button>
       </Box>
 
@@ -129,16 +131,16 @@ export default function AdminCategories() {
         </Box>
       ) : categories.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6" color="text.secondary">暂无分类</Typography>
+          <Typography variant="h6" color="text.secondary">{t('admin.noCategories')}</Typography>
         </Box>
       ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>分类名称</TableCell>
-                <TableCell>排序</TableCell>
-                <TableCell>操作</TableCell>
+                <TableCell>{t('admin.categoryName')}</TableCell>
+                <TableCell>{t('admin.sortOrder')}</TableCell>
+                <TableCell>{t('admin.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -150,7 +152,7 @@ export default function AdminCategories() {
                   <TableCell>{cat.sortOrder}</TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Tooltip title="编辑">
+                        <Tooltip title={t('common.edit')}>
                         <IconButton
                           size="small"
                           onClick={() => openEditDialog(cat)}
@@ -158,7 +160,7 @@ export default function AdminCategories() {
                           <EditIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="删除">
+                        <Tooltip title={t('common.delete')}>
                         <IconButton
                           size="small"
                           color="error"
@@ -182,7 +184,7 @@ export default function AdminCategories() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingCategory ? '编辑分类' : '新增分类'}</DialogTitle>
+        <DialogTitle>{editingCategory ? t('admin.editCategory') : t('admin.createCategory')}</DialogTitle>
         <DialogContent>
           {dialogError && (
             <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDialogError('')}>
@@ -193,38 +195,38 @@ export default function AdminCategories() {
             autoFocus
             fullWidth
             margin="normal"
-            label="分类名称"
+            label={t('admin.categoryName')}
             value={dialogName}
             onChange={e => setDialogName(e.target.value)}
           />
           <TextField
             fullWidth
             margin="normal"
-            label="排序"
+            label={t('admin.sortOrder')}
             type="number"
             value={dialogSortOrder}
             onChange={e => setDialogSortOrder(Number(e.target.value))}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)} disabled={dialogLoading}>取消</Button>
+          <Button onClick={() => setDialogOpen(false)} disabled={dialogLoading}>{t('common.cancel')}</Button>
           <Button variant="contained" onClick={handleDialogSubmit} disabled={dialogLoading}>
-            {dialogLoading ? '保存中...' : '保存'}
+            {dialogLoading ? t('common.saving') : t('common.save')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Confirm Delete Dialog */}
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
-        <DialogTitle>确认删除</DialogTitle>
+        <DialogTitle>{t('common.confirmDeleteTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            确定要删除分类「{deleteTarget?.name}」吗？此操作不可撤销。
+            {t('admin.confirmDeleteCategory', { name: deleteTarget?.name })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteOpen(false)}>取消</Button>
-          <Button variant="contained" color="error" onClick={handleDelete}>删除</Button>
+          <Button onClick={() => setDeleteOpen(false)}>{t('common.cancel')}</Button>
+          <Button variant="contained" color="error" onClick={handleDelete}>{t('common.delete')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

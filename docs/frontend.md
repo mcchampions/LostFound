@@ -13,7 +13,7 @@ web-frontend/src/
 │                 # foundItems/lostItems/notifications/upload）
 ├── components/   # Layout/ProtectedRoute/ImageCropDialog/ItemImageUpload/
 │                 # TextCoverDialog/DateTimeRangePicker/PhoneInput
-├── pages/        # 21 个页面（含 admin/ 子目录）
+├── pages/        # 23 个页面（含 admin/ 子目录：用户/分类/统计/日志/公告/回收站）
 ├── store/        # AuthContext / ChatSseContext
 ├── i18n/         # 中文本地化（zh-CN）
 ├── App.tsx       # Provider 组装
@@ -21,7 +21,7 @@ web-frontend/src/
 └── config.ts     # 后端地址/SSE 地址/资源地址
 ```
 
-## 路由（21 页）
+## 路由（23 页）
 
 | 路径 | 页面 | 权限 |
 |---|---|---|
@@ -33,6 +33,11 @@ web-frontend/src/
 | `/users/:id` | 公开主页 | 公开 |
 | `/admin/*` | 管理后台 | ADMIN |
 | `/login/admin` | 管理员登录 | 公开 |
+
+管理后台子页面：`/admin/users`（用户管理，可软删除用户）、`/admin/categories`、
+`/admin/stats`（含认领转化率、平均解决时长、今日新增）、`/admin/logs`（可导出
+Excel）、`/admin/announcements`（置顶/上线管理）、`/admin/trash`（失物/招领/
+用户回收站：恢复与彻底删除）。
 
 ## 全局状态
 
@@ -51,6 +56,14 @@ web-frontend/src/
 - **手机号**：`PhoneInput`（国家/地区母语列表 +86 默认，号码纯数字校验）；
 - **文字封面**：`TextCoverDialog` 预览后使用，时间格式化为无 `T` 的可读形式；
 - **图片**：上传 → 裁剪 → 多图管理。
+
+## 文本配置化
+
+- 绝大部分界面文案集中在 `src/i18n/zh-CN.json`（i18next 资源文件），修改该
+  文件即可调整站点文案，无需改动组件；
+- 站点名称支持构建时用 `VITE_SITE_NAME` 覆盖，否则回退到 `app.name` 词条；
+- 新增语言时在 `src/i18n/index.ts` 的 `resources` 中注册语言包并修改
+  `lng`/`fallbackLng`。
 
 ## 通知与角标
 

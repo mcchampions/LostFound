@@ -41,15 +41,15 @@ export default function Register() {
     e.preventDefault();
 
     if (!form.username.trim() || !form.password.trim() || !form.realName.trim()) {
-      setError('用户名、密码和真实姓名为必填项');
+      setError(t('auth.requiredFields'));
       return;
     }
     if (form.password.length < 6) {
-      setError('密码长度不能少于6位');
+      setError(t('auth.passwordTooShort'));
       return;
     }
     if (form.phone && !/^\+\d{1,4} \d{5,15}$/.test(form.phone)) {
-      setError('手机号需为 5-15 位纯数字');
+      setError(t('auth.phoneInvalid'));
       return;
     }
 
@@ -66,10 +66,10 @@ export default function Register() {
         email: form.email || undefined,
         phone: form.phone || undefined,
       });
-      setSuccess('注册成功！请登录。');
+      setSuccess(t('auth.registerSuccess'));
       timerRef.current = setTimeout(() => navigate('/login'), 1500);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '注册失败，请稍后重试'));
+      setError(getApiErrorMessage(err, t('auth.registerFailed')));
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function Register() {
       <Card sx={{ width: 460, maxWidth: '90vw', p: 2 }}>
         <CardContent>
           <Typography variant="h5" align="center" gutterBottom>
-            注册
+            {t('auth.registerTitle')}
           </Typography>
 
           {error && (
@@ -115,7 +115,7 @@ export default function Register() {
               label={t('auth.password')} required
               value={form.password}
               onChange={handleChange('password')}
-              helperText="密码长度不少于6位"
+              helperText={t('auth.passwordMinHint')}
             />
             <TextField
               fullWidth margin="normal"
@@ -154,14 +154,14 @@ export default function Register() {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? '注册中...' : '注册'}
+              {loading ? t('auth.registerLoading') : t('auth.registerTitle')}
             </Button>
           </Box>
 
           <Typography variant="body2" align="center">
-            已有账号？
+            {t('auth.hasAccount')}
             <Link component={RouterLink} to="/login">
-              去登录
+              {t('auth.goLogin')}
             </Link>
           </Typography>
         </CardContent>

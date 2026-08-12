@@ -10,10 +10,14 @@ import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.PageResult;
 import me.qscbm.projects.lostfound.common.Result;
 import me.qscbm.projects.lostfound.dto.UserVO;
+import me.qscbm.projects.lostfound.dto.LostItemVO;
+import me.qscbm.projects.lostfound.dto.FoundItemVO;
 import me.qscbm.projects.lostfound.entity.OperationLog;
 import me.qscbm.projects.lostfound.service.OperationLogService;
 import me.qscbm.projects.lostfound.service.StatsService;
 import me.qscbm.projects.lostfound.service.UserService;
+import me.qscbm.projects.lostfound.service.LostItemService;
+import me.qscbm.projects.lostfound.service.FoundItemService;
 import me.qscbm.projects.lostfound.service.impl.OperationLogRecorder;
 import me.qscbm.projects.lostfound.common.ExcelCellSanitizer;
 import org.springframework.web.bind.annotation.*;
@@ -30,16 +34,21 @@ import java.util.Map;
 public class AdminController {
 
     private final UserService userService;
+    private final LostItemService lostItemService;
+    private final FoundItemService foundItemService;
     private final StatsService statsService;
     private final OperationLogService logService;
     private final OperationLogRecorder operationLogRecorder;
     private final me.qscbm.projects.lostfound.service.impl.AdminExportService adminExportService;
 
     @Autowired
-    public AdminController(UserService userService, StatsService statsService,
+    public AdminController(UserService userService, LostItemService lostItemService,
+                           FoundItemService foundItemService, StatsService statsService,
                            OperationLogService logService, OperationLogRecorder operationLogRecorder,
                            me.qscbm.projects.lostfound.service.impl.AdminExportService adminExportService) {
         this.userService = userService;
+        this.lostItemService = lostItemService;
+        this.foundItemService = foundItemService;
         this.statsService = statsService;
         this.logService = logService;
         this.operationLogRecorder = operationLogRecorder;
@@ -64,6 +73,13 @@ public class AdminController {
         userService.updateStatus(id, status);
         operationLogRecorder.log(operatorId, "UPDATE_USER_STATUS", "USER", id,
                 "修改用户状态为 " + status.toUpperCase());
+        return Result.success();
+    }
+
+    @DeleteMapping("/users/{id}")
+    public Result<?> deleteUser(@AuthenticationPrincipal Long operatorId,
+                                @PathVariable Long id) {
+        userService.softDelete(id, operatorId);
         return Result.success();
     }
 
@@ -114,6 +130,74 @@ public class AdminController {
             @RequestParam(required = false) String action,
             @RequestParam(required = false) Long userId) {
         return Result.success(PageResult.of(logService.page(page, size, action, userId)));
+    }
+
+    @GetMapping("/trash/lost-items")
+    public Result<PageResult<LostItemVO>> trashLostItems(
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(required = false) String keyword) {
+        return Result.success(PageResult.of(lostItemService.trashPage(page, size, keyword)));
+    }
+
+    @GetMapping("/trash/found-items")
+    public Result<PageResult<FoundItemVO>> trashFoundItems(
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(required = false) String keyword) {
+        return Result.success(PageResult.of(foundItemService.trashPage(page, size, keyword)));
+    }
+
+    @GetMapping("/trash/users")
+    public Result<PageResult<UserVO>> trashUsers(
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(required = false) String keyword) {
+        return Result.success(PageResult.of(userService.trashPage(page, size, keyword)));
+    }
+
+    @PutMapping("/trash/lost-items/{id}/restore")
+    public Result<?> restoreLostItem(@AuthenticationPrincipal Long operatorId,
+                                     @PathVariable Long id) {
+        lostItemService.restore(id, operatorId);
+        return Result.success();
+    }
+
+    @DeleteMapping("/trash/lost-items/{id}")
+    public Result<?> purgeLostItem(@AuthenticationPrincipal Long operatorId,
+                                   @PathVariable Long id) {
+        lostItemService.purge(id, operatorId);
+        return Result.success();
+    }
+
+    @PutMapping("/trash/found-items/{id}/restore")
+    public Result<?> restoreFoundItem(@AuthenticationPrincipal Long operatorId,
+                                      @PathVariable Long id) {
+        foundItemService.restore(id, operatorId);
+        return Result.success();
+    }
+
+    @DeleteMapping("/trash/found-items/{id}")
+    public Result<?> purgeFoundItem(@AuthenticationPrincipal Long operatorId,
+                                    @PathVariable Long id) {
+        foundItemService.purge(id, operatorId);
+        return Result.success();
+    }
+
+    @PutMapping("/trash/users/{id}/restore")
+    public Result<?> restoreUser(@AuthenticationPrincipal Long operatorId,
+                                 @PathVariable Long id) {
+        userService.restoreUser(id, operatorId);
+        return Result.success();
+    }
+
+    @GetMapping("/export/logs")
+    public void exportLogs(@AuthenticationPrincipal Long userId,
+                           HttpServletResponse response) throws IOException {
+        operationLogRecorder.log(userId, "EXPORT", "OPERATION_LOG", null, "导出操作日志");
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=operation-logs.xlsx");
+        adminExportService.exportLogs(response);
     }
 
     /** Excel 公式注入防护：以 = + - @ \t \r 开头的内容前置单引号，强制按文本处理。 */

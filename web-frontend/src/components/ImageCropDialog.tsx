@@ -4,6 +4,7 @@ import { RotateRight as RotateRightIcon } from '@mui/icons-material';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { uploadImage } from '../api/upload';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -24,6 +25,7 @@ const createImage = (url: string) =>
   });
 
 export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, circular, aspect }: Props) {
+  const { t } = useTranslation();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   // 工作图：旋转后用 canvas 生成的新图，cropper 始终拿它、rotation=0，避免 cropper 旋转联动缩放
@@ -104,7 +106,7 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
       onCropped(url);
       onClose();
     } catch {
-      setProcessingError('裁剪或上传失败，请重试；未保存临时图片地址。');
+      setProcessingError(t('cover.cropFailed'));
     } finally {
       setProcessing(false);
     }
@@ -112,11 +114,11 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>裁剪封面</DialogTitle>
+      <DialogTitle>{t('cover.cropTitle')}</DialogTitle>
       <DialogContent>
         {processingError && <Alert severity="error" sx={{ mb: 1 }}>{processingError}</Alert>}
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          拖动调整位置，滑动缩放，点击旋转修正方向。裁剪后的区域将作为封面显示。
+          {t('cover.cropHint')}
         </Typography>
         <Box sx={{ position: 'relative', width: '100%', height: 350, bgcolor: '#333', borderRadius: 1, overflow: 'hidden' }}>
           <Cropper
@@ -131,18 +133,18 @@ export default function ImageCropDialog({ open, imageUrl, onClose, onCropped, ci
           />
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
-          <Typography variant="body2">缩放</Typography>
+          <Typography variant="body2">{t('cover.zoom')}</Typography>
           <Slider min={1} max={3} step={0.01} value={zoom}
             onChange={(_, v) => setZoom(v as number)} sx={{ flex: 1 }} />
-          <IconButton size="small" onClick={handleRotate} title="旋转 90°">
+          <IconButton size="small" onClick={handleRotate} title={t('cover.rotate')}>
             <RotateRightIcon />
           </IconButton>
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>取消</Button>
+        <Button onClick={onClose}>{t('common.cancel')}</Button>
         <Button variant="contained" onClick={handleConfirm} disabled={processing}>
-          {processing ? '处理中...' : '确认裁剪'}
+          {processing ? t('cover.processing') : t('cover.confirmCrop')}
         </Button>
       </DialogActions>
     </Dialog>

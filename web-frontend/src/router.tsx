@@ -23,6 +23,8 @@ const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminCategories = lazy(() => import('./pages/admin/AdminCategories'));
 const AdminStats = lazy(() => import('./pages/admin/AdminStats'));
 const AdminLogs = lazy(() => import('./pages/admin/AdminLogs'));
+const AdminAnnouncements = lazy(() => import('./pages/admin/AdminAnnouncements'));
+const AdminTrash = lazy(() => import('./pages/admin/AdminTrash'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -60,6 +62,8 @@ const router = createBrowserRouter([
       { path: 'admin/stats', element: page(<ProtectedRoute adminOnly><AdminStats /></ProtectedRoute>) },
       { path: 'login/admin', element: page(<AdminLogin />) },
       { path: 'admin/logs', element: page(<ProtectedRoute adminOnly><AdminLogs /></ProtectedRoute>) },
+      { path: 'admin/announcements', element: page(<ProtectedRoute adminOnly><AdminAnnouncements /></ProtectedRoute>) },
+      { path: 'admin/trash', element: page(<ProtectedRoute adminOnly><AdminTrash /></ProtectedRoute>) },
       { path: '*', element: page(<NotFound />) },
     ],
   },

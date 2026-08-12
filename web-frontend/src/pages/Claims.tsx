@@ -11,12 +11,7 @@ import { useAuth } from '../store/AuthContext';
 import { getReceivedClaims, getSentClaims, processClaim } from '../api/claims';
 import type { ClaimVO } from '../api/claims';
 import { getApiErrorMessage } from '../api/errors';
-
-const statusLabels: Record<string, string> = {
-  PENDING: '待处理',
-  APPROVED: '已批准',
-  REJECTED: '已拒绝',
-};
+import { useTranslation } from 'react-i18next';
 
 const statusColors: Record<string, 'warning' | 'success' | 'error'> = {
   PENDING: 'warning',
@@ -25,7 +20,13 @@ const statusColors: Record<string, 'warning' | 'success' | 'error'> = {
 };
 
 export default function Claims() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+  const statusLabels: Record<string, string> = {
+    PENDING: t('claims.pending'),
+    APPROVED: t('claims.approved'),
+    REJECTED: t('claims.rejected'),
+  };
   const [tab, setTab] = useState(0);
 
   const [received, setReceived] = useState<ClaimVO[]>([]);
@@ -54,11 +55,11 @@ export default function Claims() {
       setReceivedTotal(data.total || 0);
       setReceivedPages(Math.ceil((data.total || 0) / pageSize) || 1);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '加载收到的申请失败'));
+      setError(getApiErrorMessage(errorValue, t('claims.loadReceivedFailed')));
     } finally {
       setLoading(false);
     }
-  }, [receivedPage, user]);
+  }, [receivedPage, user, t]);
 
   const fetchSent = useCallback(async () => {
     if (!user) return;
@@ -70,11 +71,11 @@ export default function Claims() {
       setSentTotal(data.total || 0);
       setSentPages(Math.ceil((data.total || 0) / pageSize) || 1);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '加载发出的申请失败'));
+      setError(getApiErrorMessage(errorValue, t('claims.loadSentFailed')));
     } finally {
       setLoading(false);
     }
-  }, [sentPage, user]);
+  }, [sentPage, user, t]);
 
   useEffect(() => {
     if (tab === 0) {
@@ -92,7 +93,7 @@ export default function Claims() {
         prev.map(c => (c.id === id ? { ...c, status } : c))
       );
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '操作失败'));
+      setError(getApiErrorMessage(err, t('claims.processFailed')));
     } finally {
       setActionLoading(null);
     }
@@ -105,7 +106,7 @@ export default function Claims() {
   if (!user) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography variant="h6" color="text.secondary">请先登录</Typography>
+        <Typography variant="h6" color="text.secondary">{t('claims.pleaseLogin')}</Typography>
       </Box>
     );
   }
@@ -114,7 +115,7 @@ export default function Claims() {
     if (claims.length === 0 && !loading) {
       return (
         <Box sx={{ textAlign: 'center', py: 6 }}>
-          <Typography variant="h6" color="text.secondary">暂无申请记录</Typography>
+          <Typography variant="h6" color="text.secondary">{t('claims.noRecords')}</Typography>
         </Box>
       );
     }
@@ -124,12 +125,12 @@ export default function Claims() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>物品标题</TableCell>
-              <TableCell>{isReceived ? '申请人' : '发布者'}</TableCell>
-              <TableCell>附言</TableCell>
-              <TableCell>状态</TableCell>
-              <TableCell>时间</TableCell>
-              {isReceived && <TableCell>操作</TableCell>}
+              <TableCell>{t('claims.itemTitle')}</TableCell>
+              <TableCell>{isReceived ? t('claims.party') : t('claims.publisher')}</TableCell>
+              <TableCell>{t('claims.message')}</TableCell>
+              <TableCell>{t('claims.status')}</TableCell>
+              <TableCell>{t('claims.time')}</TableCell>
+              {isReceived && <TableCell>{t('claims.actions')}</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -176,7 +177,7 @@ export default function Claims() {
                   <TableCell>
                     {claim.status === 'PENDING' && (
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title="批准">
+                        <Tooltip title={t('claims.approve')}>
                           <IconButton
                             color="success"
                             size="small"
@@ -186,7 +187,7 @@ export default function Claims() {
                             <CheckIcon />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="拒绝">
+                        <Tooltip title={t('claims.reject')}>
                           <IconButton
                             color="error"
                             size="small"
@@ -210,11 +211,11 @@ export default function Claims() {
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>认领申请</Typography>
+      <Typography variant="h5" gutterBottom sx={{ pb: 1, mb: 3, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>{t('claims.title')}</Typography>
 
       <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 3 }}>
-        <Tab label={`收到的申请 (${receivedTotal})`} />
-        <Tab label={`发出的申请 (${sentTotal})`} />
+        <Tab label={t('claims.received', { count: receivedTotal })} />
+        <Tab label={t('claims.sent', { count: sentTotal })} />
       </Tabs>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -240,7 +241,7 @@ export default function Claims() {
               )}
               {receivedTotal > 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-                  共 {receivedTotal} 条记录
+                  {t('common.records', { total: receivedTotal })}
                 </Typography>
               )}
             </>
@@ -259,7 +260,7 @@ export default function Claims() {
               )}
               {sentTotal > 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-                  共 {sentTotal} 条记录
+                  {t('common.records', { total: sentTotal })}
                 </Typography>
               )}
             </>

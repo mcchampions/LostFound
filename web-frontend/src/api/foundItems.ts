@@ -20,6 +20,7 @@ export interface FoundItemVO {
   resolvedNote?: string;
   coverImage?: string;
   createdAt: string;
+  deletedAt?: string;
 }
 
 export const getFoundItems = (params: FoundItemPageParams) =>

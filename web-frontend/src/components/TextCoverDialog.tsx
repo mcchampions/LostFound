@@ -6,6 +6,7 @@ import {
 import { ContentPaste as ContentPasteIcon } from '@mui/icons-material';
 import { generateCover } from '../api/cover';
 import { assetUrl } from '../config';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -20,21 +21,21 @@ interface Props {
 }
 
 const TEMPLATES = [
-  { value: 'xhs-note', label: '经典笔记' },
-  { value: 'xhs-note-green', label: '绿色笔记' },
-  { value: 'xhs-quote-blue', label: '蓝色引用' },
-  { value: 'xhs-date-note', label: '日期手写' },
+  { value: 'xhs-note' },
+  { value: 'xhs-note-green' },
+  { value: 'xhs-quote-blue' },
+  { value: 'xhs-date-note' },
 ];
 
-const coverErrorMessage = (error: unknown) => {
+const coverErrorMessage = (error: unknown, t: (key: string) => string) => {
   const response = (error as {
     response?: { status?: number; data?: { code?: number; message?: string } }
   })?.response;
   const message = response?.data?.message;
   if (response?.status === 429 || response?.data?.code === 429) {
-    return message || '已达到封面生成速率限制，请稍后再试';
+    return message || t('cover.rateLimited');
   }
-  return message || '生成失败，请重试';
+  return message || t('cover.failed');
 };
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -92,6 +93,7 @@ export default function TextCoverDialog({
   onClose,
   onGenerated,
 }: Props) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [template, setTemplate] = useState('xhs-note');
@@ -110,14 +112,14 @@ export default function TextCoverDialog({
 
   const handleGenerate = async () => {
     if (!title.trim()) {
-      setError('请输入标题');
+      setError(t('cover.enterTitle'));
       return;
     }
     // 封面生成前的最后一道校验：时间范围无效时不调用后端接口
     const startDate = parseLocalDateTime(initialDate || '');
     const endDate = parseLocalDateTime(initialDateEnd || '');
     if (startDate && endDate && endDate.getTime() < startDate.getTime()) {
-      setError('时间范围无效：结束时间不能早于开始时间');
+      setError(t('cover.timeRangeInvalid'));
       return;
     }
     setLoading(true);
@@ -136,7 +138,7 @@ export default function TextCoverDialog({
       });
       setPreviewUrl(res.url);
     } catch (err: unknown) {
-      setError(coverErrorMessage(err));
+      setError(coverErrorMessage(err, t));
     } finally {
       setLoading(false);
     }
@@ -151,25 +153,25 @@ export default function TextCoverDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>生成文字封面</DialogTitle>
+      <DialogTitle>{t('cover.dialogTitle')}</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <TextField
           autoFocus fullWidth margin="normal"
-          label="标题"
+          label={t('cover.titleLabel')}
           value={title}
           onChange={e => setTitle(e.target.value)}
-          placeholder="输入封面标题"
-          helperText="可用回车手动换行"
+          placeholder={t('cover.titlePlaceholder')}
+          helperText={t('cover.titleHelper')}
           multiline maxRows={3}
         />
         <TextField
           fullWidth margin="normal"
-          label="正文（可选）"
+          label={t('cover.contentLabel')}
           value={content}
           onChange={e => setContent(e.target.value)}
-          placeholder="输入需要显示在封面上的正文"
-          helperText="正文会按封面空间自动折行"
+          placeholder={t('cover.contentPlaceholder')}
+          helperText={t('cover.contentHelper')}
           multiline
           minRows={3}
           maxRows={5}
@@ -180,24 +182,28 @@ export default function TextCoverDialog({
           onClick={() => setContent(initialContent || '')}
           disabled={!initialContent?.trim()}
         >
-          填入原文
+          {t('cover.fillOriginal')}
         </Button>
         <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>模板</InputLabel>
-            <Select value={template} label="模板" onChange={e => setTemplate(e.target.value)}>
-              {TEMPLATES.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+            <InputLabel>{t('cover.template')}</InputLabel>
+            <Select value={template} label={t('cover.template')} onChange={e => setTemplate(e.target.value)}>
+              {TEMPLATES.map(option => (
+                <MenuItem key={option.value} value={option.value}>
+                  {t(`cover.template${option.value === 'xhs-note' ? 'Classic' : option.value === 'xhs-note-green' ? 'Green' : option.value === 'xhs-quote-blue' ? 'Blue' : 'Date'}`)}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Box>
         <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
           <Button variant="contained" onClick={handleGenerate} disabled={loading} startIcon={loading ? <CircularProgress size={16} /> : undefined}>
-            {loading ? '生成中...' : '生成预览'}
+            {loading ? t('cover.generating') : t('cover.generate')}
           </Button>
         </Box>
         {previewUrl && (
           <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" color="text.secondary">预览效果：</Typography>
+            <Typography variant="caption" color="text.secondary">{t('cover.preview')}</Typography>
             <Box sx={{ width: '100%', aspectRatio: '16 / 9', borderRadius: 1, overflow: 'hidden', mt: 0.5, border: 1, borderColor: 'divider' }}>
               <Box component="img" src={assetUrl(previewUrl)} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </Box>
@@ -205,9 +211,9 @@ export default function TextCoverDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>取消</Button>
+        <Button onClick={onClose}>{t('common.cancel')}</Button>
         <Button onClick={handleConfirm} variant="contained" disabled={!previewUrl}>
-          使用此封面
+          {t('cover.useCover')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -3,6 +3,7 @@ package me.qscbm.projects.lostfound.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.common.CodeHasher;
 import me.qscbm.projects.lostfound.common.EmailNormalizer;
@@ -37,7 +38,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.function.LongSupplier;
@@ -151,6 +151,7 @@ public class UserServiceImpl implements UserService {
         if (keyword != null && !keyword.isEmpty()) {
             qw.and(w -> w.like(User::getUsername, keyword).or().like(User::getRealName, keyword));
         }
+        qw.isNull(User::getDeletedAt);
         qw.orderByDesc(User::getCreatedAt);
         IPage<User> p = userMapper.selectPage(new Page<>(page, size), qw);
         return p.convert(UserVOMapper::toVO);
@@ -160,6 +161,7 @@ public class UserServiceImpl implements UserService {
     public void updateStatus(Long userId, String status) {
         User user = userMapper.selectById(userId);
         if (user == null) throw new BusinessException("用户不存在");
+        if (user.getDeletedAt() != null) throw new BusinessException("用户已在回收站中，请先恢复");
         if (UserRole.ADMIN.getValue().equals(user.getRole())) {
             throw new BusinessException("不能修改管理员账户状态");
         }
@@ -179,7 +181,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("原密码错误");
         }
         user.setPassword(passwordEncoder.encode(newPassword));
-        user.setPasswordChangedAt(LocalDateTime.now());
+        user.setPasswordChangedAt(AppTime.now());
         userMapper.updateById(user);
         log.info("用户操作: userId={} 修改密码", userId);
         operationLogRecorder.log(userId, "CHANGE_PASSWORD", "USER", userId, "修改登录密码");
@@ -389,31 +391,41 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("用户不存在");
         }
         Long lostCount = lostItemMapper.selectCount(
-                new LambdaQueryWrapper<LostItem>().eq(LostItem::getUserId, userId));
+                new LambdaQueryWrapper<LostItem>()
+                        .eq(LostItem::getUserId, userId)
+                        .isNull(LostItem::getDeletedAt));
         Long foundCount = foundItemMapper.selectCount(
-                new LambdaQueryWrapper<FoundItem>().eq(FoundItem::getUserId, userId));
+                new LambdaQueryWrapper<FoundItem>()
+                        .eq(FoundItem::getUserId, userId)
+                        .isNull(FoundItem::getDeletedAt));
         Long resolvedLost = lostItemMapper.selectCount(
                 new LambdaQueryWrapper<LostItem>()
                         .eq(LostItem::getUserId, userId)
+                        .isNull(LostItem::getDeletedAt)
                         .eq(LostItem::getStatus, LostItemStatus.FOUND.getValue()));
         Long resolvedFound = foundItemMapper.selectCount(
                 new LambdaQueryWrapper<FoundItem>()
                         .eq(FoundItem::getUserId, userId)
+                        .isNull(FoundItem::getDeletedAt)
                         .eq(FoundItem::getStatus, FoundItemStatus.CLAIMED.getValue()));
         Long pendingLost = lostItemMapper.selectCount(
                 new LambdaQueryWrapper<LostItem>()
                         .eq(LostItem::getUserId, userId)
+                        .isNull(LostItem::getDeletedAt)
                         .eq(LostItem::getStatus, LostItemStatus.LOST.getValue()));
         Long pendingFound = foundItemMapper.selectCount(
                 new LambdaQueryWrapper<FoundItem>()
                         .eq(FoundItem::getUserId, userId)
+                        .isNull(FoundItem::getDeletedAt)
                         .eq(FoundItem::getStatus, FoundItemStatus.UNCLAIMED.getValue()));
         Long helpedLost = lostItemMapper.selectCount(
                 new LambdaQueryWrapper<LostItem>()
-                        .eq(LostItem::getResolvedBy, userId));
+                        .eq(LostItem::getResolvedBy, userId)
+                        .isNull(LostItem::getDeletedAt));
         Long helpedFound = foundItemMapper.selectCount(
                 new LambdaQueryWrapper<FoundItem>()
-                        .eq(FoundItem::getResolvedBy, userId));
+                        .eq(FoundItem::getResolvedBy, userId)
+                        .isNull(FoundItem::getDeletedAt));
         return PublicProfileVO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -440,6 +452,46 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("无效的内容类型");
         }
         return userItemMapper.selectUserItems(new Page<>(page, size), userId, scope, type);
+    }
+
+    @Override
+    public IPage<UserVO> trashPage(int page, int size, String keyword) {
+        LambdaQueryWrapper<User> qw = new LambdaQueryWrapper<>();
+        qw.isNotNull(User::getDeletedAt);
+        if (keyword != null && !keyword.isEmpty()) {
+            qw.and(w -> w.like(User::getUsername, keyword).or().like(User::getRealName, keyword));
+        }
+        qw.orderByDesc(User::getDeletedAt);
+        IPage<User> p = userMapper.selectPage(new Page<>(page, size), qw);
+        return p.convert(UserVOMapper::toVO);
+    }
+
+    @Override
+    public void softDelete(Long id, Long operatorId) {
+        User user = userMapper.selectById(id);
+        if (user == null) throw new BusinessException("用户不存在");
+        if (user.getDeletedAt() != null) throw new BusinessException("用户已在回收站中");
+        if (UserRole.ADMIN.getValue().equals(user.getRole())) {
+            throw new BusinessException("不能删除管理员账户");
+        }
+        user.setStatus(UserStatus.INACTIVE.getValue());
+        user.setDeletedAt(AppTime.now());
+        userMapper.updateById(user);
+        operationLogRecorder.log(operatorId, "USER_SOFT_DELETE", "USER", id,
+                "删除用户(回收站)：" + user.getUsername());
+    }
+
+    @Override
+    public void restoreUser(Long id, Long operatorId) {
+        User user = userMapper.selectById(id);
+        if (user == null || user.getDeletedAt() == null) {
+            throw new BusinessException("用户不在回收站中");
+        }
+        user.setStatus(UserStatus.ACTIVE.getValue());
+        user.setDeletedAt(null);
+        userMapper.updateById(user);
+        operationLogRecorder.log(operatorId, "USER_RESTORE", "USER", id,
+                "恢复用户：" + user.getUsername());
     }
 
 }

@@ -20,6 +20,7 @@ export interface LostItemVO {
   resolvedNote?: string;
   coverImage?: string;
   createdAt: string;
+  deletedAt?: string;
 }
 
 export const getLostItems = (params: LostItemPageParams) =>

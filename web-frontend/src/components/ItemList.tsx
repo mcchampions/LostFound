@@ -64,8 +64,8 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
   useEffect(() => {
     getCategories()
       .then(setCategories)
-      .catch(errorValue => setError(getApiErrorMessage(errorValue, '加载分类失败')));
-  }, []);
+      .catch(errorValue => setError(getApiErrorMessage(errorValue, t('items.loadCategoriesFailed'))));
+  }, [t]);
 
   const fetchItems = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -84,12 +84,12 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
     } catch (errorValue) {
       if (requestId === requestIdRef.current) {
-        setError(getApiErrorMessage(errorValue, `加载${config.type === 'lost' ? '失物' : '招领'}信息失败`));
+        setError(getApiErrorMessage(errorValue, t('items.loadFailed', { name: config.title })));
       }
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [page, searchKeyword, categoryId, status, config]);
+  }, [page, searchKeyword, categoryId, status, config, t]);
 
   useEffect(() => {
     fetchItems();
@@ -127,7 +127,7 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
       <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           size="small"
-          placeholder="搜索关键字"
+          placeholder={t('items.keyword')}
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -141,10 +141,10 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
           sx={{ minWidth: 200 }}
         />
         <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>分类</InputLabel>
+          <InputLabel>{t('items.category')}</InputLabel>
           <Select
             value={categoryId}
-            label="分类"
+            label={t('items.category')}
             onChange={e => setCategoryId(e.target.value as number | '')}
           >
             <MenuItem value="">{t('common.all')}</MenuItem>
@@ -154,10 +154,10 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 100 }}>
-          <InputLabel>状态</InputLabel>
+          <InputLabel>{t('items.status')}</InputLabel>
           <Select
             value={status}
-            label="状态"
+            label={t('items.status')}
             onChange={e => setStatus(e.target.value)}
           >
             <MenuItem value="">{t('common.all')}</MenuItem>
@@ -233,13 +233,13 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
                         <Chip label={item.categoryName} size="small" variant="outlined" />
                       </Box>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        地点：{item.location}
+                        {t('common.location', { value: item.location })}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {config.getTimeLabel(item)}：{formatTime(item)}
                       </Typography>
                       <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
-                        发布者：{item.userName}
+                        {t('common.publisher', { value: item.userName })}
                       </Typography>
                     </CardContent>
                   </CardActionArea>
@@ -260,7 +260,7 @@ export default function ItemList<T extends ItemListItem>({ config }: { config: I
           )}
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-            共 {total} 条记录
+            {t('common.records', { total })}
           </Typography>
         </>
       )}

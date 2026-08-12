@@ -18,6 +18,7 @@ import { getFoundItems } from '../api/foundItems';
 import type { FoundItemVO } from '../api/foundItems';
 import client from '../api/client';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 
 interface Announcement {
   id: number;
@@ -27,6 +28,7 @@ interface Announcement {
 }
 
 export default function Home() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -64,17 +66,17 @@ export default function Home() {
 
         const rejected = results.find(result => result.status === 'rejected');
         if (rejected && rejected.status === 'rejected') {
-          setError(getApiErrorMessage(rejected.reason, '部分数据加载失败'));
+          setError(getApiErrorMessage(rejected.reason, t('errors.partialLoad')));
         }
       } catch (errorValue) {
-        setError(getApiErrorMessage(errorValue, '加载数据失败'));
+        setError(getApiErrorMessage(errorValue, t('errors.loadData')));
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [t]);
 
   // Not logged in: welcome hero
   if (!user) {
@@ -97,10 +99,10 @@ export default function Home() {
           }}
         >
           <Typography variant="h3" gutterBottom sx={{ fontWeight: 'bold' }}>
-            校园失物招领
+            {t('home.heroTitle')}
           </Typography>
           <Typography variant="h6" sx={{ mb: 4, maxWidth: 500, opacity: 0.9 }}>
-            帮助校园师生快速找回遗失物品
+            {t('home.heroSubtitle')}
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
             <Button
@@ -109,7 +111,7 @@ export default function Home() {
               sx={{ bgcolor: 'white', color: 'primary.main', '&:hover': { bgcolor: 'grey.200' } }}
               onClick={() => navigate('/login')}
             >
-              发布失物
+              {t('home.publishLost')}
             </Button>
             <Button
               variant="outlined"
@@ -117,16 +119,16 @@ export default function Home() {
               sx={{ borderColor: 'white', color: 'white', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
               onClick={() => navigate('/login')}
             >
-              发布招领
+              {t('home.publishFound')}
             </Button>
           </Box>
           <Box>
             <Typography variant="body2" sx={{ opacity: 0.8 }}>
-              已经有账号？{' '}
-              <Link to="/login" style={{ color: 'white', fontWeight: 'bold' }}>立即登录</Link>
+            {t('home.hasAccount')}{' '}
+              <Link to="/login" style={{ color: 'white', fontWeight: 'bold' }}>{t('home.loginNow')}</Link>
               {' '}|{' '}
-              还没有账号？{' '}
-              <Link to="/register" style={{ color: 'white', fontWeight: 'bold' }}>立即注册</Link>
+              {t('home.noAccount')}{' '}
+              <Link to="/register" style={{ color: 'white', fontWeight: 'bold' }}>{t('home.registerNow')}</Link>
             </Typography>
           </Box>
         </Box>
@@ -134,7 +136,7 @@ export default function Home() {
         {announcements.length > 0 && (
           <Paper sx={{ mt: 4, p: 2 }}>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <AnnounceIcon color="warning" /> 公告
+              <AnnounceIcon color="warning" /> {t('home.announcements')}
             </Typography>
             <List dense>
               {announcements.map((a, i) => (
@@ -159,7 +161,7 @@ export default function Home() {
   return (
     <Box>
       <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
-        欢迎回来，{user?.realName || user?.username} {'👋'}
+        {t('home.welcomeBack', { name: user?.realName || user?.username })}
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -173,8 +175,8 @@ export default function Home() {
           {/* Stats cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {[
-              { label: '失物信息', value: stats.lostTotal, icon: <LostIcon fontSize="large" /> },
-              { label: '招领信息', value: stats.foundTotal, icon: <FoundIcon fontSize="large" /> },
+              { label: t('home.lostItems'), value: stats.lostTotal, icon: <LostIcon fontSize="large" /> },
+              { label: t('home.foundItems'), value: stats.foundTotal, icon: <FoundIcon fontSize="large" /> },
             ].map((item, idx) => (
               <Grid size={{ xs: 6, sm: 4, md: 3 }} key={item.label}>
                 <Paper
@@ -200,7 +202,7 @@ export default function Home() {
               startIcon={<SearchIcon />}
               onClick={() => navigate('/lost-items/create')}
             >
-              发布失物
+              {t('home.publishLost')}
             </Button>
             <Button
               variant="contained"
@@ -208,7 +210,7 @@ export default function Home() {
               startIcon={<AddIcon />}
               onClick={() => navigate('/found-items/create')}
             >
-              发布招领
+              {t('home.publishFound')}
             </Button>
           </Box>
 
@@ -216,7 +218,7 @@ export default function Home() {
           {announcements.length > 0 && (
             <Paper sx={{ mb: 4, p: 2 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AnnounceIcon color="warning" /> 公告
+              <AnnounceIcon color="warning" /> {t('home.announcements')}
               </Typography>
               <List dense>
                 {announcements.map((a, i) => (
@@ -239,10 +241,10 @@ export default function Home() {
             {/* Recent lost items */}
             <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LostIcon color="primary" /> 最新失物
+                <LostIcon color="primary" /> {t('home.recentLost')}
               </Typography>
               {lostItems.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">暂无失物信息</Typography>
+                <Typography variant="body2" color="text.secondary">{t('home.noLostItems')}</Typography>
               ) : (
                 <Grid container spacing={2}>
                   {lostItems.map(item => (
@@ -254,7 +256,7 @@ export default function Home() {
                             <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
                               <Chip label={item.categoryName} size="small" variant="outlined" />
                               <Chip
-                                label={item.status === 'LOST' ? '未找到' : '已找到'}
+                                label={item.status === 'LOST' ? t('home.notFound') : t('home.found')}
                                 size="small"
                                 color={item.status === 'LOST' ? 'error' : 'success'}
                               />
@@ -274,17 +276,17 @@ export default function Home() {
                 sx={{ mt: 1 }}
                 onClick={() => navigate('/lost-items')}
               >
-                查看更多失物
+                {t('home.viewMoreLost')}
               </Button>
             </Grid>
 
             {/* Recent found items */}
             <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FoundIcon color="success" /> 最新招领
+                <FoundIcon color="success" /> {t('home.recentFound')}
               </Typography>
               {foundItems.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">暂无招领信息</Typography>
+                <Typography variant="body2" color="text.secondary">{t('home.noFoundItems')}</Typography>
               ) : (
                 <Grid container spacing={2}>
                   {foundItems.map(item => (
@@ -296,7 +298,7 @@ export default function Home() {
                             <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
                               <Chip label={item.categoryName} size="small" variant="outlined" />
                               <Chip
-                                label={item.status === 'UNCLAIMED' ? '待认领' : '已认领'}
+                                label={item.status === 'UNCLAIMED' ? t('home.unclaimed') : t('home.claimed')}
                                 size="small"
                                 color={item.status === 'UNCLAIMED' ? 'warning' : 'success'}
                               />
@@ -316,7 +318,7 @@ export default function Home() {
                 sx={{ mt: 1 }}
                 onClick={() => navigate('/found-items')}
               >
-                查看更多招领
+                {t('home.viewMoreFound')}
               </Button>
             </Grid>
           </Grid>

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.dto.LostItemRequest;
 import me.qscbm.projects.lostfound.dto.LostItemVO;
@@ -16,8 +17,11 @@ import me.qscbm.projects.lostfound.entity.LostItem;
 import me.qscbm.projects.lostfound.entity.enums.LostItemStatus;
 import me.qscbm.projects.lostfound.mapper.ClaimApplicationMapper;
 import me.qscbm.projects.lostfound.mapper.LostItemMapper;
+import me.qscbm.projects.lostfound.mapper.UserMapper;
+import me.qscbm.projects.lostfound.service.ClaimService;
 import me.qscbm.projects.lostfound.service.LostItemService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -30,10 +34,12 @@ public class LostItemServiceImpl implements LostItemService {
 
     private final LostItemMapper lostItemMapper;
     private final ClaimApplicationMapper claimApplicationMapper;
+    private final UserMapper userMapper;
     private final ObjectMapper objectMapper;
     private final ItemVOMapper itemVOMapper;
     private final OperationLogRecorder operationLogRecorder;
     private final ImageStorageService imageStorageService;
+    private final ClaimService claimService;
 
     @Override
     public IPage<LostItemVO> page(int page, int size, String keyword, Long categoryId, String status) {
@@ -51,6 +57,7 @@ public class LostItemServiceImpl implements LostItemService {
             }
             qw.eq(LostItem::getStatus, status);
         }
+        qw.isNull(LostItem::getDeletedAt);
         qw.orderByDesc(LostItem::getCreatedAt);
         IPage<LostItem> p = lostItemMapper.selectPage(new Page<>(page, size), qw);
         Page<LostItemVO> result = new Page<>(p.getCurrent(), p.getSize(), p.getTotal());
@@ -61,7 +68,7 @@ public class LostItemServiceImpl implements LostItemService {
     @Override
     public LostItemVO getById(Long id) {
         LostItem item = lostItemMapper.selectById(id);
-        if (item == null) {
+        if (item == null || item.getDeletedAt() != null) {
             throw new BusinessException("寻物启事不存在");
         }
         return itemVOMapper.lost(item);
@@ -95,6 +102,9 @@ public class LostItemServiceImpl implements LostItemService {
         LostItem item = lostItemMapper.selectById(id);
         if (item == null) {
             throw new BusinessException("寻物启事不存在");
+        }
+        if (item.getDeletedAt() != null) {
+            throw new BusinessException("物品已在回收站中，请先恢复");
         }
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权修改他人的寻物启事");
@@ -151,7 +161,7 @@ public class LostItemServiceImpl implements LostItemService {
             throw new BusinessException("结束时间不能早于开始时间");
         }
         // 不能选择未来的时间；容忍 2 分钟，避免客户端与服务端时钟轻微偏差误伤
-        LocalDateTime maxAllowed = LocalDateTime.now().plusMinutes(2);
+        LocalDateTime maxAllowed = AppTime.now().plusMinutes(2);
         if (start != null && start.isAfter(maxAllowed)) {
             throw new BusinessException("时间不能晚于当前时间");
         }
@@ -169,28 +179,20 @@ public class LostItemServiceImpl implements LostItemService {
         if (!item.getUserId().equals(userId)) {
             throw new BusinessException("无权删除他人的寻物启事");
         }
-        Long claimCount = claimApplicationMapper.selectCount(
-                new LambdaQueryWrapper<ClaimApplication>()
-                        .eq(ClaimApplication::getItemType, "LOST")
-                        .eq(ClaimApplication::getItemId, id));
-        if (claimCount != null && claimCount > 0) {
-            throw new BusinessException("该失物已有申请记录，不能删除");
-        }
-        lostItemMapper.deleteById(id);
-        List<String> urls = new java.util.ArrayList<>(deserializeImageUrls(item.getImageUrls()));
-        if (item.getCoverImage() != null) {
-            urls.add(item.getCoverImage());
-        }
-        imageStorageService.deleteFiles(urls);
-        log.info("失物删除: userId={} 删除失物 id={}", userId, id);
+        // 软删除：进入回收站，不删除图片，恢复后仍可正常展示
+        item.setDeletedAt(AppTime.now());
+        lostItemMapper.updateById(item);
+        log.info("失物删除(回收站): userId={} 删除失物 id={}", userId, id);
         operationLogRecorder.log(userId, "LOST_ITEM_DELETE", "LOST_ITEM", id,
-                "删除失物：" + item.getTitle());
+                "删除失物(回收站)：" + item.getTitle());
     }
 
     @Override
+    @Transactional
     public void updateStatus(Long id, Long userId, String status, String resolvedType, Long resolvedBy, String resolvedNote) {
         LostItem item = lostItemMapper.selectById(id);
         if (item == null) throw new BusinessException("寻物启事不存在");
+        if (item.getDeletedAt() != null) throw new BusinessException("物品已在回收站中，请先恢复");
         if (!item.getUserId().equals(userId)) throw new BusinessException("无权修改他人的寻物启事状态");
         String normalized = status == null ? "" : status.trim().toUpperCase();
         if (!LostItemStatus.LOST.getValue().equals(normalized)
@@ -206,7 +208,8 @@ public class LostItemServiceImpl implements LostItemService {
             throw new BusinessException("补充说明不能超过1000个字符");
         }
         item.setResolvedType(LostItemStatus.FOUND.getValue().equals(normalized) ? normalizedResolvedType : null);
-        item.setResolvedBy(LostItemStatus.FOUND.getValue().equals(normalized) ? resolvedBy : null);
+        item.setResolvedBy(LostItemStatus.FOUND.getValue().equals(normalized)
+                && "USER".equals(normalizedResolvedType) ? resolvedBy : null);
         item.setResolvedNote(LostItemStatus.FOUND.getValue().equals(normalized) && resolvedNote != null && !resolvedNote.isBlank()
                 ? resolvedNote.trim() : null);
         validateResolution(normalized, item.getResolvedType(), item.getResolvedBy());
@@ -219,6 +222,10 @@ public class LostItemServiceImpl implements LostItemService {
             }
             imageStorageService.compressItemTo540p(urls);
         }
+        if (LostItemStatus.FOUND.getValue().equals(normalized)) {
+            // 手动标记已找到时，级联拒绝其余待处理申请并通知申请人，避免产生悬空申请
+            claimService.rejectPendingClaimsForItem("LOST", id, null, userId);
+        }
     }
 
     private void validateResolution(String status, String resolvedType, Long resolvedBy) {
@@ -230,6 +237,62 @@ public class LostItemServiceImpl implements LostItemService {
         if ("USER".equals(resolvedType) && resolvedBy == null) {
             throw new BusinessException("请选择解决该失物的站内用户");
         }
+        if ("USER".equals(resolvedType) && userMapper.selectById(resolvedBy) == null) {
+            throw new BusinessException("选择的站内用户不存在");
+        }
+    }
+
+    @Override
+    public IPage<LostItemVO> trashPage(int page, int size, String keyword) {
+        LambdaQueryWrapper<LostItem> qw = new LambdaQueryWrapper<>();
+        qw.isNotNull(LostItem::getDeletedAt);
+        if (keyword != null && !keyword.isEmpty()) {
+            qw.and(w -> w.like(LostItem::getTitle, keyword).or().like(LostItem::getDescription, keyword));
+        }
+        qw.orderByDesc(LostItem::getDeletedAt);
+        IPage<LostItem> p = lostItemMapper.selectPage(new Page<>(page, size), qw);
+        Page<LostItemVO> result = new Page<>(p.getCurrent(), p.getSize(), p.getTotal());
+        result.setRecords(itemVOMapper.lostList(p.getRecords()));
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void restore(Long id, Long operatorId) {
+        LostItem item = lostItemMapper.selectById(id);
+        if (item == null || item.getDeletedAt() == null) {
+            throw new BusinessException("物品不在回收站中");
+        }
+        item.setDeletedAt(null);
+        lostItemMapper.updateById(item);
+        log.info("失物恢复: userId={} 恢复失物 id={}", operatorId, id);
+        operationLogRecorder.log(operatorId, "LOST_ITEM_RESTORE", "LOST_ITEM", id,
+                "恢复失物：" + item.getTitle());
+    }
+
+    @Override
+    @Transactional
+    public void purge(Long id, Long operatorId) {
+        LostItem item = lostItemMapper.selectById(id);
+        if (item == null || item.getDeletedAt() == null) {
+            throw new BusinessException("物品不在回收站中");
+        }
+        Long claimCount = claimApplicationMapper.selectCount(
+                new LambdaQueryWrapper<ClaimApplication>()
+                        .eq(ClaimApplication::getItemType, "LOST")
+                        .eq(ClaimApplication::getItemId, id));
+        if (claimCount != null && claimCount > 0) {
+            throw new BusinessException("该失物存在申请记录，无法彻底删除");
+        }
+        lostItemMapper.deleteById(id);
+        List<String> urls = new java.util.ArrayList<>(deserializeImageUrls(item.getImageUrls()));
+        if (item.getCoverImage() != null) {
+            urls.add(item.getCoverImage());
+        }
+        imageStorageService.deleteFiles(urls);
+        log.info("失物彻底删除: userId={} 删除失物 id={}", operatorId, id);
+        operationLogRecorder.log(operatorId, "LOST_ITEM_PURGE", "LOST_ITEM", id,
+                "彻底删除失物：" + item.getTitle());
     }
 
     private String serializeImageUrls(List<String> imageUrls) {

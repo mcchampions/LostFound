@@ -71,14 +71,16 @@ public interface UserItemMapper {
         }
 
         private static String whereClause(String scope, String alias, String resolvedStatus) {
+            String condition;
             if ("helped".equals(scope)) {
-                return alias + ".resolved_by = #{userId}";
-            }
-            if ("resolved".equals(scope)) {
-                return alias + ".user_id = #{userId} AND "
+                condition = alias + ".resolved_by = #{userId}";
+            } else if ("resolved".equals(scope)) {
+                condition = alias + ".user_id = #{userId} AND "
                         + alias + ".status = '" + resolvedStatus + "'";
+            } else {
+                condition = alias + ".user_id = #{userId}";
             }
-            return alias + ".user_id = #{userId}";
+            return alias + ".deleted_at IS NULL AND (" + condition + ")";
         }
     }
 }

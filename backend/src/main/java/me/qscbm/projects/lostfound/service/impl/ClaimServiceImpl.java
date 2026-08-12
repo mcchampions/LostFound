@@ -76,7 +76,7 @@ public class ClaimServiceImpl implements ClaimService {
 
         if ("LOST".equalsIgnoreCase(req.getItemType())) {
             LostItem item = lostItemMapper.selectById(req.getItemId());
-            if (item == null) {
+            if (item == null || item.getDeletedAt() != null) {
                 throw new BusinessException("寻物启事不存在");
             }
             if (!"LOST".equals(item.getStatus())) {
@@ -86,7 +86,7 @@ public class ClaimServiceImpl implements ClaimService {
             itemTitle = item.getTitle();
         } else if ("FOUND".equalsIgnoreCase(req.getItemType())) {
             FoundItem item = foundItemMapper.selectById(req.getItemId());
-            if (item == null) {
+            if (item == null || item.getDeletedAt() != null) {
                 throw new BusinessException("失物招领不存在");
             }
             if (!FoundItemStatus.UNCLAIMED.getValue().equals(item.getStatus())) {
@@ -238,6 +238,7 @@ public class ClaimServiceImpl implements ClaimService {
                 int itemUpdated = lostItemMapper.update(null,
                         new UpdateWrapper<LostItem>()
                                 .eq("id", claim.getItemId())
+                                .isNull("deleted_at")
                                 .eq("status", "LOST")
                                 .set("status", "FOUND")
                                 .set("resolved_type", "USER")
@@ -255,6 +256,7 @@ public class ClaimServiceImpl implements ClaimService {
                 int itemUpdated = foundItemMapper.update(null,
                         new UpdateWrapper<FoundItem>()
                                 .eq("id", claim.getItemId())
+                                .isNull("deleted_at")
                                 .eq("status", FoundItemStatus.UNCLAIMED.getValue())
                                 .set("status", FoundItemStatus.CLAIMED.getValue())
                                 .set("resolved_type", "USER")
@@ -266,12 +268,7 @@ public class ClaimServiceImpl implements ClaimService {
                 compressResolvedItemImages(foundItem.getImageUrls(), foundItem.getCoverImage());
             }
             // 级联拒绝同物品的其他待处理申请，保证数据一致
-            claimApplicationMapper.update(null, new UpdateWrapper<ClaimApplication>()
-                    .set("status", ClaimStatus.REJECTED.getValue())
-                    .eq("item_type", claim.getItemType())
-                    .eq("item_id", claim.getItemId())
-                    .eq("status", ClaimStatus.PENDING.getValue())
-                    .ne("id", claim.getId()));
+            rejectPendingClaimsForItem(claim.getItemType(), claim.getItemId(), claim.getId(), userId);
             // Auto-create conversation
             String convId = "claim_" + claim.getId();
             messageService.systemMessage(convId, userId, claim.getApplicantId(),
@@ -305,6 +302,51 @@ public class ClaimServiceImpl implements ClaimService {
         log.info("认领处理: userId={} 处理申请 id={} 结果={}", userId, id, status);
         operationLogRecorder.log(userId, "CLAIM_PROCESS", "CLAIM_APPLICATION", id,
                 "认领申请" + statusText);
+    }
+
+    @Override
+    @Transactional
+    public void rejectPendingClaimsForItem(String itemType, Long itemId,
+                                           Long excludeClaimId, Long operatorId) {
+        List<ClaimApplication> pendingClaims = claimApplicationMapper.selectList(
+                new LambdaQueryWrapper<ClaimApplication>()
+                        .eq(ClaimApplication::getItemType, itemType)
+                        .eq(ClaimApplication::getItemId, itemId)
+                        .eq(ClaimApplication::getStatus, ClaimStatus.PENDING.getValue())
+                        .ne(excludeClaimId != null, ClaimApplication::getId, excludeClaimId));
+        if (pendingClaims.isEmpty()) {
+            return;
+        }
+        String itemTitle = getItemTitle(itemType, itemId);
+        boolean lostItemClaim = "LOST".equals(itemType);
+        for (ClaimApplication claim : pendingClaims) {
+            int updated = claimApplicationMapper.update(null, new UpdateWrapper<ClaimApplication>()
+                    .eq("id", claim.getId())
+                    .eq("status", ClaimStatus.PENDING.getValue())
+                    .set("status", ClaimStatus.REJECTED.getValue()));
+            if (updated != 1) {
+                continue;
+            }
+            Notification notification = new Notification();
+            notification.setUserId(claim.getApplicantId());
+            notification.setTitle(lostItemClaim ? "找到线索未通过" : "认领申请未通过");
+            notification.setContent(lostItemClaim
+                    ? "你为失物「" + itemTitle + "」提交的找到线索因该失物已被标记为已找到而未通过"
+                    : "你对招领物品「" + itemTitle + "」提交的认领申请因该物品已被认领而未通过");
+            notification.setType("CLAIM_RESULT");
+            notification.setRelatedId(itemId);
+            notification.setRelatedType(lostItemClaim ? "LOST_ITEM" : "FOUND_ITEM");
+            notification.setIsRead(false);
+            notificationMapper.insert(notification);
+            pushNotificationAfterCommit(claim.getApplicantId(), notification);
+            mailNotificationService.notifyUserAfterCommit(
+                    claim.getApplicantId(),
+                    "校园失物招领 - " + notification.getTitle(),
+                    notification.getContent(),
+                    "claim_result");
+            operationLogRecorder.log(operatorId, "CLAIM_REJECT_CASCADE", "CLAIM_APPLICATION",
+                    claim.getId(), "物品标记解决后拒绝认领申请");
+        }
     }
 
     private ClaimVO toVO(ClaimApplication claim) {

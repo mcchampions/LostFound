@@ -32,7 +32,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      setError('请输入用户名和密码');
+      setError(t('auth.enterCredentials'));
       return;
     }
     setError('');
@@ -42,7 +42,7 @@ export default function Login() {
       login(data.user);
       navigate(from, { replace: true });
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, '登录失败，请检查用户名和密码'));
+      setError(getApiErrorMessage(err, t('auth.loginFailed')));
     } finally {
       setLoading(false);
     }
@@ -61,7 +61,7 @@ export default function Login() {
       <Card sx={{ width: 400, maxWidth: '90vw', p: 2 }}>
         <CardContent>
           <Typography variant="h5" align="center" gutterBottom>
-            登录
+            {t('auth.loginTitle')}
           </Typography>
 
           {error && (
@@ -107,19 +107,19 @@ export default function Login() {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? '登录中...' : '登录'}
+              {loading ? t('auth.loginLoading') : t('auth.login')}
             </Button>
           </Box>
 
           <Typography variant="body2" align="center">
-            还没有账号？
+            {t('auth.noAccount')}
             <Link component={RouterLink} to="/register">
-              立即注册
+              {t('auth.goRegister')}
             </Link>
           </Typography>
           <Typography variant="body2" align="center" sx={{ mt: 1 }}>
             <Link component={RouterLink} to="/forgot-password">
-              忘记密码？
+              {t('auth.forgotPassword')}
             </Link>
           </Typography>
         </CardContent>

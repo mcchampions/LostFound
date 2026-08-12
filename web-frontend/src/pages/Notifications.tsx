@@ -17,19 +17,13 @@ import { getNotifications, markRead, markAllRead } from '../api/notifications';
 import type { NotificationVO } from '../api/notifications';
 import { processClaim } from '../api/claims';
 import { getApiErrorMessage } from '../api/errors';
+import { useTranslation } from 'react-i18next';
 
 const typeIcons: Record<string, React.ReactElement> = {
   CLAIM: <ClaimIcon fontSize="small" />,
   CLAIM_RESULT: <ClaimResultIcon fontSize="small" />,
   SYSTEM: <InfoIcon fontSize="small" />,
   ANNOUNCEMENT: <AnnounceIcon fontSize="small" />,
-};
-
-const typeLabels: Record<string, string> = {
-  CLAIM: '认领',
-  CLAIM_RESULT: '申请结果',
-  SYSTEM: '系统',
-  ANNOUNCEMENT: '公告',
 };
 
 const typeColors: Record<string, 'warning' | 'info' | 'primary' | 'success'> = {
@@ -40,8 +34,15 @@ const typeColors: Record<string, 'warning' | 'info' | 'primary' | 'success'> = {
 };
 
 export default function Notifications() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { refreshNotificationUnread } = useChatSse();
+  const typeLabels: Record<string, string> = {
+    CLAIM: t('notifications.typeClaim'),
+    CLAIM_RESULT: t('notifications.typeClaimResult'),
+    SYSTEM: t('notifications.typeSystem'),
+    ANNOUNCEMENT: t('notifications.typeAnnouncement'),
+  };
 
   const [notifications, setNotifications] = useState<NotificationVO[]>([]);
   const [total, setTotal] = useState(0);
@@ -66,11 +67,11 @@ export default function Notifications() {
       setTotal(data.total || 0);
       setTotalPages(Math.ceil((data.total || 0) / pageSize) || 1);
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '加载通知失败'));
+      setError(getApiErrorMessage(errorValue, t('notifications.loadFailed')));
     } finally {
       setLoading(false);
     }
-  }, [page, user]);
+  }, [page, user, t]);
 
   useEffect(() => {
     fetchNotifications();
@@ -87,7 +88,7 @@ export default function Notifications() {
         );
         refreshNotificationUnread();
       } catch (errorValue) {
-        setError(getApiErrorMessage(errorValue, '标记通知已读失败'));
+        setError(getApiErrorMessage(errorValue, t('notifications.markReadFailed')));
       }
     }
   };
@@ -98,7 +99,7 @@ export default function Notifications() {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
       refreshNotificationUnread();
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '标记通知已读失败'));
+      setError(getApiErrorMessage(errorValue, t('notifications.markReadFailed')));
     }
   };
 
@@ -119,7 +120,7 @@ export default function Notifications() {
       fetchNotifications();
       refreshNotificationUnread();
     } catch (errorValue) {
-      setError(getApiErrorMessage(errorValue, '处理认领申请失败'));
+      setError(getApiErrorMessage(errorValue, t('notifications.processClaimFailed')));
     } finally {
       setProcessing(false);
     }
@@ -134,7 +135,7 @@ export default function Notifications() {
   if (!user) {
     return (
       <Box sx={{ textAlign: 'center', py: 6 }}>
-        <Typography variant="h6" color="text.secondary">请先登录</Typography>
+        <Typography variant="h6" color="text.secondary">{t('notifications.pleaseLogin')}</Typography>
       </Box>
     );
   }
@@ -142,10 +143,10 @@ export default function Notifications() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" sx={{ pb: 1, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>消息通知</Typography>
+        <Typography variant="h5" sx={{ pb: 1, borderBottom: 2, borderColor: 'primary.main', display: 'inline-block' }}>{t('notifications.title')}</Typography>
         {hasUnread && (
           <Button variant="outlined" size="small" onClick={handleMarkAllRead}>
-            全部已读
+            {t('notifications.markAllRead')}
           </Button>
         )}
       </Box>
@@ -159,7 +160,7 @@ export default function Notifications() {
       ) : notifications.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6 }}>
           <NotificationsIcon sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">暂无通知</Typography>
+          <Typography variant="h6" color="text.secondary">{t('notifications.noNotifications')}</Typography>
         </Box>
       ) : (
         <>
@@ -226,7 +227,7 @@ export default function Notifications() {
           )}
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-            共 {total} 条通知
+            {t('common.totalNotifications', { total })}
           </Typography>
         </>
       )}
@@ -254,10 +255,10 @@ export default function Notifications() {
         <DialogActions>
           {selected?.type === 'CLAIM' && selected?.relatedType === 'CLAIM_APPLICATION' && (
             <Button onClick={handleQuickApprove} disabled={processing} variant="contained" color="primary">
-              {processing ? '处理中...' : '确认已被该用户认领/找到'}
+              {processing ? t('notifications.processing') : t('notifications.confirmClaim')}
             </Button>
           )}
-          <Button onClick={handleCloseDialog}>关闭</Button>
+          <Button onClick={handleCloseDialog}>{t('notifications.close')}</Button>
         </DialogActions>
       </Dialog>
     </Box>

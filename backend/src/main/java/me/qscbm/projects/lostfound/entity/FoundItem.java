@@ -27,4 +27,5 @@ public class FoundItem {
     private LocalDateTime createdAt;
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
 }

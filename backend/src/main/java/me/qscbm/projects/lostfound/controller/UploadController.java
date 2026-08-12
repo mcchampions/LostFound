@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.controller;
 
 import lombok.extern.slf4j.Slf4j;
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.common.AppHome;
 import me.qscbm.projects.lostfound.common.Result;
 import me.qscbm.projects.lostfound.service.impl.ImageStorageService;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.Color;
@@ -20,11 +22,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RestController
@@ -35,7 +38,11 @@ public class UploadController {
     private final ImageStorageService imageStorageService;
 
     private static final long MAX_IMAGE_SIZE = 5L * 1024 * 1024;
-    private static final long MAX_PIXELS = 20_000_000L;
+    private static final long MAX_PIXELS = 12_000_000L;
+    private static final int UPLOAD_MAX_LONG_SIDE = 1080;
+    /** 图片解码/压缩并发上限，防止大图同时解码撑爆堆内存。 */
+    private static final Semaphore PROCESSING_SLOTS = new Semaphore(4);
+    private static final long PROCESSING_WAIT_SECONDS = 10;
 
     public UploadController(@Value("${app.upload.path:./uploads}") String uploadPath) {
         this(uploadPath, null);
@@ -69,7 +76,24 @@ public class UploadController {
         if (file.getSize() > MAX_IMAGE_SIZE) {
             return Result.error("文件大小不能超过5MB");
         }
+        boolean acquired;
+        try {
+            acquired = PROCESSING_SLOTS.tryAcquire(PROCESSING_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Result.error("上传繁忙，请稍后重试");
+        }
+        if (!acquired) {
+            return Result.error("上传繁忙，请稍后重试");
+        }
+        try {
+            return processUpload(userId, file);
+        } finally {
+            PROCESSING_SLOTS.release();
+        }
+    }
 
+    private Result<Map<String, String>> processUpload(Long userId, MultipartFile file) throws IOException {
         byte[] bytes = file.getBytes();
         ImageFormat format = detectFormat(bytes);
         if (format == null) {
@@ -91,7 +115,7 @@ public class UploadController {
 
         BufferedImage image;
         try {
-            image = ImageIO.read(new ByteArrayInputStream(bytes));
+            image = readForUpload(bytes);
         } catch (IOException e) {
             return Result.error("图片文件无效");
         }
@@ -99,7 +123,7 @@ public class UploadController {
             return Result.error("图片文件无效");
         }
 
-        String dateDir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        String dateDir = AppTime.today().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         Path dir = uploadRoot.resolve(dateDir).normalize();
         Files.createDirectories(dir);
 
@@ -119,6 +143,44 @@ public class UploadController {
             imageStorageService.registerOwnedUrl(userId, url);
         }
         return Result.success(Map.of("url", url));
+    }
+
+    /**
+     * 解码图片：当原图明显大于目标尺寸时按 2/4 倍降采样读取，
+     * 避免大图全量解码造成内存峰值；个别不支持降采样的格式自动回退全量解码。
+     */
+    private BufferedImage readForUpload(byte[] bytes) throws IOException {
+        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            if (input == null) {
+                return null;
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                return null;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                int maxSide = Math.max(width, height);
+                int subsample = 1;
+                // 解码尺寸至少保留目标 1.5 倍，避免降采样后再放大损失画质
+                while (subsample * 2 <= 4 && maxSide / (subsample * 2) > UPLOAD_MAX_LONG_SIDE * 3 / 2) {
+                    subsample *= 2;
+                }
+                ImageReadParam param = reader.getDefaultReadParam();
+                if (subsample > 1) {
+                    param.setSourceSubsampling(subsample, subsample, 0, 0);
+                }
+                return reader.read(0, param);
+            } finally {
+                reader.dispose();
+            }
+        } catch (Exception e) {
+            // 降采样或读取失败时回退到全量解码
+            return ImageIO.read(new ByteArrayInputStream(bytes));
+        }
     }
 
     private ImageDimensions readDimensions(byte[] bytes) throws IOException {

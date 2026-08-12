@@ -1,6 +1,7 @@
 package me.qscbm.projects.lostfound.config;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
+import me.qscbm.projects.lostfound.common.AppTime;
 import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.stereotype.Component;
 
@@ -11,12 +12,12 @@ public class MetaObjectHandlerConfig implements MetaObjectHandler {
 
     @Override
     public void insertFill(MetaObject metaObject) {
-        this.strictInsertFill(metaObject, "createdAt", LocalDateTime.class, LocalDateTime.now());
-        this.strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+        this.strictInsertFill(metaObject, "createdAt", LocalDateTime.class, AppTime.now());
+        this.strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, AppTime.now());
     }
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        this.strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+        this.strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, AppTime.now());
     }
 }

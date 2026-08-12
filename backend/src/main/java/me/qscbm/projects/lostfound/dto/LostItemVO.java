@@ -27,4 +27,5 @@ public class LostItemVO {
     private String resolvedType;
     private String resolvedNote;
     private LocalDateTime createdAt;
+    private LocalDateTime deletedAt;
 }

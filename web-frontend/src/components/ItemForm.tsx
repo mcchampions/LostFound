@@ -90,7 +90,7 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
   useEffect(() => {
     getCategories()
       .then(setCategories)
-      .catch(errorValue => setError(getApiErrorMessage(errorValue, '加载分类失败')));
+      .catch(errorValue => setError(getApiErrorMessage(errorValue, t('items.loadCategoriesFailed'))));
 
     if (isEdit && existingItem) {
       populateForm(existingItem);
@@ -102,40 +102,40 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
           setFetching(false);
         })
         .catch(errorValue => {
-          setError(getApiErrorMessage(errorValue, `加载${config.type === 'lost' ? '失物' : '招领'}信息失败`));
+          setError(getApiErrorMessage(errorValue, t('items.loadFailed', { name: config.type === 'lost' ? t('lostItem.infoName') : t('foundItem.infoName') })));
           setFetching(false);
         });
     }
-  }, [config, existingItem, id, isEdit, populateForm]);
+  }, [config, existingItem, id, isEdit, populateForm, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim()) {
-      setError('请输入物品名称');
+      setError(t('items.enterTitle'));
       return;
     }
     if (!categoryId) {
-      setError('请选择分类');
+      setError(t('items.selectCategory'));
       return;
     }
     if (!locationVal.trim()) {
-      setError(`请输入${config.locationLabel}`);
+      setError(t('items.enterLocation', { name: config.locationLabel }));
       return;
     }
     if (!timeStart) {
-      setError(`请选择${config.timeLabel}`);
-      setTimeError(`请选择${config.timeLabel}`);
+      setError(t('items.selectTime', { name: config.timeLabel }));
+      setTimeError(t('items.selectTime', { name: config.timeLabel }));
       return;
     }
     if (timeEnd && timeEnd < timeStart) {
-      setError('结束时间不能早于开始时间');
-      setTimeError('结束时间不能早于开始时间');
+      setError(t('items.timeRangeInvalid'));
+      setTimeError(t('items.timeRangeInvalid'));
       return;
     }
     if (timeInFuture) {
-      setError('时间不能晚于当前时间');
-      setTimeError('时间不能晚于当前时间');
+      setError(t('items.timeInFuture'));
+      setTimeError(t('items.timeInFuture'));
       return;
     }
 
@@ -161,7 +161,7 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
       }
       navigate(config.listPath);
     } catch (err: unknown) {
-      setError(getApiErrorMessage(err, `${isEdit ? '更新' : '发布'}失败`));
+      setError(getApiErrorMessage(err, t('items.saveFailed', { action: isEdit ? t('items.update') : t('items.publish') })));
     } finally {
       setLoading(false);
     }
@@ -195,16 +195,16 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
         <Box component="form" onSubmit={handleSubmit}>
           <TextField
             fullWidth margin="normal"
-            label="物品名称" required
+            label={t('common.itemName')} required
             value={title}
             onChange={e => setTitle(e.target.value)}
           />
 
           <FormControl fullWidth margin="normal" required>
-            <InputLabel>物品分类</InputLabel>
+            <InputLabel>{t('common.itemCategory')}</InputLabel>
             <Select
               value={categoryId}
-              label="物品分类"
+              label={t('common.itemCategory')}
               onChange={e => setCategoryId(e.target.value as number)}
             >
               {categories.map(cat => (
@@ -222,8 +222,8 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
 
           <DateTimeRangePicker
             label={config.timeLabel}
-            startLabel="开始"
-            endLabel="结束"
+            startLabel={t('common.start')}
+            endLabel={t('common.end')}
             startValue={timeStart}
             endValue={timeEnd}
             onStartChange={(value) => {
@@ -236,12 +236,12 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
             }}
             required
             error={!!timeError}
-            helperText={timeError || '可只填开始时间，表示某个时刻；填写结束时间则表示时间范围'}
+            helperText={timeError || t('common.timeRangeHelper')}
           />
 
           <TextField
             fullWidth margin="normal"
-            label="详细描述"
+            label={t('common.description')}
             multiline rows={4}
             value={description}
             onChange={e => setDescription(e.target.value)}
@@ -249,7 +249,7 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
 
           {/* Cover image */}
           <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>封面图片</Typography>
+            <Typography variant="subtitle2" gutterBottom>{t('common.coverImage')}</Typography>
             {coverImage ? (
               <Box sx={{ position: 'relative', width: 240, aspectRatio: '16 / 9', borderRadius: 1, overflow: 'hidden' }}>
                 <Box component="img" src={assetUrl(coverImage)}
@@ -260,7 +260,7 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
                 </IconButton>
                 <Button size="small" onClick={() => setCropOpen(true)}
                   sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, bgcolor: 'rgba(0,0,0,0.6)', color: 'white', fontSize: 10, borderRadius: 0 }}>
-                  裁剪封面
+                  {t('items.cropCover')}
                 </Button>
               </Box>
             ) : (
@@ -273,10 +273,10 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
                     e.target.value = '';
                   }} />
                 <Button variant="outlined" startIcon={<AddPhotoIcon />} onClick={() => coverInputRef.current?.click()}>
-                  上传封面
+                  {t('items.uploadCover')}
                 </Button>
                 <Button variant="outlined" startIcon={<TextFieldsIcon />} onClick={() => setTextCoverOpen(true)} disabled={timeInvalid} sx={{ ml: 1 }}>
-                  生成文字封面
+                  {t('items.generateTextCover')}
                 </Button>
               </Box>
             )}
@@ -291,7 +291,7 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
 
           {/* Other images */}
           <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>其他图片（最多4张）</Typography>
+            <Typography variant="subtitle2" gutterBottom>{t('items.otherImages')}</Typography>
             <ItemImageUpload images={imageUrls} onChange={setImageUrls} />
           </Box>
 
@@ -302,7 +302,7 @@ export default function ItemForm<TItem, TPayload>({ config }: { config: ItemForm
               startIcon={<SaveIcon />}
               disabled={loading}
             >
-              {loading ? '提交中...' : (isEdit ? '保存' : '发布')}
+              {loading ? t('common.submitting') : (isEdit ? t('common.save') : t('items.publishButton'))}
             </Button>
             <Button variant="outlined" onClick={() => navigate(-1)}>
               {t('common.cancel')}

@@ -2,6 +2,7 @@ package me.qscbm.projects.lostfound.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import me.qscbm.projects.lostfound.common.AppTime;
 import me.qscbm.projects.lostfound.common.AppHome;
 import me.qscbm.projects.lostfound.common.BusinessException;
 import me.qscbm.projects.lostfound.dto.CoverGenRequest;
@@ -18,7 +19,6 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -114,7 +114,7 @@ public class CoverGenServiceImpl implements CoverGenService {
             }
 
             // Save PNG into uploads directory
-            String dateDir = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+            String dateDir = AppTime.today().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
             Path uploadDir = uploadRoot.resolve(dateDir);
             Files.createDirectories(uploadDir);
             String filename = UUID.randomUUID().toString().replace("-", "") + ".png";

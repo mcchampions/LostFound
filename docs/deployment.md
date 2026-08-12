@@ -76,11 +76,18 @@ Linux/macOS：
 - 后端服务地址为 `http://localhost:8080`；
 - 未安装 Node.js 或缺少 `postgen-service/server.js` 时，脚本输出提示并跳过，
   不影响后端启动；
+- 检测到 `POSTGEN_PORT` 已被占用时，脚本会交互询问是否结束占用进程（英文
+  提示 `Kill this process and start postgen? [y/N]`）：选择 `y` 结束进程后
+  启动 postgen，选择 `N` 则跳过 postgen 直接启动后端，不会自动强杀；
 - 后端日志位于 `backend/app/logs/`，postgen 日志位于
   `backend/postgen-work/postgen.log`。
 
 `backend/start-app*.bat|sh` 与 `backend/app/start*.bat|sh` 功能一致，前者为主
 脚本，运行时会自动同步部署副本。
+
+时间基准：业务时间默认按 `Asia/Shanghai`（与数据库 `serverTimezone` 一致），
+一般无需修改；如需覆盖，通过 JVM 参数 `-Dapp.timezone=<zone>` 设置，且必须
+与数据库时区保持一致。
 
 ### 2.4 安全
 

@@ -5,7 +5,7 @@
 - 前缀：`/api/v1`；
 - 认证：登录接口下发 `HttpOnly` 的 `AUTH_TOKEN` Cookie，前端通过带凭据请求自动携带；
 - 统一响应：`{"code": 0, "message": "success", "data": ...}`，非 0 为错误；
-- 分页响应：`PageResult {records, total, current, size}`；
+- 分页响应：`PageResult {records, total, page, size}`；
 - 公开接口：认证、分类/公告读取、失物/招领列表与详情、公开主页、
   上传文件读取（`GET /uploads/**` 公开，上传动作需登录）。
 
@@ -41,7 +41,7 @@
 | GET | `/lost-items/{id}` `/found-items/{id}` | 详情 |
 | POST | `/lost-items` `/found-items` | 发布（登录） |
 | PUT | `/lost-items/{id}` `/found-items/{id}` | 编辑（仅发布者） |
-| DELETE | `/lost-items/{id}` `/found-items/{id}` | 删除（有申请记录时禁止；联动清理图片） |
+| DELETE | `/lost-items/{id}` `/found-items/{id}` | 软删除（进入回收站；有申请记录也可删除，恢复后数据完整） |
 | PUT | `/lost-items/{id}/status` `/found-items/{id}/status` | 状态/解决信息（时间范围校验、解决后压缩图片） |
 
 ## 认领 `/claims`
@@ -51,7 +51,7 @@
 | POST | `/claims` | 提交认领申请（防重复，不能认领自己的） |
 | GET | `/claims/received` | 我收到的申请（status 过滤） |
 | GET | `/claims/sent` | 我发出的申请 |
-| PUT | `/claims/{id}` | 处理：`{status: APPROVED\|REJECTED}`（通过联动物品终态/会话/通知） |
+| PUT | `/claims/{id}` | 处理：`{status: APPROVED\|REJECTED}`（通过联动物品终态/会话/通知，并级联拒绝其余申请且通知申请人） |
 
 ## 通知 `/notifications`
 
@@ -66,11 +66,12 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/announcements` | 公告列表（公开） |
-| POST/PUT/DELETE | `/admin/announcements` | 管理（登录+ADMIN） |
+| GET | `/announcements` | 公告列表（公开，仅已上线，置顶优先） |
+| GET | `/admin/announcements` | 公告管理列表（ADMIN，含已下线） |
+| POST/PUT/DELETE | `/admin/announcements` | 公告管理（ADMIN；支持 `isPinned` 置顶、`isActive` 上线/下线） |
 | GET | `/categories` | 分类列表（公开） |
 | POST/PUT/DELETE | `/admin/categories` | 分类管理（ADMIN） |
-| POST | `/upload/image` | 图片上传（5MB 内、压缩 1080P、UUID 文件名） |
+| POST | `/upload/image` | 图片上传（5MB 内、≤1200 万像素、压缩 1080P、UUID 文件名；并发 4 路，大图降采样解码） |
 | GET | `/uploads/**` | 静态文件（缺失返回占位图） |
 | POST | `/cover/generate` | 文字封面生成（登录、限流） |
 
@@ -94,10 +95,19 @@
 |---|---|---|
 | GET | `/admin/users` | 用户分页（keyword） |
 | PUT | `/admin/users/{id}/status` | 启用/禁用/待审核 |
+| DELETE | `/admin/users/{id}` | 软删除用户（移入回收站，管理员不可删） |
 | GET | `/admin/stats` | 总览统计 |
 | GET | `/admin/stats/trend?days=7\|30` | 发布趋势 |
-| GET | `/admin/export/lost-items` `/found-items` `/users` | Excel 导出（公式注入防护） |
+| GET | `/admin/export/lost-items` `/found-items` `/users` `/logs` | Excel 导出（公式注入防护，均不含回收站数据） |
 | GET | `/admin/logs` | 操作日志（action/userId 筛选） |
+| GET | `/admin/trash/lost-items` `/found-items` `/users` | 回收站列表（分页+keyword） |
+| PUT | `/admin/trash/lost-items/{id}/restore` `/found-items/{id}/restore` `/users/{id}/restore` | 回收站恢复 |
+| DELETE | `/admin/trash/lost-items/{id}` `/found-items/{id}` | 彻底删除（存在申请记录时禁止） |
+
+`/admin/stats` 返回字段：`lostCount`、`foundCount`、`claimedCount`、
+`foundLostCount`、`pendingUserCount`、`todayLostCount`、`todayFoundCount`、
+`totalClaims`、`pendingClaims`、`claimConversionRate`（百分比）、
+`avgResolveHours`（小时）、`categoryStats`。
 
 ## SSE
 

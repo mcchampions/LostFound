@@ -3,13 +3,13 @@ package me.qscbm.projects.lostfound.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import me.qscbm.projects.lostfound.common.AppTime;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 
 @Component
@@ -63,7 +63,8 @@ public class JwtUtils {
         if (claims == null || claims.getIssuedAt() == null || passwordChangedAt == null) {
             return false;
         }
-        Date changedAt = Date.from(passwordChangedAt.atZone(ZoneId.systemDefault()).toInstant());
+        // passwordChangedAt 由应用以 AppTime 时区写入，比较时也必须用同一时区
+        Date changedAt = Date.from(passwordChangedAt.atZone(AppTime.zone()).toInstant());
         return claims.getIssuedAt().before(changedAt);
     }
 }
